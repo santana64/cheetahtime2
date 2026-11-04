@@ -1,5 +1,5 @@
 import { addCalendarDays, compareIsoDates } from "@/lib/planning/date-utils";
-import { formatCurrency, formatDateLabel, formatPercent } from "@/lib/format/formatters";
+import { formatDateLabel, formatPercent } from "@/lib/format/formatters";
 import { buildXlsx } from "@/lib/export/xlsx-writer";
 import { computeDelayBanner, formatGap } from "@/lib/fgf/delay-banner";
 import { fromWorkingDays, timeUnitShortLabel } from "@/lib/planning/time-unit";

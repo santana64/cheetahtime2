@@ -87,15 +87,21 @@ export function CommandPalette({ projects = [] }: { projects?: ProjectLink[] }) 
     };
   }, []);
 
-  useEffect(() => {
+  // Réinitialisation à l'ouverture, faite pendant le rendu (pas dans un effet).
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
     if (open) {
       setQuery("");
       setActive(0);
-      setTimeout(() => inputRef.current?.focus(), 30);
     }
-  }, [open]);
+  }
 
-  useEffect(() => setActive(0), [query]);
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => inputRef.current?.focus(), 30);
+    return () => clearTimeout(t);
+  }, [open]);
 
   function run(cmd?: Command) {
     if (!cmd) return;
@@ -122,7 +128,7 @@ export function CommandPalette({ projects = [] }: { projects?: ProjectLink[] }) 
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); setActive(0); }}
             onKeyDown={(e) => {
               if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, filtered.length - 1)); }
               else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }

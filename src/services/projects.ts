@@ -3017,9 +3017,6 @@ function buildDashboardMetrics(
   const overloadedResourceCount = resourceSummaries.filter(
     (summary) => summary.overloadedWeeks > 0,
   ).length;
-  const finishVarianceHint = aggregate.project.targetFinishDate
-    ? `${aggregate.project.targetFinishDate} target`
-    : undefined;
   const finishValue =
     maxIsoDate(executableTasks.map((task) => task.scheduledFinishDate ?? null)) ?? "Unscheduled";
   const scheduleSlipDays =

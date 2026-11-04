@@ -123,7 +123,7 @@ export async function listSnapshots(): Promise<SnapshotInfo[]> {
     const meta = parseSnapshotName(name);
     if (!meta) continue;
     let sizeBytes = 0;
-    let projectCount: number | null = null;
+    const projectCount: number | null = null;
     try {
       const st = await stat(/* turbopackIgnore: true */ path.join(backupsDir(), name));
       sizeBytes = st.size;

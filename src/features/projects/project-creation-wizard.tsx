@@ -219,7 +219,6 @@ export function ProjectCreationWizard() {
       /* stockage inaccessible : on ignore */
     }
     setHydrated(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Enregistrement continu (après restauration seulement, pour ne pas écraser).

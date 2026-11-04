@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useRef, useState, useSyncExternalStore, useTransition } from "react";
 
 import {
   backupNowAction,
@@ -21,6 +21,8 @@ function desktopApi(): DesktopBackupApi | null {
   if (typeof window === "undefined") return null;
   return (window as unknown as { cheetahBackup?: DesktopBackupApi }).cheetahBackup ?? null;
 }
+
+const noopSubscribe = () => () => {};
 
 const KIND_LABEL: Record<SnapshotInfo["kind"], string> = {
   auto: "Automatique",
@@ -54,14 +56,14 @@ export function BackupManager({
   config: BackupConfig;
 }) {
   const [pending, start] = useTransition();
-  const [desktop, setDesktop] = useState(false);
+  const desktop = useSyncExternalStore(
+    noopSubscribe,
+    () => Boolean(desktopApi()),
+    () => false,
+  );
   const [fileName, setFileName] = useState("");
   const [fileContent, setFileContent] = useState<string | null>(null);
   const folderRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setDesktop(Boolean(desktopApi()));
-  }, []);
 
   function run(action: () => Promise<void>) {
     start(async () => {
@@ -74,7 +76,7 @@ export function BackupManager({
   }
 
   function snapshotNow() {
-    run(() => manualSnapshotAction(new FormData()));
+    run(() => manualSnapshotAction());
   }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -122,7 +124,7 @@ export function BackupManager({
     run(() => setExternalFolderAction(fd));
   }
   function backupNow() {
-    run(() => backupNowAction(new FormData()));
+    run(() => backupNowAction());
   }
 
   const autoCount = snapshots.filter((s) => s.kind === "auto").length;
