@@ -4,7 +4,7 @@ import {
   buildSchedule,
   type ExternalScheduledTaskReference,
 } from "@/lib/planning/schedule-engine";
-import { buildRecommendedB2PDates } from "@/lib/fgf/b2p";
+import { getProjectB2PDates } from "@/lib/fgf/b2p";
 import {
   DEFAULT_HOURS_PER_DAY,
   fromWorkingDays,
@@ -112,6 +112,8 @@ import {
 export interface CreateProjectLotInput {
   name: string;
   budgetAmount: number;
+  /** Code du lot reçu de Cheetah Cost (LT01…), conservé pour l'aller-retour. */
+  code?: string;
 }
 
 // ── Création structurée (spec FGF complète) ─────────────────────────────────
@@ -2420,6 +2422,7 @@ function createLotSkeleton(
       projectId,
       parentId: null,
       sortOrder: (index + 1) * 10,
+      code: lot.code ?? null,
       name: lot.name?.trim() || `Lot ${index + 1}`,
       description: "",
       notes: "",
@@ -4014,14 +4017,13 @@ export async function importSuiteProject(text: string, importedBy = "Import suit
 export async function buildSuiteExport(projectId: string) {
   const view = await getProjectView(projectId);
   const p = view.aggregate.project;
-  const lots = view.aggregate.tasks
-    .filter((t) => t.type === "SUMMARY" && !t.parentId)
-    .map((t) => ({ name: t.name, budgetAmount: t.budgetAmount ?? 0 }));
-  const dateFin = p.targetFinishDate ?? view.schedule.projectFinishDate ?? p.targetStartDate;
-  const b2pDates =
-    p.b2pDates && p.b2pDates.length
-      ? p.b2pDates
-      : buildRecommendedB2PDates({ dateDebut: p.targetStartDate, dateFin });
+  // Lots exportés = le premier niveau de la structure (tâches hamac ET LT non
+  // regroupés), comme la « Structure budgétaire » de Cheetah Cost. Auparavant un
+  // planning sans tâche hamac exportait 0 lot.
+  const lots = view.tasks
+    .filter((t) => !t.parentId && t.type !== "MILESTONE")
+    .map((t) => ({ name: t.name, budgetAmount: t.budgetAmount ?? 0, code: t.code ?? undefined }));
+  const b2pDates = getProjectB2PDates(p, view.schedule.projectFinishDate);
 
   // ── Lentille délai : le retard mesuré à chaque B2P, pour Cheetah Cost ──
   const { computeDelayBanner } = await import("@/lib/fgf/delay-banner");
@@ -4062,7 +4064,7 @@ export async function buildSuiteExport(projectId: string) {
       const row = reviewByName.get(lot.name);
       const days = row?.glissementJours ?? 0;
       return {
-        code: `LT${String(i + 1).padStart(2, "0")}`,
+        code: lot.code ?? `LT${String(i + 1).padStart(2, "0")}`,
         libelle: lot.name,
         finPrevue: row?.finPrevue ?? null,
         glissement: round2(fromWorkingDays(days, unit, view.aggregate.calendar.hoursPerDay)),
@@ -4083,6 +4085,28 @@ export async function buildSuiteExport(projectId: string) {
     lots,
     b2pDates,
   });
+}
+
+/**
+ * Dates des B2P (onglet « Dates des B2P », comportement identique à Cheetah Cost) :
+ * enregistre la liste, triée et dédoublonnée. Une date au-delà de la fin
+ * contractuelle étend cette fin (retard projet), comme dans Cheetah Cost.
+ */
+export async function setProjectB2PDates(input: { projectId: string; dates: string[] }) {
+  const dates = [...new Set(input.dates.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort();
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, input.projectId);
+    if (dates.length && dates[0] < aggregate.project.targetStartDate) {
+      throw validationError("Une date de B2P ne peut pas précéder le début du projet.");
+    }
+    aggregate.project.b2pDates = dates;
+    const last = dates[dates.length - 1];
+    if (last && aggregate.project.targetFinishDate && last > aggregate.project.targetFinishDate) {
+      aggregate.project.targetFinishDate = last;
+    }
+    aggregate.project.updatedAt = nowIso();
+  });
+  return dates;
 }
 
 /** Enregistre (ou efface) la note de bilan planning d'un B2P donné. */

@@ -90,8 +90,12 @@ export default async function ProjectLayout({
               <span className="hidden text-[11px] text-slate-500 lg:inline">
                 Responsable : <strong className="text-slate-700">{project.ownerName}</strong>
               </span>
+              {/* Comme Cheetah Cost : « Nouveau B2P » en action principale, puis « Fichier ». */}
+              <Link href={`/projects/${project.id}/b2p#saisie-b2p`} className="toolbar-btn toolbar-btn-primary">
+                Nouveau B2P
+              </Link>
               <details className="relative">
-                <summary className="toolbar-btn list-none [&::-webkit-détails-marker]:hidden">Exporter ▾</summary>
+                <summary className="toolbar-btn list-none [&::-webkit-details-marker]:hidden">Fichier ▾</summary>
                 <div className="absolute right-0 z-50 mt-1 w-60 rounded-xl border border-black/[0.08] bg-white p-1 shadow-lg">
                   {exports.map(({ label, href }) => (
                     <a key={label} href={href} download className="block rounded-lg px-3 py-2 text-[12.5px] font-semibold text-slate-700 hover:bg-[#56a45b]/10">

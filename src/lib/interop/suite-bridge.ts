@@ -11,11 +11,12 @@
 import { projetPhases, type ProjetPhase } from "@/types/planning";
 
 /**
- * 1.1.0 (additif) : bloc `project.lentilleDelai` — le retard délai mesuré par
- * Cheetah Time à chaque B2P (FP, écart dans l'unité du projet, avancement,
- * action de pilotage), global et par lot. Un lecteur 1.0.0 l'ignore.
+ * Cheetah Cost est la référence : Cheetah Time écrit EXACTEMENT son format
+ * (`PROJECT_FILE_SCHEMA_VERSION = "1.0.0"`, type `Projet`). Le bloc
+ * `project.lentilleDelai` est une extension propre à Cheetah Time : Cheetah
+ * Cost l'ignore sans erreur, Cheetah Time le relit pour l'aller-retour.
  */
-export const SUITE_FILE_SCHEMA_VERSION = "1.1.0";
+export const SUITE_FILE_SCHEMA_VERSION = "1.0.0";
 
 /** Situation délai à une date de B2P (« Prévision avant pilotage T2Pi-1 »). */
 export interface SuiteDelaiB2P {
@@ -59,6 +60,8 @@ export interface SuiteLentilleDelai {
 export interface SuiteLot {
   name: string;
   budgetAmount: number;
+  /** Code du lot (LT01, PT01…) — conservé tel quel dans Cheetah Cost. */
+  code?: string;
 }
 
 export interface SuiteProjectData {
@@ -113,6 +116,7 @@ export function parseSuiteProject(text: string): SuiteProjectData {
     return {
       name: String(l.libelle ?? l.name ?? "Lot").trim() || "Lot",
       budgetAmount: Number(l.budgetInitial ?? l.budgetAmount ?? 0) || 0,
+      code: typeof l.code === "string" && l.code.trim() ? l.code.trim() : undefined,
     };
   });
 
@@ -191,7 +195,7 @@ export function buildSuiteProjectFile(
   const now = new Date().toISOString();
   const lots = data.lots.map((lot, i) => ({
     id: `lt-${i + 1}`,
-    code: `LT${String(i + 1).padStart(2, "0")}`,
+    code: lot.code ?? `LT${String(i + 1).padStart(2, "0")}`,
     libelle: lot.name,
     budgetInitial: lot.budgetAmount,
   }));
@@ -216,6 +220,8 @@ export function buildSuiteProjectFile(
       valeurMode: "courante",
       b2pDates: data.b2pDates,
       nbB2P: Math.max(0, data.b2pDates.length - 1),
+      precision: 0,
+      isDemo: false,
       lots,
       bilans: [],
       ...(data.lentilleDelai ? { lentilleDelai: data.lentilleDelai } : {}),

@@ -1,5 +1,6 @@
 "use client";
 
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -27,7 +28,7 @@ import {
 } from "@/features/projects/actions";
 import { initialFormState } from "@/features/projects/form-state";
 import { LtResourceEditor } from "@/features/projects/lt-resource-editor";
-import { buildRecommendedB2PDates } from "@/lib/fgf/b2p";
+import { getProjectB2PDates } from "@/lib/fgf/b2p";
 import { fromWorkingDays, timeUnitShortLabel } from "@/lib/planning/time-unit";
 import {
   formatDateLabel,
@@ -1411,18 +1412,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
   const timelineFinish = addCalendarDays(projectFinish, 6);
   const timelineDays = getTimelineDays(timelineStart, timelineFinish);
   // Dates des B2P pour le Gantt : celles du projet si saisies, sinon la règle FGF.
-  const b2pGanttDates = (() => {
-    const stored = (view.aggregate.project.b2pDates ?? []).filter((d) =>
-      /^\d{4}-\d{2}-\d{2}$/.test(d),
-    );
-    if (stored.length) return stored;
-    const fin = view.aggregate.project.targetFinishDate ?? view.schedule.projectFinishDate;
-    if (!fin) return [];
-    return buildRecommendedB2PDates({
-      dateDebut: view.aggregate.project.targetStartDate,
-      dateFin: fin,
-    });
-  })();
+  const b2pGanttDates = getProjectB2PDates(view.aggregate.project, view.schedule.projectFinishDate);
   // Repères temporels FGF : B2P courant + ligne « aujourd'hui ».
   const b2pTodayIso = todayIso();
   const currentB2pIndex = (() => {
@@ -2297,51 +2287,27 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
                       Date de contrainte
-                      <Input
-                        name="constraintDate"
-                        type="date"
-                        defaultValue={selectedTask.constraintDate ?? ""}
-                      />
+                      <FrenchDateInput name="constraintDate" defaultValue={selectedTask.constraintDate ?? ""} />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
                       Date d'echeance
-                      <Input
-                        name="deadlineDate"
-                        type="date"
-                        defaultValue={selectedTask.deadlineDate ?? ""}
-                      />
+                      <FrenchDateInput name="deadlineDate" defaultValue={selectedTask.deadlineDate ?? ""} />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
                       Début manuel
-                      <Input
-                        name="manualStartDate"
-                        type="date"
-                        defaultValue={selectedTask.manualStartDate ?? ""}
-                      />
+                      <FrenchDateInput name="manualStartDate" defaultValue={selectedTask.manualStartDate ?? ""} />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
                       Fin manuelle
-                      <Input
-                        name="manualFinishDate"
-                        type="date"
-                        defaultValue={selectedTask.manualFinishDate ?? ""}
-                      />
+                      <FrenchDateInput name="manualFinishDate" defaultValue={selectedTask.manualFinishDate ?? ""} />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
                       Début réel
-                      <Input
-                        name="actualStartDate"
-                        type="date"
-                        defaultValue={selectedTask.actualStartDate ?? ""}
-                      />
+                      <FrenchDateInput name="actualStartDate" defaultValue={selectedTask.actualStartDate ?? ""} />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
                       Fin réelle
-                      <Input
-                        name="actualFinishDate"
-                        type="date"
-                        defaultValue={selectedTask.actualFinishDate ?? ""}
-                      />
+                      <FrenchDateInput name="actualFinishDate" defaultValue={selectedTask.actualFinishDate ?? ""} />
                     </label>
                   </div>
 

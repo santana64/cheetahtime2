@@ -207,9 +207,31 @@ async function main() {
       (view3.aggregate.project.b2pDates?.length ?? 0) === dates.length,
       "ré-import : mêmes dates B2P",
     );
+    // ── 6 ter. Concordance avec Cheetah Cost (référence) : un vrai fichier Cost ──
+    {
+      const { readFileSync } = await import("node:fs");
+      const costText = readFileSync(path.join(process.cwd(), "scripts", "fixtures", "cheetahcost-demo.json"), "utf8");
+      const costFile = JSON.parse(costText);
+      const imported = await projectServices.importSuiteProject(costText);
+      const vc = await projectServices.getProjectView(imported.projectId);
+      const pc = vc.aggregate.project;
+      assert(pc.phase === costFile.project.phase, "phase Cost conservée");
+      assert(pc.targetStartDate === costFile.project.dateDebut && pc.targetFinishDate === costFile.project.dateFin, "dates Cost conservées");
+      assert(JSON.stringify(pc.b2pDates) === JSON.stringify(costFile.project.b2pDates), "dates de B2P Cost conservées à l'identique");
+      const back = await projectServices.buildSuiteExport(imported.projectId);
+      assert(JSON.stringify(back.project.b2pDates) === JSON.stringify(costFile.project.b2pDates), "ré-export : mêmes dates de B2P que Cost");
+      assert(
+        JSON.stringify(back.project.lots.map((l: { code: string; libelle: string }) => [l.code, l.libelle])) ===
+          JSON.stringify(costFile.project.lots.map((l: { code: string; libelle: string }) => [l.code, l.libelle])),
+        "ré-export : mêmes lots (codes et libellés) que Cost",
+      );
+      assert(back.schemaVersion === costFile.schemaVersion, "même version de schéma que Cost");
+      console.log(`✓ Concordance Cheetah Cost (fichier Cost réel : ${costFile.project.lots.length} lots, ${costFile.project.b2pDates.length} dates B2P → Time → Cost à l'identique)`);
+    }
+
     // ── 6 bis. Lentille délai dans le fichier commun (schéma 1.1.0) ──
     {
-      assert(file.schemaVersion === "1.1.0", `schéma 1.1.0 attendu, obtenu ${file.schemaVersion}`);
+      assert(file.schemaVersion === "1.0.0", `schéma Cheetah Cost 1.0.0 attendu, obtenu ${file.schemaVersion}`);
       const delai0 = (file.project as { lentilleDelai?: { lots: unknown[]; uniteTemps: string } }).lentilleDelai;
       assert(delai0 && delai0.lots.length === 3, "bloc lentilleDelai avec 3 lots attendu");
       // Figer le PI puis saisir un B2P : le retard doit apparaître dans le fichier.
@@ -236,7 +258,7 @@ async function main() {
       // Un fichier 1.0.0 (sans bloc délai) reste lisible.
       const legacy = JSON.parse(JSON.stringify(file2));
       delete legacy.project.lentilleDelai;
-      legacy.schemaVersion = "1.0.0";
+      // (fichier Cheetah Cost pur, sans l'extension délai)
       await projectServices.importSuiteProject(JSON.stringify(legacy));
       console.log(`✓ Lentille délai partagée (B2P ${b2pDate} : écart ${snap.ecart} ${delai0.uniteTemps}, action requise · ré-import OK · fichier 1.0.0 toujours lisible)`);
     }

@@ -1,5 +1,6 @@
 "use client";
 
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import { useActionState, useState } from "react";
 
 import {
@@ -115,7 +116,7 @@ function IssueForm({ projectId, tasks }: { projectId: string; tasks: ScheduledTa
       </label>
       <label className="grid gap-1 text-xs font-semibold text-slate-600">
         Echeance
-        <Input name="dueDate" type="date" className="h-9" />
+        <FrenchDateInput name="dueDate" />
       </label>
       <label className="grid gap-1 text-xs font-semibold text-slate-600 md:col-span-2">
         Description

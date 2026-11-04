@@ -58,7 +58,7 @@ export function ProjectRowCard({
         <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-black/[0.05] pt-3">
           <Link href={`/projects/${p.id}/planning`} className="toolbar-btn toolbar-btn-primary">Planning</Link>
           <Link href={`/projects/${p.id}/b2p`} className="toolbar-btn">Tableaux B2P</Link>
-          <Link href={`/projects/${p.id}/dashboard`} className="toolbar-btn">Tableau de bord</Link>
+          <Link href={`/projects/${p.id}/dashboard`} className="toolbar-btn">Alerte</Link>
           {children}
         </div>
       </div>

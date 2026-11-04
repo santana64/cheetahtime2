@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { B2PBilanView } from "@/features/projects/b2p-bilan-view";
 import { MilestoneTrend } from "@/components/app/milestone-trend";
-import { buildRecommendedB2PDates, getB2PCadenceRule } from "@/lib/fgf/b2p";
+import { getB2PCadenceRule, getProjectB2PDates } from "@/lib/fgf/b2p";
 import { buildB2PPlanningReview } from "@/lib/fgf/b2p-review";
 import { getProjectView } from "@/services/projects";
 import { B2PTables } from "@/components/app/b2p-tables";
@@ -60,11 +60,9 @@ export default async function ProjectB2PPage({
       .sort()
       .at(-1) ?? dateDebut;
 
-  // Les dates de B2P suivent la RÈGLE FGF sur la durée RÉELLE du projet (start → fin
-  // calculée). On recalcule toujours : un projet de 18 mois doit avoir des B2P espacés
-  // (tous les 2 mois), pas toutes les semaines. Les dates stockées éventuelles ne
-  // priment plus (elles pouvaient venir d'une durée par défaut erronée).
-  const dates = buildRecommendedB2PDates({ dateDebut, dateFin });
+  // Même règle que Cheetah Cost (getProjectPlannedB2PDates) : les dates saisies dans
+  // « Dates des B2P » (ou reçues par le fichier commun) priment, sinon la règle FGF.
+  const dates = getProjectB2PDates(project, view.schedule.projectFinishDate);
   const cadence = getB2PCadenceRule(dateDebut, dateFin);
   const review = buildB2PPlanningReview(view);
 

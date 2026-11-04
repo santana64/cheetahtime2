@@ -33,7 +33,7 @@ const projectHealthLabels: Record<ProjectHealth, string> = {
 };
 
 const projectStatusLabels: Record<ProjectStatus, string> = {
-  ACTIVE: "Actif",
+  ACTIVE: "En cours",
   PLANNING: "Planification",
   AT_RISK: "À risque",
   ON_HOLD: "En pause",

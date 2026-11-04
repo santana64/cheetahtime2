@@ -1,5 +1,6 @@
 "use client";
 
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import { useActionState } from "react";
 
 import { createProjectAction } from "@/features/projects/actions";
@@ -52,11 +53,11 @@ export function CreateProjectForm() {
           </label>
           <label className="grid gap-1.5 text-xs font-semibold text-slate-500">
             Début cible
-            <Input name="targetStartDate" type="date" required className="h-9 text-sm" />
+            <FrenchDateInput name="targetStartDate" required={true} />
           </label>
           <label className="grid gap-1.5 text-xs font-semibold text-slate-500">
             Fin cible
-            <Input name="targetFinishDate" type="date" className="h-9 text-sm" />
+            <FrenchDateInput name="targetFinishDate" />
           </label>
           <label className="grid gap-1.5 text-xs font-semibold text-slate-500">
             Budget

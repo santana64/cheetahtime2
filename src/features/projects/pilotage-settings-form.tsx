@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { updatePilotageSettingsAction } from "@/features/projects/actions";
 import { initialFormState } from "@/features/projects/form-state";
 import { Button } from "@/components/ui/button";
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 
 /**
  * Paramètres de pilotage du temps :
@@ -35,10 +36,10 @@ export function PilotageSettingsForm({
         <div className="grid gap-4 md:grid-cols-2">
           <label className="block text-[12px] font-semibold text-slate-700">
             Date d&apos;état
-            <input type="date" name="statusDate" defaultValue={statusDate ?? ""} className="input-base mt-1" />
+            <FrenchDateInput name="statusDate" defaultValue={statusDate} ariaLabel="Date d'état" className="mt-1" />
             <span className="mt-1 block text-[11px] font-normal leading-4 text-slate-500">
               Le reste à faire est replanifié à partir de cette date (comme la « data date » de P6). Vide : date du jour dès
-              que le PI est figé{effectiveStatusDate ? ` — actuellement ${new Date(`${effectiveStatusDate}T12:00:00Z`).toLocaleDateString("fr-FR")}` : ""}.
+              que le PI est figé{effectiveStatusDate ? ` — actuellement ${new Date(`${effectiveStatusDate}T12:00:00Z`).toLocaleDateString("fr-FR", { timeZone: "UTC" })}` : ""}.
             </span>
           </label>
           <label className="block text-[12px] font-semibold text-slate-700">

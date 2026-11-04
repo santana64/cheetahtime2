@@ -1,0 +1,334 @@
+{
+  "app": "CheetahCost",
+  "schemaVersion": "1.0.0",
+  "exportedAt": "2026-11-04T17:25:12.738Z",
+  "project": {
+    "id": "a74e20b8-89cb-498d-af3c-754c04b0a598",
+    "nom": "DEMO – Immeuble A (FGF)",
+    "phase": "Réalisation",
+    "isDemo": true,
+    "dateDebut": "2026-10-20",
+    "dateFin": "2027-03-04",
+    "monnaie": "EUR",
+    "typeCout": "engagé",
+    "status": "En cours",
+    "uniteCoutType": "monetaire",
+    "uniteCoutLibelle": "EUR",
+    "tvaMode": "HT",
+    "valeurMode": "courante",
+    "valeurReference": "",
+    "precision": 0,
+    "lots": [
+      {
+        "id": "22659bb1-cb0c-4e79-b9d4-4bc4e55b2246",
+        "code": "LT01",
+        "libelle": "Études / Conception",
+        "budgetInitial": 80000
+      },
+      {
+        "id": "9ae5e7e3-e5c7-4bb0-86f7-efe145dffdab",
+        "code": "LT02",
+        "libelle": "Gros œuvre",
+        "budgetInitial": 420000
+      },
+      {
+        "id": "1938040d-dce8-4cf9-90c0-ac36c09bafef",
+        "code": "LT03",
+        "libelle": "Second œuvre",
+        "budgetInitial": 260000
+      },
+      {
+        "id": "276a9d9c-e072-4b77-a04d-a1ae8531f83c",
+        "code": "LT04",
+        "libelle": "Finitions",
+        "budgetInitial": 140000
+      }
+    ],
+    "bilans": [
+      {
+        "id": "b47e6676-1a13-40a4-87ad-3c2d7c1110f2",
+        "numero": 0,
+        "date": "2026-10-20",
+        "triggerDate": "2026-10-20",
+        "tableKind": "b2p0",
+        "lignes": [
+          {
+            "lotId": "22659bb1-cb0c-4e79-b9d4-4bc4e55b2246",
+            "variation": 0,
+            "depenses": 0,
+            "avancementPhysique": 0,
+            "resteAFaire": 0,
+            "commentaire": ""
+          },
+          {
+            "lotId": "9ae5e7e3-e5c7-4bb0-86f7-efe145dffdab",
+            "variation": 0,
+            "depenses": 0,
+            "avancementPhysique": 0,
+            "resteAFaire": 0,
+            "commentaire": ""
+          },
+          {
+            "lotId": "1938040d-dce8-4cf9-90c0-ac36c09bafef",
+            "variation": 0,
+            "depenses": 0,
+            "avancementPhysique": 0,
+            "resteAFaire": 0,
+            "commentaire": ""
+          },
+          {
+            "lotId": "276a9d9c-e072-4b77-a04d-a1ae8531f83c",
+            "variation": 0,
+            "depenses": 0,
+            "avancementPhysique": 0,
+            "resteAFaire": 0,
+            "commentaire": ""
+          }
+        ]
+      },
+      {
+        "id": "e9d118ea-8834-4179-bb59-42b4649cbf46",
+        "numero": 1,
+        "date": "2026-11-16",
+        "triggerDate": "2026-11-16",
+        "tableKind": "i-1",
+        "lignes": [
+          {
+            "lotId": "22659bb1-cb0c-4e79-b9d4-4bc4e55b2246",
+            "variation": 0,
+            "depenses": 13600,
+            "avancementPhysique": 22,
+            "resteAFaire": 66400,
+            "commentaire": ""
+          },
+          {
+            "lotId": "9ae5e7e3-e5c7-4bb0-86f7-efe145dffdab",
+            "variation": 10080,
+            "depenses": 116122,
+            "avancementPhysique": 20,
+            "resteAFaire": 313958,
+            "commentaire": ""
+          },
+          {
+            "lotId": "1938040d-dce8-4cf9-90c0-ac36c09bafef",
+            "variation": -2600,
+            "depenses": 43758,
+            "avancementPhysique": 20,
+            "resteAFaire": 213642,
+            "commentaire": ""
+          },
+          {
+            "lotId": "276a9d9c-e072-4b77-a04d-a1ae8531f83c",
+            "variation": 0,
+            "depenses": 16800,
+            "avancementPhysique": 18,
+            "resteAFaire": 123200,
+            "commentaire": ""
+          }
+        ]
+      },
+      {
+        "id": "c7877bdf-fb2d-4b26-b73c-48fd48be2571",
+        "numero": 2,
+        "date": "2026-12-13",
+        "triggerDate": "2026-12-13",
+        "tableKind": "i-1",
+        "lignes": [
+          {
+            "lotId": "22659bb1-cb0c-4e79-b9d4-4bc4e55b2246",
+            "variation": 0,
+            "depenses": 27200,
+            "avancementPhysique": 44,
+            "resteAFaire": 52800,
+            "commentaire": ""
+          },
+          {
+            "lotId": "9ae5e7e3-e5c7-4bb0-86f7-efe145dffdab",
+            "variation": 20160,
+            "depenses": 193670,
+            "avancementPhysique": 40,
+            "resteAFaire": 246490,
+            "commentaire": "Dérive sur le gros œuvre, à surveiller."
+          },
+          {
+            "lotId": "1938040d-dce8-4cf9-90c0-ac36c09bafef",
+            "variation": -5200,
+            "depenses": 86632,
+            "avancementPhysique": 40,
+            "resteAFaire": 168168,
+            "commentaire": ""
+          },
+          {
+            "lotId": "276a9d9c-e072-4b77-a04d-a1ae8531f83c",
+            "variation": 0,
+            "depenses": 40600,
+            "avancementPhysique": 36,
+            "resteAFaire": 99400,
+            "commentaire": ""
+          }
+        ]
+      },
+      {
+        "id": "efc78381-40d0-4271-8eb0-288865c861c1",
+        "numero": 3,
+        "date": "2027-01-09",
+        "triggerDate": "2027-01-09",
+        "tableKind": "i-1",
+        "lignes": [
+          {
+            "lotId": "22659bb1-cb0c-4e79-b9d4-4bc4e55b2246",
+            "variation": 0,
+            "depenses": 40800,
+            "avancementPhysique": 66,
+            "resteAFaire": 39200,
+            "commentaire": ""
+          },
+          {
+            "lotId": "9ae5e7e3-e5c7-4bb0-86f7-efe145dffdab",
+            "variation": 30240,
+            "depenses": 274646,
+            "avancementPhysique": 60,
+            "resteAFaire": 175594,
+            "commentaire": ""
+          },
+          {
+            "lotId": "1938040d-dce8-4cf9-90c0-ac36c09bafef",
+            "variation": -7800,
+            "depenses": 128622,
+            "avancementPhysique": 60,
+            "resteAFaire": 123578,
+            "commentaire": ""
+          },
+          {
+            "lotId": "276a9d9c-e072-4b77-a04d-a1ae8531f83c",
+            "variation": 0,
+            "depenses": 64400,
+            "avancementPhysique": 54,
+            "resteAFaire": 75600,
+            "commentaire": ""
+          }
+        ]
+      },
+      {
+        "id": "72ec3e3b-ce55-47b4-965b-4037580e1032",
+        "numero": 4,
+        "date": "2027-02-05",
+        "triggerDate": "2027-02-05",
+        "tableKind": "i-1",
+        "lignes": [
+          {
+            "lotId": "22659bb1-cb0c-4e79-b9d4-4bc4e55b2246",
+            "variation": 0,
+            "depenses": 54400,
+            "avancementPhysique": 88,
+            "resteAFaire": 25600,
+            "commentaire": ""
+          },
+          {
+            "lotId": "9ae5e7e3-e5c7-4bb0-86f7-efe145dffdab",
+            "variation": 40320,
+            "depenses": 359050,
+            "avancementPhysique": 80,
+            "resteAFaire": 101270,
+            "commentaire": "Actions correctives engagées, dérive stabilisée."
+          },
+          {
+            "lotId": "1938040d-dce8-4cf9-90c0-ac36c09bafef",
+            "variation": -10400,
+            "depenses": 169728,
+            "avancementPhysique": 80,
+            "resteAFaire": 79872,
+            "commentaire": ""
+          },
+          {
+            "lotId": "276a9d9c-e072-4b77-a04d-a1ae8531f83c",
+            "variation": 0,
+            "depenses": 88200,
+            "avancementPhysique": 72,
+            "resteAFaire": 51800,
+            "commentaire": ""
+          }
+        ]
+      },
+      {
+        "id": "08871d35-a07a-4515-a5f3-a02f8e8088fa",
+        "numero": 5,
+        "date": "2027-03-04",
+        "triggerDate": "2027-03-04",
+        "tableKind": "i-1",
+        "lignes": [
+          {
+            "lotId": "22659bb1-cb0c-4e79-b9d4-4bc4e55b2246",
+            "variation": 0,
+            "depenses": 68000,
+            "avancementPhysique": 100,
+            "resteAFaire": 12000,
+            "commentaire": ""
+          },
+          {
+            "lotId": "9ae5e7e3-e5c7-4bb0-86f7-efe145dffdab",
+            "variation": 50400,
+            "depenses": 446880,
+            "avancementPhysique": 100,
+            "resteAFaire": 23520,
+            "commentaire": ""
+          },
+          {
+            "lotId": "1938040d-dce8-4cf9-90c0-ac36c09bafef",
+            "variation": -13000,
+            "depenses": 209950,
+            "avancementPhysique": 100,
+            "resteAFaire": 37050,
+            "commentaire": ""
+          },
+          {
+            "lotId": "276a9d9c-e072-4b77-a04d-a1ae8531f83c",
+            "variation": 0,
+            "depenses": 112000,
+            "avancementPhysique": 90,
+            "resteAFaire": 28000,
+            "commentaire": "Finitions comprimées pour tenir le budget."
+          }
+        ]
+      }
+    ],
+    "createdAt": "2026-11-04T17:25:12.737Z",
+    "updatedAt": "2026-11-04T17:25:12.737Z",
+    "b2pDates": [
+      "2026-10-20",
+      "2026-11-02",
+      "2026-11-16",
+      "2026-11-30",
+      "2026-12-14",
+      "2026-12-28",
+      "2027-01-11",
+      "2027-01-25",
+      "2027-02-08",
+      "2027-02-22",
+      "2027-03-04"
+    ],
+    "nbB2P": 10,
+    "lockedBilanIds": [],
+    "auditTrail": [
+      {
+        "id": "7ff35708-8507-4b47-9f41-8032339a33f3",
+        "at": "2026-11-04T17:25:12.738Z",
+        "actor": "Utilisateur local",
+        "action": "export_created",
+        "label": "Fichier projet JSON sauvegardé"
+      }
+    ],
+    "versions": [
+      {
+        "id": "162a79d4-38a4-46a5-9c57-ce415541c533",
+        "at": "2026-11-04T17:25:12.738Z",
+        "label": "Sauvegarde JSON",
+        "bilansCount": 6,
+        "lotsCount": 4,
+        "totalBudgetInitial": 900000
+      }
+    ],
+    "rapports": [],
+    "snapshots": []
+  }
+}

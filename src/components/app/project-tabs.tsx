@@ -11,20 +11,25 @@ import { cn } from "@/lib/utils";
  */
 export function ProjectTabs({ projectId }: { projectId: string }) {
   const pathname = usePathname();
+  // Mêmes onglets, même ordre que Cheetah Cost (Tableaux B2P, Alerte, Dates des B2P,
+  // Structure, Rapports), transposés en délai (CdC p. 12), puis les onglets propres
+  // à la planification (Planning, Ressources, Potentiel-tâches…).
   const tabs = [
-    { href: `/projects/${projectId}/dashboard`, label: "Tableau de bord" },
-    { href: `/projects/${projectId}/planning`, label: "Planning" },
-    { href: `/projects/${projectId}/lookahead`, label: "À venir" },
-    { href: `/projects/${projectId}/network`, label: "Potentiel-tâches" },
-    { href: `/projects/${projectId}/analytics`, label: "Rapports de délais" },
-    { href: `/projects/${projectId}/resources`, label: "Ressources" },
-    { href: `/projects/${projectId}/baselines`, label: "Référentiels" },
     { href: `/projects/${projectId}/b2p`, label: "Tableaux B2P" },
+    { href: `/projects/${projectId}/dashboard`, label: "Alerte" },
+    { href: `/projects/${projectId}/dates-b2p`, label: "Dates des B2P" },
+    { href: `/projects/${projectId}/structure`, label: "Structure" },
+    { href: `/projects/${projectId}/analytics`, label: "Rapports de délais" },
+    { href: `/projects/${projectId}/planning`, label: "Planning" },
+    { href: `/projects/${projectId}/resources`, label: "Ressources" },
+    { href: `/projects/${projectId}/network`, label: "Potentiel-tâches" },
+    { href: `/projects/${projectId}/lookahead`, label: "À venir" },
+    { href: `/projects/${projectId}/baselines`, label: "Référentiels" },
     { href: `/projects/${projectId}/risks`, label: "Risques" },
-    { href: `/projects/${projectId}/soutenance`, label: "Soutenance" },
     { href: `/projects/${projectId}/activity`, label: "Activité" },
     { href: `/projects/${projectId}/settings`, label: "Paramètres" },
   ];
+
 
   return (
     <nav className="-mb-px flex items-center overflow-x-auto" aria-label="Onglets du projet">

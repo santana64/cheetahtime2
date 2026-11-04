@@ -8,20 +8,24 @@ import { formatGap, type DelayBanner } from "@/lib/fgf/delay-banner";
  */
 export function DelayBannerStrip({ banner, compact = false }: { banner: DelayBanner; compact?: boolean }) {
   const late = (banner.ecart ?? 0) > 0;
-  const cells: { label: string; title: string; value: string; tone?: string; strong?: boolean }[] = [
-    { label: "Fi", title: "Fin Initiale — fin du Planning Initial (PI = B2P0)", value: formatDateLabel(banner.finInitiale) },
-    { label: "PàD", title: "Fin à Date — fin du Planning à Date (référence en vigueur)", value: formatDateLabel(banner.finADate) },
-    { label: "Date actuelle", title: "Date d'état : le reste à faire est replanifié à partir de cette date", value: formatDateLabel(banner.dateActuelle) },
-    { label: "FP", title: "Fin Prévisionnelle calculée par le moteur", value: formatDateLabel(banner.finPrevisionnelle), strong: true, tone: late ? "#be123c" : "#1a4a20" },
+  // Même bandeau que Cheetah Cost (BI · BàD · Dépenses · CP · Écart · Avancement),
+  // transposé en délai (CdC p. 12), avec la même ligne descriptive sous chaque valeur.
+  const cells: { label: string; title: string; value: string; desc: string; tone?: string; strong?: boolean }[] = [
+    { label: "Fi", desc: "Fin Initiale", title: "Fin Initiale — fin du Planning Initial (PI = B2P0)", value: formatDateLabel(banner.finInitiale) },
+    { label: "PàD", desc: "Fin à Date", title: "Fin à Date — fin du Planning à Date (référence en vigueur)", value: formatDateLabel(banner.finADate) },
+    { label: "Date actuelle", desc: "Date d'état", title: "Date d'état : le reste à faire est replanifié à partir de cette date", value: formatDateLabel(banner.dateActuelle) },
+    { label: "FP", desc: "Fin Prévisionnelle", title: "Fin Prévisionnelle calculée par le moteur", value: formatDateLabel(banner.finPrevisionnelle), strong: true, tone: late ? "#be123c" : "#1a4a20" },
     {
       label: "Écart",
+      desc: `en ${banner.unit}`,
       title: `Écart FP − PàD, en ${banner.unit} (positif = retard)`,
       value: formatGap(banner.ecart, banner.unitLabel),
       tone: banner.ecart == null ? undefined : late ? "#be123c" : "#047857",
       strong: true,
     },
-    { label: "Avancement", title: "Avancement physique global", value: `${banner.avancement} %` },
+    { label: "Avancement", desc: "%", title: "Avancement physique global", value: `${banner.avancement} %` },
   ];
+
 
   return (
     <div className={compact ? "flex flex-wrap items-stretch gap-2" : "flex flex-wrap items-stretch gap-2.5"}>
@@ -35,6 +39,7 @@ export function DelayBannerStrip({ banner, compact = false }: { banner: DelayBan
             >
               {cell.value}
             </dd>
+            <dd className="mt-0.5 text-[9.5px] text-slate-400">{cell.desc}</dd>
           </div>
         ))}
       </dl>

@@ -1,5 +1,6 @@
 "use client";
 
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import { useActionState, useState } from "react";
 
 import {
@@ -179,22 +180,11 @@ function MetadataSection({ view }: MetadataSectionProps) {
           </FieldLabel>
 
           <FieldLabel label="Début cible">
-            <Input
-              name="targetStartDate"
-              type="date"
-              defaultValue={proj.targetStartDate}
-              required
-              className="h-9 text-sm"
-            />
+            <FrenchDateInput name="targetStartDate" defaultValue={proj.targetStartDate} required={true} />
           </FieldLabel>
 
           <FieldLabel label="Fin cible">
-            <Input
-              name="targetFinishDate"
-              type="date"
-              defaultValue={proj.targetFinishDate ?? ""}
-              className="h-9 text-sm"
-            />
+            <FrenchDateInput name="targetFinishDate" defaultValue={proj.targetFinishDate ?? ""} />
           </FieldLabel>
 
           {/* Cheetah Time = outil de délai : ni budget ni coût (spec François). Valeurs conservées en interne. */}

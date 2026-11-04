@@ -1,4 +1,5 @@
 import { EmptyState } from "@/components/app/empty-state";
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -554,7 +555,7 @@ export function ResourceView({ view }: { view: ProjectView }) {
           </label>
           <label className="grid gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "rgba(0,0,0,0.45)" }}>
             Date de saisie
-            <Input name="entryDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required className="h-8 text-sm" />
+            <FrenchDateInput name="entryDate" defaultValue={new Date().toISOString().slice(0, 10)} required={true} />
           </label>
           <label className="grid gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "rgba(0,0,0,0.45)" }}>
             Heures travaillees

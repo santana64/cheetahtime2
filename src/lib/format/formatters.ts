@@ -2,20 +2,16 @@ import type { ISODate } from "@/types/planning";
 import { parseIsoDate } from "@/lib/planning/date-utils";
 
 /**
- * Format de date UNIQUE de l'application : « 08 juin 26 » (jour, mois, année).
- * L'année est toujours affichée : un projet de 18 mois couvre deux années.
+ * Format de date UNIQUE de l'application, identique à Cheetah Cost
+ * (`formatDateFR`) : « 08/06/2026 ».
  */
 export function formatDateLabel(date?: ISODate | null) {
   if (!date) {
     return "—";
   }
-
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "2-digit",
-    month: "short",
-    year: "2-digit",
-    timeZone: "UTC",
-  }).format(parseIsoDate(date));
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
+  if (!match) return String(date);
+  return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
 export function formatLongDate(date?: ISODate | null) {

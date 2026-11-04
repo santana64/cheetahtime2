@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { PageHeader, StatGrid, StatTile } from "@/components/app/ui-kit";
-import { buildRecommendedB2PDates } from "@/lib/fgf/b2p";
+import { getProjectB2PDates } from "@/lib/fgf/b2p";
 import { computeDelayBanner, formatGap } from "@/lib/fgf/delay-banner";
 import { formatDateLabel } from "@/lib/format/formatters";
 import { requireCurrentSession } from "@/services/auth";
@@ -31,7 +31,7 @@ export default async function PmoDashboardPage() {
       const p = view.aggregate.project;
       const banner = computeDelayBanner(view);
       const fin = [p.targetFinishDate, view.schedule.projectFinishDate].filter(Boolean).sort().at(-1) ?? null;
-      const b2pDates = fin ? buildRecommendedB2PDates({ dateDebut: p.targetStartDate, dateFin: fin }) : [];
+      const b2pDates = fin ? getProjectB2PDates(p, view.schedule.projectFinishDate) : [];
       const nextB2P = b2pDates.find((d) => d >= today) ?? null;
       const nextIndex = nextB2P ? b2pDates.indexOf(nextB2P) : -1;
       const lastSnapshot = Object.keys(p.b2pSnapshots ?? {}).sort().at(-1) ?? null;

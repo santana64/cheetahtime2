@@ -1,6 +1,6 @@
 import { parseIsoDate } from "@/lib/planning/date-utils";
 import { formatDateLabel, formatPercent } from "@/lib/format/formatters";
-import { buildRecommendedB2PDates, getB2PCadenceRule } from "@/lib/fgf/b2p";
+import { getB2PCadenceRule, getProjectB2PDates } from "@/lib/fgf/b2p";
 import { classifyIndex, levelLabel, type LensLevel } from "@/lib/fgf/two-lens";
 import { calculateEarnedSchedule } from "@/services/advanced-planning";
 import type { ProjectView } from "@/types/planning";
@@ -83,7 +83,8 @@ export function FgfCockpit({ view }: { view: ProjectView }) {
       .filter((d): d is string => Boolean(d))
       .sort()
       .at(-1) ?? null;
-  const b2pDates = dateFin ? buildRecommendedB2PDates({ dateDebut, dateFin }) : [];
+  // Même source que Cheetah Cost : dates saisies d'abord, sinon règle FGF.
+  const b2pDates = getProjectB2PDates(project, view.schedule.projectFinishDate);
   const cadence = dateFin ? getB2PCadenceRule(dateDebut, dateFin) : null;
   const today = view.schedule.statusDate ?? new Date().toISOString().slice(0, 10);
   const nextIndex = b2pDates.findIndex((d) => d >= today);

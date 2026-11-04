@@ -4,17 +4,27 @@ Un projet, deux lentilles : le même fichier circule entre **Cheetah Cost**
 (coûtenance) et **Cheetah Time** (délais), avec la même identité, les mêmes LT
 et les **mêmes dates de B2P**.
 
-## Versions du schéma
+## Référence : Cheetah Cost
 
-| Version | Contenu |
-|---|---|
-| 1.0.0 | Identité, phase, dates, monnaie, LT (`lots`), dates de B2P |
-| **1.1.0** | + bloc `project.lentilleDelai` : le retard délai mesuré par Cheetah Time |
+**Cheetah Cost est la référence.** Cheetah Time écrit exactement son format
+(`app: "CheetahCost"`, `schemaVersion: "1.0.0"`, type `Projet`) et applique
+les mêmes règles :
 
-Le changement est **additif** : un lecteur 1.0.0 ignore `lentilleDelai`, et
-Cheetah Time relit toujours les fichiers 1.0.0.
+- dates de B2P : les dates saisies priment, sinon la règle FGF — même
+  résultat que `getProjectPlannedB2PDates` (vérifié sur 4 000 couples de dates) ;
+- lots : premier niveau de la structure, codes et libellés conservés ;
+- dates affichées au format jj/mm/aaaa, onglets dans le même ordre
+  (Tableaux B2P, Alerte, Dates des B2P, Structure, Rapports).
 
-## Bloc `project.lentilleDelai` (1.1.0)
+`npm run verify:fgf` importe un vrai fichier Cheetah Cost
+(`scripts/fixtures/cheetahcost-demo.json`) et vérifie qu'il ressort à
+l'identique (lots, codes, dates de B2P, version).
+
+## Extension Cheetah Time : `project.lentilleDelai`
+
+Bloc propre à Cheetah Time, **ignoré par Cheetah Cost** (sa normalisation ne
+garde que les champs qu'il connaît) : il ne change rien côté coût et sert à
+l'aller-retour Time → fichier → Time.
 
 ```jsonc
 "lentilleDelai": {
@@ -41,13 +51,8 @@ Cheetah Time relit toujours les fichiers 1.0.0.
 }
 ```
 
-## Usage côté Cheetah Cost (proposé)
+## Si Cheetah Cost veut un jour afficher le délai (facultatif)
 
-- Afficher, à côté du verdict coût de chaque B2P, l'écart délai de
-  `parB2P[date]` : c'est la seconde lentille du **verdict combiné**.
-- Rapprocher `lots[i]` de `project.lots[i]` (même index, même libellé) pour
-  chiffrer le coût du glissement d'un lot.
-- Considérer `actionPilotageRequise` comme une alerte du B2P.
-
-Le test `npm run verify:fgf` vérifie l'aller-retour (export → ré-import) et la
-lecture d'un fichier 1.0.0.
+Un patch optionnel existe (non appliqué, Cheetah Cost restant la référence) :
+conserver `lentilleDelai` à la normalisation et l'afficher dans l'onglet
+Alerte comme seconde lentille d'un verdict combiné.

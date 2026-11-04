@@ -131,7 +131,10 @@ export function BrandSidebar({
         </Link>
         <div className="flex items-center gap-2 px-1.5 opacity-40">
           <Image src="/cheetahsoft-logo.jpg" alt="" width={20} height={20} style={{ borderRadius: "50%" }} />
-          <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/70">CheetahSoft</span>
+          <span className="leading-tight">
+            <span className="block text-[9px] font-black uppercase tracking-[0.18em] text-white/70">CheetahSoft</span>
+            <span className="block text-[9px] text-white/60">Maîtrise des délais FGF v1</span>
+          </span>
         </div>
       </div>
     </aside>

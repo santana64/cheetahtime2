@@ -1,6 +1,6 @@
 import { buildPdf, PdfPage } from "@/lib/export/pdf-writer";
 import { computeDelayBanner, formatGap } from "@/lib/fgf/delay-banner";
-import { buildRecommendedB2PDates } from "@/lib/fgf/b2p";
+import { getProjectB2PDates } from "@/lib/fgf/b2p";
 import { parseIsoDate } from "@/lib/planning/date-utils";
 import { fromWorkingDays, timeUnitShortLabel } from "@/lib/planning/time-unit";
 import type { ProjectView, ScheduledTask } from "@/types/planning";
@@ -107,7 +107,7 @@ export function buildTimeReportPdf(view: ProjectView): Buffer {
     // Tableaux B2P
     p.text(M, 232, "Tableaux B2P — prévision avant pilotage", 12, { bold: true, color: GREEN_DEEP });
     const fin = [project.targetFinishDate, view.schedule.projectFinishDate].filter(Boolean).sort().at(-1) ?? null;
-    const dates = fin ? buildRecommendedB2PDates({ dateDebut: project.targetStartDate, dateFin: fin }) : [];
+    const dates = fin ? getProjectB2PDates(project, view.schedule.projectFinishDate) : [];
     const snaps = project.b2pSnapshots ?? {};
     const cols = [M, M + 120, M + 230, M + 340, M + 450, M + 560];
     const headers = ["B2P", "Date", "FP", "Écart", "Avancement", "Pilotage"];

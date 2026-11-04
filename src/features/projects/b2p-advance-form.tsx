@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import { advanceB2PAction } from "@/features/projects/actions";
 import { initialFormState } from "@/features/projects/form-state";
 import { Button } from "@/components/ui/button";
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import { formatDateLabel } from "@/lib/format/formatters";
 
 export interface B2PAdvanceTaskRow {
@@ -62,7 +63,7 @@ export function B2PAdvanceForm({
   };
 
   return (
-    <section className="ct-card overflow-hidden" aria-labelledby="b2p-advance-title">
+    <section id="saisie-b2p" className="ct-card scroll-mt-20 overflow-hidden" aria-labelledby="b2p-advance-title">
       <div className="h-[2px] w-full" style={{ background: "linear-gradient(90deg,#56a45b,#f4a321)" }} />
       <form action={action}>
         <input type="hidden" name="projectId" value={projectId} />
@@ -78,17 +79,14 @@ export function B2PAdvanceForm({
               est replanifié après cette date.
             </p>
           </div>
-          <label className="text-[11px] font-semibold text-slate-600">
-            Date du B2P
-            <input
-              type="date"
-              name="b2pDate"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="input-base mt-1 block w-44"
-              required
-            />
-          </label>
+          <FrenchDateInput
+            name="b2pDate"
+            label="Date du B2P"
+            defaultValue={date}
+            onChange={setDate}
+            required
+            className="w-52"
+          />
         </header>
 
         <div className="max-h-[520px] overflow-auto">
@@ -124,7 +122,7 @@ export function B2PAdvanceForm({
                         name={`etat:${r.id}`}
                         value={etat}
                         onChange={(e) => setEtats((prev) => ({ ...prev, [r.id]: e.target.value as Etat }))}
-                        className="input-base h-8 w-36 text-[12px]"
+                        className="input-base h-8 min-w-[9.5rem] text-[12px]"
                         aria-label={`État de ${r.name}`}
                       >
                         <option value="NOT_STARTED">Non commencé</option>
@@ -133,33 +131,30 @@ export function B2PAdvanceForm({
                       </select>
                     </td>
                     <td className="px-2 py-2">
-                      <input
-                        type="date"
+                      <FrenchDateInput
                         name={`debut:${r.id}`}
                         defaultValue={r.actualStart ?? r.plannedStart ?? ""}
                         disabled={etat === "NOT_STARTED"}
-                        className="input-base h-8 w-36 text-[12px] disabled:opacity-40"
-                        aria-label={`Début réel de ${r.name}`}
+                        ariaLabel={`Début réel de ${r.name}`}
+                        className="w-40"
                       />
                     </td>
                     <td className="px-2 py-2">
-                      <input
-                        type="date"
+                      <FrenchDateInput
                         name={`prevfin:${r.id}`}
                         defaultValue={r.plannedFinish ?? ""}
                         disabled={etat !== "STARTED"}
-                        className="input-base h-8 w-36 text-[12px] disabled:opacity-40"
-                        aria-label={`Prévision de fin de ${r.name}`}
+                        ariaLabel={`Prévision de fin de ${r.name}`}
+                        className="w-40"
                       />
                     </td>
                     <td className="px-2 py-2">
-                      <input
-                        type="date"
+                      <FrenchDateInput
                         name={`fin:${r.id}`}
                         defaultValue={r.actualFinish ?? ""}
                         disabled={etat !== "DONE"}
-                        className="input-base h-8 w-36 text-[12px] disabled:opacity-40"
-                        aria-label={`Fin réelle de ${r.name}`}
+                        ariaLabel={`Fin réelle de ${r.name}`}
+                        className="w-40"
                       />
                     </td>
                     <td className="px-2 py-2">

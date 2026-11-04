@@ -40,6 +40,7 @@ import {
   updateProjectMetadata,
   type CreateProjectStructureInput,
   updateProjectPilotageSettings,
+  setProjectB2PDates,
   advanceToB2P,
   type B2PAdvanceRowInput,
 } from "@/services/projects";
@@ -1555,5 +1556,42 @@ export async function advanceB2PAction(
     };
   } catch (error) {
     return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer le passage au B2P.") };
+  }
+}
+
+
+/** Onglet « Dates des B2P » : modifier une date, ajouter un B2P, recaler sur la règle FGF. */
+export async function saveB2PDatesAction(
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  try {
+    await requireProjectWriteAccess();
+    const projectId = required(formData, "projectId");
+    const intent = String(formData.get("intent") ?? "save");
+    let dates = formData.getAll("date").map(String).filter(Boolean);
+    if (intent === "reset") dates = JSON.parse(String(formData.get("recommended") ?? "[]")) as string[];
+    if (intent === "add") {
+      const last = dates[dates.length - 1];
+      const previous = dates[dates.length - 2] ?? last;
+      if (last) {
+        // Même pas que Cheetah Cost : l'écart entre les deux derniers B2P (7 jours minimum).
+        const step = Math.max(7, Math.round((Date.parse(last) - Date.parse(previous)) / 86_400_000));
+        dates.push(new Date(Date.parse(last) + step * 86_400_000).toISOString().slice(0, 10));
+      }
+    }
+    const saved = await setProjectB2PDates({ projectId, dates });
+    revalidatePath(`/projects/${projectId}`, "layout");
+    return {
+      status: "success",
+      message:
+        intent === "reset"
+          ? "Planning B2P recalé sur la règle FGF."
+          : intent === "add"
+            ? `B2P ajouté au ${new Date(`${saved[saved.length - 1]}T12:00:00Z`).toLocaleDateString("fr-FR")}.`
+            : "Dates des B2P enregistrées.",
+    };
+  } catch (error) {
+    return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer les dates des B2P.") };
   }
 }

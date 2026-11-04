@@ -1,5 +1,6 @@
 "use client";
 
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import { useActionState, useEffect, useState } from "react";
 
 import {
@@ -326,20 +327,12 @@ function DrawerFormBody({ risk, pending, state, projectId }: DrawerFormBodyProps
       <div className="grid grid-cols-2 gap-4">
         <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
           Date d&apos;identification
-          <Input
-            type="date"
-            name="identifiedDate"
-            defaultValue={risk?.identifiedDate ?? today}
-          />
+          <FrenchDateInput name="identifiedDate" defaultValue={risk?.identifiedDate ?? today} />
         </label>
 
         <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
           Date cible
-          <Input
-            type="date"
-            name="targetDate"
-            defaultValue={risk?.targetDate ?? ""}
-          />
+          <FrenchDateInput name="targetDate" defaultValue={risk?.targetDate ?? ""} />
         </label>
       </div>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import { startTransition, useActionState, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -464,7 +465,7 @@ export function ProjectCreationWizard() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className={labelCls}>Date de début</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={fieldCls} />
+              <FrenchDateInput name="_date" key={startDate} defaultValue={startDate} onChange={(iso: string) => setStartDate(iso)} />
             </div>
             <div>
               <label className={labelCls}>Date de fin initiale</label>
@@ -695,9 +696,7 @@ export function ProjectCreationWizard() {
                         {IMPOSED_KINDS.map((k) => <option key={k.value || "none"} value={k.value}>{k.label}</option>)}
                       </select>
                       {lot.impKind && (
-                        <input type="date" value={lot.impDate} min={startDate}
-                          onChange={(e) => patchLot(lot.id, { impDate: e.target.value })}
-                          className="rounded-md border border-slate-200 bg-white px-1 py-0.5 text-[11px] outline-none focus:border-[#56a45b]" />
+                        <FrenchDateInput name="_date" key={lot.impDate} defaultValue={lot.impDate} onChange={(iso: string) => patchLot(lot.id, { impDate: iso })} min={startDate} />
                       )}
                     </div>
                   )}

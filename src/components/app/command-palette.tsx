@@ -38,7 +38,7 @@ export function CommandPalette({ projects = [] }: { projects?: ProjectLink[] }) 
     ];
 
     const projectCmds: Command[] = projects.flatMap((p) => [
-      { id: `p-${p.id}-dash`, label: p.name, hint: "Tableau de bord", group: "Projets", href: `/projects/${p.id}/dashboard`, keywords: p.id },
+      { id: `p-${p.id}-dash`, label: p.name, hint: "Alerte", group: "Projets", href: `/projects/${p.id}/dashboard`, keywords: p.id },
       { id: `p-${p.id}-plan`, label: `${p.name} · Planning`, group: "Projets", href: `/projects/${p.id}/planning`, keywords: p.id },
       { id: `p-${p.id}-ana`, label: `${p.name} · Analyse`, group: "Projets", href: `/projects/${p.id}/analytics`, keywords: p.id },
     ]);
