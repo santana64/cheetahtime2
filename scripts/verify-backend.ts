@@ -890,8 +890,9 @@ async function main() {
     const leveledTask = view.tasks.find((task) => task.id === levelingTaskId);
     assert(leveledTask, "Expected leveling candidate task to exist.");
     assert(
-      (leveledTask.levelingDelayDays ?? 0) > 0,
-      "Expected resource leveling to persist a working-day delay on the candidate task.",
+      view.aggregate.dependencies.some((d) => d.kind === "RESOURCE" && d.successorTaskId === levelingTaskId) ||
+        (leveledTask.scheduledStartDate ?? "") > (leveledTask.earliestStartDate ?? ""),
+      "Expected resource leveling to push the candidate task behind a resource link.",
     );
     assert(
       view.metrics.leveledTaskCount > 0 && view.metrics.totalLevelingDelayDays > 0,
@@ -902,8 +903,9 @@ async function main() {
     const clearedLevelingTask = view.tasks.find((task) => task.id === levelingTaskId);
     assert(clearedLevelingTask, "Expected leveling candidate task after clearing delay.");
     assert(
-      (clearedLevelingTask.levelingDelayDays ?? 0) === 0,
-      "Expected clearing leveling to remove persisted delay from the task.",
+      (clearedLevelingTask.levelingDelayDays ?? 0) === 0 &&
+        !view.aggregate.dependencies.some((d) => d.kind === "RESOURCE"),
+      "Expected clearing leveling to remove resource links and delays.",
     );
 
     summary.workModelLifecycle = true;

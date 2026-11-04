@@ -16,7 +16,7 @@ function getMaxAttachmentBytes() {
 }
 
 function getAttachmentStorageRoot() {
-  return path.join(process.cwd(), "data", "attachments");
+  return path.join(/* turbopackIgnore: true */ process.cwd(), "data", "attachments");
 }
 
 function sanitizePathSegment(value: string) {

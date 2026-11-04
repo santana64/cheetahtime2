@@ -335,22 +335,8 @@ export default async function ProjectNetworkPage({
     return src?.critical && tgt?.critical;
   });
 
-  // Chemin pseudo-critique : marge totale faible (< 1,3 × la plus petite marge positive).
-  const positiveSlacks = view.tasks
-    .filter((t) => !t.isSummary && (t.totalSlackDays ?? 0) > 0)
-    .map((t) => t.totalSlackDays as number);
-  const minPositive = positiveSlacks.length ? Math.min(...positiveSlacks) : 0;
-  const pseudoThreshold = minPositive > 0 ? 1.3 * minPositive : 0;
-  const pseudo = new Set(
-    view.tasks
-      .filter(
-        (t) =>
-          !t.isCritical &&
-          (t.totalSlackDays ?? 0) > 0 &&
-          (t.totalSlackDays as number) <= pseudoThreshold,
-      )
-      .map((t) => t.id),
-  );
+  // Chemin pseudo-critique : calculé par le moteur (coefficient réglable dans Paramètres).
+  const pseudo = new Set(view.tasks.filter((t) => t.isPseudoCritical).map((t) => t.id));
 
   return (
     <div className="space-y-5">

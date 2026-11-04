@@ -7,7 +7,7 @@ import {
   scryptSync,
   timingSafeEqual,
 } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { cookies } from "next/headers";
@@ -394,13 +394,35 @@ async function readIdentityStore() {
   const storePath = getIdentityStorePath();
   await mkdir(/*turbopackIgnore: true*/ path.dirname(storePath), { recursive: true });
 
+  let raw: string;
   try {
-    const raw = await readFile(/*turbopackIgnore: true*/ storePath, "utf8");
-    return normalizeStore(JSON.parse(raw) as IdentityStore);
-  } catch {
+    raw = await readFile(/*turbopackIgnore: true*/ storePath, "utf8");
+  } catch (error) {
+    const code = typeof error === "object" && error && "code" in error ? String((error as { code?: unknown }).code) : "";
+    if (code !== "ENOENT") throw error;
+    // Premier lancement uniquement : aucun fichier d'identité → comptes par défaut.
     const store = createDefaultStore();
     await writeIdentityStore(store);
     return store;
+  }
+
+  try {
+    return normalizeStore(JSON.parse(raw) as IdentityStore);
+  } catch {
+    // Fichier illisible : ne JAMAIS l'écraser par le store par défaut (cela
+    // effaçait comptes et sessions). On tente la copie de secours, et on met
+    // le fichier abîmé de côté pour diagnostic.
+    try {
+      const backup = await readFile(/*turbopackIgnore: true*/ `${storePath}.bak`, "utf8");
+      const recovered = normalizeStore(JSON.parse(backup) as IdentityStore);
+      await rename(/*turbopackIgnore: true*/ storePath, `${storePath}.corrupt-${Date.now()}`).catch(() => {});
+      await writeIdentityStore(recovered);
+      return recovered;
+    } catch {
+      throw new Error(
+        "Le fichier des comptes (cheetah-time.identity.json) est illisible et aucune copie de secours n'est valide. Il n'a pas été modifié : restaurez-le avant de vous reconnecter.",
+      );
+    }
   }
 }
 
@@ -408,6 +430,8 @@ async function writeIdentityStore(store: IdentityStore) {
   const storePath = getIdentityStorePath();
   await mkdir(/*turbopackIgnore: true*/ path.dirname(storePath), { recursive: true });
   const normalized = normalizeStore(store);
+  // Copie de secours de la dernière version saine avant remplacement.
+  await copyFile(/*turbopackIgnore: true*/ storePath, `${storePath}.bak`).catch(() => {});
   const tempPath = `${storePath}.${randomBytes(4).toString("hex")}.tmp`;
   await writeFile(/*turbopackIgnore: true*/ tempPath, JSON.stringify(normalized, null, 2), "utf8");
   try {

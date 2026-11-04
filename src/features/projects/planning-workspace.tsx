@@ -8,6 +8,7 @@ import {
   useDeferredValue,
   useEffect,
   useEffectEvent,
+  useRef,
   useState,
   type PointerEvent,
 } from "react";
@@ -27,6 +28,7 @@ import {
 import { initialFormState } from "@/features/projects/form-state";
 import { LtResourceEditor } from "@/features/projects/lt-resource-editor";
 import { buildRecommendedB2PDates } from "@/lib/fgf/b2p";
+import { fromWorkingDays, timeUnitShortLabel } from "@/lib/planning/time-unit";
 import {
   formatDateLabel,
   formatLongDate,
@@ -169,16 +171,6 @@ function serializeCalendarExceptions(
     .join("\n");
 }
 
-function getTaskOwners(view: ProjectView, taskId: string) {
-  const resourceMap = new Map(
-    view.aggregate.resources.map((resource) => [resource.id, resource]),
-  );
-
-  return view.aggregate.assignments
-    .filter((assignment) => assignment.taskId === taskId)
-    .map((assignment) => resourceMap.get(assignment.resourceId)?.name)
-    .filter(Boolean) as string[];
-}
 
 function getFilteredTasks(view: ProjectView, query: string) {
   if (!query) {
@@ -279,6 +271,7 @@ function TimelineBar({
   owners,
   selected,
   pseudoCritical = false,
+  statusDate: statusDateProp,
   onSelect,
   onScheduleCommit,
 }: {
@@ -290,6 +283,7 @@ function TimelineBar({
   owners?: string[];
   selected: boolean;
   pseudoCritical?: boolean;
+  statusDate?: string;
   onSelect: () => void;
   onScheduleCommit: (taskId: string, startDate: string, finishDate: string) => void;
 }) {
@@ -329,7 +323,7 @@ function TimelineBar({
   // ── Mode suivi B2P (convention FGF) — actif dès qu'un PI existe ──
   // PI noir · réalisé rouge · prévision verte. Jalons en triangle.
   const hasPI = Boolean(showBaseline && baseline?.startDate && baseline?.finishDate);
-  const statusDate = todayIso();
+  const statusDate = statusDateProp ?? todayIso();
   const actualStart = task.actualStartDate ?? null;
   const rawActualEnd = task.actualFinishDate ?? statusDate;
   const actualEnd =
@@ -583,6 +577,441 @@ function TimelineBar({
   );
 }
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   GANTT BOARD — rendu virtualisé (une seule couche de fond, lignes visibles
+   seulement). Un planning de 3 000 LT ne produit qu'une cinquantaine de lignes
+   DOM ; le fond (week-ends, séparateurs, lignes) est dessiné une seule fois.
+   ══════════════════════════════════════════════════════════════════════════ */
+const GANTT_OVERSCAN = 12;
+const GANTT_HEADER_HEIGHT = 48;
+
+type GanttBoardProps = {
+  view: ProjectView;
+  tasks: ScheduledTask[];
+  selectedTaskId?: string;
+  onSelect: (taskId: string) => void;
+  onOpenInspector: (taskId: string) => void;
+  panelMode: PanelMode;
+  rowHeight: number;
+  density: (typeof DENSITY_CONFIG)[DensityMode];
+  cellWidth: number;
+  timelineStart: string;
+  timelineDays: string[];
+  scale: "day" | "week" | "month";
+  headerGroups: { key: string; label: string; startIndex: number; span: number }[];
+  boundaryIndices: Set<number>;
+  dependencies: Dependency[];
+  todayOffset: number;
+  b2pDates: string[];
+  currentB2pIndex: number;
+  statusDate: string;
+  showBaseline: boolean;
+  pseudoTaskIds: Set<string>;
+  unitLabel: string;
+  toUnit: (days: number) => number;
+  onScheduleCommit: (taskId: string, startDate: string, finishDate: string) => void;
+};
+
+function formatUnitValue(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+}
+
+function GanttBoard(props: GanttBoardProps) {
+  const {
+    view, tasks, selectedTaskId, onSelect, onOpenInspector, panelMode, rowHeight, density,
+    cellWidth, timelineStart, timelineDays, scale, headerGroups, boundaryIndices,
+    dependencies, todayOffset, b2pDates, currentB2pIndex, statusDate, showBaseline,
+    pseudoTaskIds, unitLabel, toUnit, onScheduleCommit,
+  } = props;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [viewport, setViewport] = useState({ top: 0, height: 900 });
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const update = () => setViewport({ top: el.scrollTop, height: el.clientHeight || 900 });
+    update();
+    let frame = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(update);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      cancelAnimationFrame(frame);
+      el.removeEventListener("scroll", onScroll);
+      ro.disconnect();
+    };
+  }, []);
+
+  // Garder la ligne sélectionnée visible (navigation clavier).
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !selectedTaskId) return;
+    const index = tasks.findIndex((t) => t.id === selectedTaskId);
+    if (index < 0) return;
+    const top = index * rowHeight;
+    const bottom = top + rowHeight;
+    const viewTop = el.scrollTop;
+    const viewBottom = viewTop + el.clientHeight - GANTT_HEADER_HEIGHT;
+    if (top < viewTop) el.scrollTop = top;
+    else if (bottom > viewBottom) el.scrollTop = bottom - (el.clientHeight - GANTT_HEADER_HEIGHT);
+  }, [selectedTaskId, tasks, rowHeight]);
+
+  const showTimeline = panelMode !== "grid";
+  const isNarrow = panelMode === "gantt";
+  const leftWidth = panelMode === "grid" ? 0 : isNarrow ? 300 : 520;
+  const timelineWidth = timelineDays.length * cellWidth;
+  const bodyHeight = tasks.length * rowHeight;
+  const firstIndex = Math.max(0, Math.floor(viewport.top / rowHeight) - GANTT_OVERSCAN);
+  const lastIndex = Math.min(
+    tasks.length - 1,
+    Math.ceil((viewport.top + viewport.height) / rowHeight) + GANTT_OVERSCAN,
+  );
+  const visibleTasks = tasks.slice(firstIndex, lastIndex + 1);
+
+  const positions = new Map<string, { index: number; task: ScheduledTask }>();
+  tasks.forEach((task, index) => positions.set(task.id, { index, task }));
+
+  // Owners : un seul passage sur les affectations (pas un filtre par ligne).
+  const ownersByTask = new Map<string, string[]>();
+  {
+    const resourceNames = new Map(view.aggregate.resources.map((r) => [r.id, r.name]));
+    for (const a of view.aggregate.assignments) {
+      const name = resourceNames.get(a.resourceId);
+      if (!name) continue;
+      const list = ownersByTask.get(a.taskId) ?? [];
+      list.push(name);
+      ownersByTask.set(a.taskId, list);
+    }
+  }
+
+  // Fond unique : week-ends / jours fériés (échelle jour) + séparateurs.
+  const offDayRects: number[] = [];
+  if (scale === "day") {
+    timelineDays.forEach((iso, i) => {
+      if (!isWorkingDay(iso, view.aggregate.calendar)) offDayRects.push(i);
+    });
+  }
+  const boundaryList = [...boundaryIndices];
+
+  // En-tête à deux niveaux, libellés seulement s'ils tiennent.
+  const monthGroups: { key: string; label: string; startIndex: number; span: number }[] = [];
+  timelineDays.forEach((iso, i) => {
+    const d = parseIsoDate(iso);
+    const key = `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+    const last = monthGroups[monthGroups.length - 1];
+    if (last && last.key === key) last.span += 1;
+    else
+      monthGroups.push({
+        key,
+        label: d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit", timeZone: "UTC" }),
+        startIndex: i,
+        span: 1,
+      });
+  });
+  const lowerTier: { key: string; label: string; startIndex: number; span: number; off?: boolean }[] = [];
+  if (scale === "day" && cellWidth >= 16) {
+    timelineDays.forEach((iso, i) => {
+      const d = parseIsoDate(iso);
+      lowerTier.push({
+        key: iso,
+        label: cellWidth >= 30 ? `${WEEKDAY_LABELS[d.getUTCDay()].slice(0, 2)} ${d.getUTCDate()}` : String(d.getUTCDate()),
+        startIndex: i,
+        span: 1,
+        off: !isWorkingDay(iso, view.aggregate.calendar),
+      });
+    });
+  } else if (scale !== "month" && cellWidth * 7 >= 34) {
+    const groups = scale === "week" ? headerGroups : [];
+    if (groups.length) {
+      for (const g of groups) lowerTier.push({ ...g, label: g.label.replace("sem. ", "") });
+    } else {
+      timelineDays.forEach((iso, i) => {
+        const d = parseIsoDate(iso);
+        const dow = (d.getUTCDay() + 6) % 7;
+        if (i === 0 || dow === 0) {
+          lowerTier.push({
+            key: iso,
+            label: d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", timeZone: "UTC" }),
+            startIndex: i,
+            span: 1,
+          });
+        } else {
+          lowerTier[lowerTier.length - 1].span += 1;
+        }
+      });
+    }
+  }
+  const monthLabelFits = (span: number) => span * cellWidth >= 34;
+
+  const gridCols = isNarrow
+    ? "grid-cols-[56px_minmax(0,1fr)_64px]"
+    : "grid-cols-[56px_minmax(0,1fr)_78px_78px_58px_62px]";
+
+  function slackClass(slack: number) {
+    if (slack < 0) return "text-white bg-[#e2424a] rounded px-1";
+    if (slack === 0) return "text-[#b42318]";
+    return "text-slate-700";
+  }
+
+  return (
+    <div
+      ref={scrollRef}
+      className="relative flex-1 overflow-auto bg-[#f7f6f1]"
+      style={{ minHeight: 420, height: "calc(100vh - 290px)" }}
+      role="grid"
+      aria-rowcount={tasks.length}
+    >
+      <div style={{ width: showTimeline ? leftWidth + timelineWidth : "100%", position: "relative" }}>
+        {/* ── En-tête collant ── */}
+        <div className="sticky top-0 z-40 flex" style={{ height: GANTT_HEADER_HEIGHT }}>
+          <div
+            className={cn(
+              "sticky left-0 z-50 grid items-center gap-2 border-b border-r border-border/70 bg-white px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500",
+              gridCols,
+            )}
+            style={{ width: showTimeline ? leftWidth : "100%", height: GANTT_HEADER_HEIGHT }}
+          >
+            <div>WBS</div>
+            <div>Lot de tâches</div>
+            {isNarrow ? (
+              <div className="text-right">Marge</div>
+            ) : (
+              <>
+                <div>Début</div>
+                <div>Fin</div>
+                <div>Durée</div>
+                <div className="text-right">Marge</div>
+              </>
+            )}
+          </div>
+          {showTimeline ? (
+            <div
+              className="relative border-b border-border/70 bg-[#f7f6f1]"
+              style={{ width: timelineWidth, height: GANTT_HEADER_HEIGHT }}
+            >
+              <div className="absolute inset-x-0 top-0 h-6">
+                {monthGroups.map((g) => (
+                  <div
+                    key={g.key}
+                    className="absolute top-0 flex h-6 items-center overflow-hidden border-r border-slate-300/70 px-1.5 text-[10.5px] font-bold capitalize text-[#1a4a20]"
+                    style={{ left: g.startIndex * cellWidth, width: g.span * cellWidth }}
+                    title={g.label}
+                  >
+                    {monthLabelFits(g.span) ? <span className="truncate">{g.label}</span> : null}
+                  </div>
+                ))}
+              </div>
+              <div className="absolute inset-x-0 bottom-0 h-6 border-t border-slate-200/80">
+                {lowerTier.map((g) => (
+                  <div
+                    key={g.key}
+                    className="absolute top-0 flex h-6 items-center justify-center overflow-hidden border-r border-slate-200 text-[10px] font-semibold tabular-nums"
+                    style={{
+                      left: g.startIndex * cellWidth,
+                      width: g.span * cellWidth,
+                      color: g.off ? "rgba(15,23,42,0.32)" : "rgba(15,23,42,0.6)",
+                      background: g.off ? "rgba(26,74,32,0.05)" : undefined,
+                    }}
+                  >
+                    {g.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        {/* ── Corps ── */}
+        <div className="relative" style={{ height: bodyHeight }}>
+          {showTimeline ? (
+            <>
+              {/* Fond unique (une seule couche, pas une cellule par jour et par LT). */}
+              <svg
+                className="pointer-events-none absolute top-0 z-0"
+                style={{ left: leftWidth }}
+                width={timelineWidth}
+                height={bodyHeight}
+                aria-hidden="true"
+              >
+                {offDayRects.map((i) => (
+                  <rect key={`off-${i}`} x={i * cellWidth} y={0} width={cellWidth} height={bodyHeight} fill="rgba(26,74,32,0.045)" />
+                ))}
+                {boundaryList.map((i) => (
+                  <line key={`b-${i}`} x1={i * cellWidth + 0.5} x2={i * cellWidth + 0.5} y1={0} y2={bodyHeight} stroke="rgba(15,23,42,0.10)" />
+                ))}
+              </svg>
+              {/* Liens de dépendance (seulement ceux qui touchent la fenêtre visible). */}
+              <svg
+                className="pointer-events-none absolute top-0 z-10"
+                style={{ left: leftWidth }}
+                width={timelineWidth}
+                height={bodyHeight}
+                aria-hidden="true"
+              >
+                {dependencies.map((dependency) => {
+                  const a = positions.get(dependency.predecessorTaskId);
+                  const b = positions.get(dependency.successorTaskId);
+                  if (!a || !b) return null;
+                  const lo = Math.min(a.index, b.index);
+                  const hi = Math.max(a.index, b.index);
+                  if (hi < firstIndex || lo > lastIndex) return null;
+                  const path = getDependencyPath(dependency, positions, timelineStart, cellWidth, rowHeight);
+                  if (!path) return null;
+                  return (
+                    <path key={dependency.id} d={path} fill="none" stroke="rgba(15,23,42,0.38)" strokeWidth="1.3" strokeLinecap="round" />
+                  );
+                })}
+              </svg>
+              {/* Date d'état / aujourd'hui */}
+              {todayOffset >= 0 && todayOffset < timelineDays.length ? (
+                <div
+                  className="pointer-events-none absolute inset-y-0 z-30"
+                  style={{ left: leftWidth + todayOffset * cellWidth + Math.round(cellWidth / 2) }}
+                  aria-hidden="true"
+                >
+                  <div className="h-full w-px" style={{ background: "#f4a321" }} />
+                  <span
+                    className="sticky top-[52px] ml-1 inline-block rounded px-1 text-[9px] font-black text-white"
+                    style={{ background: "#e0902a" }}
+                    title={`Date d'état : ${statusDate}`}
+                  >
+                    DATE D&apos;ÉTAT
+                  </span>
+                </div>
+              ) : null}
+              {/* Traits des B2P */}
+              {b2pDates.map((date, i) => {
+                const offset = diffCalendarDays(timelineStart, date);
+                if (offset < 0 || offset >= timelineDays.length) return null;
+                const isPast = date < statusDate;
+                const isCurrent = i === currentB2pIndex;
+                const lineColor = isCurrent ? "#f4a321" : isPast ? "#56a45b" : "rgba(15,23,42,0.30)";
+                const chipBg = isCurrent ? "#e0902a" : isPast ? "#3f8f48" : "rgba(15,23,42,0.45)";
+                return (
+                  <div
+                    key={`b2p-${i}-${date}`}
+                    className="pointer-events-none absolute inset-y-0 z-20"
+                    style={{ left: leftWidth + offset * cellWidth + Math.round(cellWidth / 2) }}
+                    aria-hidden="true"
+                  >
+                    <div
+                      className="h-full"
+                      style={{
+                        width: isCurrent ? 2 : 1,
+                        background: isCurrent || isPast ? lineColor : "transparent",
+                        borderLeft: isCurrent || isPast ? "none" : `1px dashed ${lineColor}`,
+                      }}
+                    />
+                    <span
+                      className="absolute top-0.5 left-1 rounded px-1 text-[9px] font-black text-white"
+                      style={{ background: chipBg }}
+                      title={`B2P${i}${isCurrent ? " · courant" : isPast ? " · passé" : " · à venir"} — ${date}`}
+                    >
+                      B2P{i}
+                      {isPast ? " ✓" : ""}
+                    </span>
+                  </div>
+                );
+              })}
+            </>
+          ) : null}
+
+          {/* Lignes visibles uniquement */}
+          {visibleTasks.map((task, i) => {
+            const index = firstIndex + i;
+            const selected = selectedTaskId === task.id;
+            const owners = ownersByTask.get(task.id) ?? [];
+            const slack = task.totalSlackDays ?? 0;
+            const slackUnits = toUnit(slack);
+            return (
+              <div
+                key={task.id}
+                role="row"
+                aria-rowindex={index + 1}
+                aria-selected={selected}
+                className={cn("absolute left-0 flex border-b border-border/50", selected ? "bg-[#56a45b]/[0.09]" : "hover:bg-slate-100/50")}
+                style={{ top: index * rowHeight, height: rowHeight, width: showTimeline ? leftWidth + timelineWidth : "100%" }}
+                onClick={() => onSelect(task.id)}
+                onDoubleClick={() => onOpenInspector(task.id)}
+              >
+                <button
+                  type="button"
+                  className={cn(
+                    "sticky left-0 z-30 grid h-full items-center gap-2 border-r border-border/70 px-3 text-left",
+                    gridCols,
+                    selected ? "bg-[#eef6ee]" : "bg-white",
+                  )}
+                  style={{ width: showTimeline ? leftWidth : "100%" }}
+                  title={`${task.wbsCode} — ${task.name} (double-clic pour éditer)`}
+                >
+                  <span className="truncate font-mono text-[11px] font-semibold text-slate-500">{task.wbsCode}</span>
+                  <span className="flex min-w-0 items-center gap-1.5" style={{ paddingLeft: Math.min(task.depth, 6) * 12 }}>
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ background: task.isCritical ? "#e2424a" : pseudoTaskIds.has(task.id) ? "#f4a321" : task.status === "DONE" ? "#56a45b" : "#94a3b8" }}
+                      aria-hidden="true"
+                    />
+                    <span className="min-w-0">
+                      <span className={cn("block truncate font-semibold text-slate-900", density.taskText, task.isSummary && "font-black text-[#1a4a20]")}>
+                        {task.name}
+                      </span>
+                      {!isNarrow && rowHeight >= 40 ? (
+                        <span className={cn("block truncate text-slate-500", density.subText)}>
+                          {owners.length ? owners.join(", ") : formatTaskTypeLabel(task.type)}
+                        </span>
+                      ) : null}
+                    </span>
+                  </span>
+                  {isNarrow ? null : (
+                    <>
+                      <span className="font-mono text-[11px] tabular-nums text-slate-700">{formatDateLabel(task.scheduledStartDate)}</span>
+                      <span className="font-mono text-[11px] tabular-nums text-slate-700">{formatDateLabel(task.scheduledFinishDate)}</span>
+                      <span className="font-mono text-[11px] tabular-nums text-slate-700">
+                        {formatUnitValue(toUnit(task.durationDays))} {unitLabel}
+                      </span>
+                    </>
+                  )}
+                  <span className={cn("justify-self-end font-mono text-[11px] font-bold tabular-nums", slackClass(slack))} title={slack < 0 ? "Marge négative : la date imposée ne peut pas être tenue" : undefined}>
+                    {slack > 0 ? "" : slack < 0 ? "−" : ""}
+                    {formatUnitValue(Math.abs(slackUnits))} {unitLabel}
+                  </span>
+                </button>
+                {showTimeline ? (
+                  <div className="relative h-full" style={{ width: timelineWidth }}>
+                    <TimelineBar
+                      task={task}
+                      baseline={view.baselineVarianceByTaskId[task.id]?.snapshot}
+                      timelineStart={timelineStart}
+                      cellWidth={cellWidth}
+                      showBaseline={showBaseline}
+                      owners={owners}
+                      selected={selected}
+                      pseudoCritical={pseudoTaskIds.has(task.id)}
+                      statusDate={statusDate}
+                      onSelect={() => onSelect(task.id)}
+                      onScheduleCommit={onScheduleCommit}
+                    />
+                    {task.progressPercent > 0 && task.type !== "SUMMARY" && rowHeight >= 30 ? (
+                      <div className="pointer-events-none absolute right-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm">
+                        {formatPercent(task.progressPercent)}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 type PanelMode = 'all' | 'grid' | 'gantt' | 'inspector';
 type PanelModeConfig = { mode: PanelMode; label: string; title: string; icon: string };
 
@@ -629,11 +1058,14 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
 
   // Panel focus mode — controls layout of the 3 panels
   const [panelMode, setPanelMode] = useState<PanelMode>('all');
+  // L'inspecteur ne vole plus la place du Gantt : il s'ouvre à la demande
+  // (bouton « Éditer le LT » ou double-clic sur une ligne).
+  const [inspectorOpen, setInspectorOpen] = useState(false);
   const PANEL_MODES: PanelModeConfig[] = [
-    { mode: 'all',       label: 'Tout',        title: 'Vue complete : liste + Gantt + Inspecteur', icon: 'M3 3h7v7H3V3zm11 0h7v7h-7V3zm0 11h7v7h-7v-7zM3 14h7v7H3v-7z' },
-    { mode: 'grid',      label: 'Liste',        title: 'Liste + Inspecteur (Gantt masque)',         icon: 'M3 5h18M3 10h18M3 15h18M3 20h18' },
-    { mode: 'gantt',     label: 'Gantt',        title: 'Gantt complet (Inspecteur masque)',         icon: 'M3 6h18M3 12h12M3 18h8' },
-    { mode: 'inspector', label: 'LT',            title: 'Éditer le LT sélectionné : prédécesseurs, ressources, dates, durée…', icon: 'M15 3H3v18h12V3zm6 4h-4m4 4h-4m4 4h-4' },
+    { mode: 'all',       label: 'Tableau + Gantt', title: 'Tableau des LT et Gantt côte à côte', icon: 'M3 3h7v7H3V3zm11 0h7v7h-7V3zm0 11h7v7h-7v-7zM3 14h7v7H3v-7z' },
+    { mode: 'grid',      label: 'Tableau',         title: 'Tableau des LT seul (Gantt masqué)',  icon: 'M3 5h18M3 10h18M3 15h18M3 20h18' },
+    { mode: 'gantt',     label: 'Gantt',           title: 'Gantt pleine largeur',                icon: 'M3 6h18M3 12h12M3 18h8' },
+    { mode: 'inspector', label: 'Éditer le LT',    title: 'Éditer le LT sélectionné : prédécesseurs, ressources, dates, durée…', icon: 'M15 3H3v18h12V3zm6 4h-4m4 4h-4m4 4h-4' },
   ];
   const EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
   const TRANS = `all 0.38s ${EASING}`;
@@ -966,7 +1398,6 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
       ? Math.max(3, Math.min(CELL_WIDTH, FIT_WIDTH / timelineDays.length))
       : CELL_WIDTH;
   const cellWidth = Math.max(2, Math.round(fitCell * zoom));
-  const timelineWidth = timelineDays.length * cellWidth;
 
   // Échelle de temps selon l'UNITÉ du projet (spec François 29/08) : mois → colonnes
   // mensuelles, semaine → colonnes hebdo, jour → colonnes journalières (L/Ma/Me visibles
@@ -1003,24 +1434,9 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
   } else {
     for (const g of headerGroups) boundaryIndices.add(g.startIndex);
   }
-  // Chemin pseudo-critique (spec FGF) : marge totale < 1,3 × la plus petite marge positive.
-  const pseudoTaskIds = (() => {
-    const positive = view.tasks
-      .filter((t) => !t.isSummary && (t.totalSlackDays ?? 0) > 0)
-      .map((t) => t.totalSlackDays as number);
-    const minPos = positive.length ? Math.min(...positive) : 0;
-    const thr = minPos > 0 ? 1.3 * minPos : 0;
-    return new Set(
-      view.tasks
-        .filter(
-          (t) => !t.isCritical && (t.totalSlackDays ?? 0) > 0 && (t.totalSlackDays as number) <= thr,
-        )
-        .map((t) => t.id),
-    );
-  })();
-  const taskPositions = new Map(
-    filteredTasks.map((task, index) => [task.id, { index, task }]),
-  );
+  // Chemin pseudo-critique : calculé par le moteur avec le coefficient du projet
+  // (Paramètres → « Coefficient pseudo-critique », 1,3 par défaut).
+  const pseudoTaskIds = new Set(view.tasks.filter((t) => t.isPseudoCritical).map((t) => t.id));
   const dependencyProjectOptions = view.dependencyOptions;
   const selectedPredecessorProject =
     dependencyProjectOptions.find(
@@ -1063,7 +1479,6 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
       ? getTaskDailyCapacityHours(view.aggregate, selectedTask.id)
       : 0;
   const hasTasks = view.tasks.length > 0;
-  const hasFilteredTasks = filteredTasks.length > 0;
 
   return (
     <>
@@ -1081,150 +1496,156 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
         }}
       >
       <Card className="flex flex-col overflow-hidden border-white/60 bg-[#fbfaf6]/85 h-full">
-        <CardHeader className="border-b border-border/70 bg-white/80 shrink-0">
-          <div className="flex flex-col gap-3">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  Espace de planification
-                </div>
-                <CardTitle className="mt-1 text-xl">Grille et Gantt integres</CardTitle>
-              </div>
-              {/* ── Panel mode switcher ── */}
-              <div
-                className="flex items-center gap-0.5 rounded-xl p-1 shrink-0"
-                style={{ background: 'rgba(0,0,0,0.055)', border: '1px solid rgba(0,0,0,0.07)' }}
-              >
-                {PANEL_MODES.map(({ mode, label, title, icon }) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    title={title}
-                    onClick={() => setPanelMode(mode)}
-                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] transition-all duration-200"
-                    style={
-                      panelMode === mode
-                        ? { background: 'linear-gradient(135deg, #1a4a20, #56a45b)', color: 'white', boxShadow: '0 2px 8px rgba(86,164,91,0.35)' }
-                        : { color: 'rgba(0,0,0,0.45)', background: 'transparent' }
-                    }
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d={icon} />
-                    </svg>
-                    <span className="hidden sm:inline">{label}</span>
-                  </button>
-                ))}
-              </div>
+        <CardHeader className="shrink-0 border-b border-border/70 bg-white px-4 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="mr-2 min-w-0">
+              <div className="section-label">Planning</div>
+              <CardTitle className="text-[15px] font-black text-[#0d1f10]">Lots de tâches et Gantt</CardTitle>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Filtrer les taches, le WBS ou les notes"
-                className="w-56 bg-white"
-              />
-              <form action={createTaskAction}>
-                <input type="hidden" name="projectId" value={view.aggregate.project.id} />
-                <input
-                  type="hidden"
-                  name="parentId"
-                  value={selectedTask?.parentId ?? ""}
-                />
-                <Button variant="outline" type="submit">
-                  {selectedTask ? "Ajouter une soeur" : "Ajouter une tache racine"}
-                </Button>
-              </form>
-              <form action={createTaskAction}>
-                <input type="hidden" name="projectId" value={view.aggregate.project.id} />
-                <input type="hidden" name="parentId" value={selectedTask?.id ?? ""} />
-                <Button type="submit" disabled={!selectedTask}>
-                  Ajouter un enfant
-                </Button>
-              </form>
-              <form action={createTaskAction}>
-                <input type="hidden" name="projectId" value={view.aggregate.project.id} />
-                <input
-                  type="hidden"
-                  name="parentId"
-                  value={selectedTask?.parentId ?? ""}
-                />
-                <input type="hidden" name="type" value="MILESTONE" />
-                <input type="hidden" name="name" value="Nouveau jalon" />
-                <Button variant="outline" type="submit">
-                  Ajouter un jalon
-                </Button>
-              </form>
-              <form action={captureBaselineAction}>
-                <input type="hidden" name="projectId" value={view.aggregate.project.id} />
-                <input
-                  type="hidden"
-                  name="baselineName"
-                  value={`PI (Planning Initial) ${new Date().toLocaleDateString("fr-FR")}`}
-                />
-                <input type="hidden" name="capturedBy" value={view.aggregate.project.ownerName} />
-                <Button
-                  variant="secondary"
-                  type="submit"
-                  title="Enregistre le planning courant comme nouvelle variante ET la désigne comme PI : trait noir sur le Gantt, suivi B2P en rouge (réalisé) et vert (prévision). Gérez les variantes P01→P99 dans le panneau en haut de l'onglet."
+            {/* ── Vue ── */}
+            <div className="flex items-center gap-0.5 rounded-xl p-1" style={{ background: 'rgba(0,0,0,0.045)', border: '1px solid rgba(0,0,0,0.06)' }}>
+              {PANEL_MODES.map(({ mode, label, title, icon }) => (
+                <button
+                  key={mode}
+                  type="button"
+                  title={title}
+                  aria-pressed={panelMode === mode}
+                  onClick={() => setPanelMode(mode)}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11.5px] font-bold transition-all duration-200"
+                  style={
+                    panelMode === mode
+                      ? { background: 'linear-gradient(135deg, #56a45b, #3f8f48)', color: 'white', boxShadow: '0 2px 8px rgba(86,164,91,0.35)' }
+                      : { color: 'rgba(0,0,0,0.55)', background: 'transparent' }
+                  }
                 >
-                  Figer le planning courant (PI)
-                </Button>
-              </form>
-              <div
-                className={cn(
-                  "rounded-full px-3 py-2 text-xs font-medium",
-                  ganttState.status === "error"
-                    ? "bg-rose-50 text-rose-700"
-                    : ganttState.status === "success"
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-slate-100 text-slate-600",
-                )}
-              >
-                {ganttPending
-                  ? "Application du geste Gantt..."
-                  : ganttState.message ||
-                    "Gantt direct: glissez une barre, ou redimensionnez ses bords."}
-              </div>
-              <div className="flex items-center gap-1 rounded-full bg-slate-100 p-1">
-                {(Object.keys(DENSITY_CONFIG) as DensityMode[]).map((mode, index) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    title={`Ctrl+${index + 1}`}
-                    onClick={() => setDensity(mode)}
-                    className={cn(
-                      "rounded-full px-2.5 py-1 text-[11px] font-bold",
-                      density === mode ? "bg-white text-[#1a4a20] shadow-sm" : "text-slate-500",
-                    )}
-                  >
-                    {DENSITY_CONFIG[mode].label}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowBaseline((current) => !current)}
-                className={cn(
-                  "rounded-full px-3 py-2 text-xs font-semibold",
-                  showBaseline ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600",
-                )}
-              >
-                Baseline
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCriticalOnly((current) => !current)}
-                className={cn(
-                  "rounded-full px-3 py-2 text-xs font-semibold",
-                  showCriticalOnly ? "bg-rose-700 text-white" : "bg-slate-100 text-slate-600",
-                )}
-              >
-                Critique
-              </button>
-              <div className="rounded-full bg-white px-3 py-2 text-xs text-slate-500">
-                {keyboardNotice}
-              </div>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d={icon} />
+                  </svg>
+                  <span className="hidden lg:inline">{label}</span>
+                </button>
+              ))}
             </div>
+            {/* ── Zoom ── */}
+            {panelMode !== 'grid' ? (
+              <div className="flex items-center gap-0.5 rounded-xl bg-slate-100 p-1" aria-label="Zoom du Gantt">
+                <button type="button" className="rounded-lg px-2 py-1 text-[12px] font-black text-slate-600 hover:bg-white" onClick={() => setZoom((z) => Math.max(0.5, z / 1.5))} title="Dézoomer (−)">−</button>
+                <button type="button" className="rounded-lg px-2 py-1 text-[11px] font-bold text-slate-600 hover:bg-white" onClick={() => setZoom(1)} title="Projet entier (F)">Ajuster</button>
+                <button type="button" className="rounded-lg px-2 py-1 text-[12px] font-black text-slate-600 hover:bg-white" onClick={() => setZoom((z) => Math.min(24, z * 1.5))} title="Zoomer (+)">+</button>
+              </div>
+            ) : null}
+            <div className="flex items-center gap-0.5 rounded-xl bg-slate-100 p-1">
+              {(Object.keys(DENSITY_CONFIG) as DensityMode[]).map((mode, index) => (
+                <button
+                  key={mode}
+                  type="button"
+                  title={`Densité ${DENSITY_CONFIG[mode].label} (Ctrl+${index + 1})`}
+                  onClick={() => setDensity(mode)}
+                  className={cn(
+                    "rounded-lg px-2 py-1 text-[11px] font-bold",
+                    density === mode ? "bg-white text-[#1a4a20] shadow-sm" : "text-slate-500",
+                  )}
+                >
+                  {DENSITY_CONFIG[mode].label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              aria-pressed={showBaseline}
+              onClick={() => setShowBaseline((current) => !current)}
+              className={cn("rounded-xl px-3 py-1.5 text-[11.5px] font-bold", showBaseline ? "bg-[#111827] text-white" : "bg-slate-100 text-slate-600")}
+              title="Afficher le Planning Initial (PI) en trait noir"
+            >
+              PI
+            </button>
+            <button
+              type="button"
+              aria-pressed={showCriticalOnly}
+              onClick={() => setShowCriticalOnly((current) => !current)}
+              className={cn("rounded-xl px-3 py-1.5 text-[11.5px] font-bold", showCriticalOnly ? "bg-[#e2424a] text-white" : "bg-slate-100 text-slate-600")}
+              title="N'afficher que le chemin critique et les jalons"
+            >
+              Chemin critique
+            </button>
+            <button
+              type="button"
+              aria-pressed={inspectorOpen}
+              onClick={() => setInspectorOpen((v) => !v)}
+              className={cn("rounded-xl px-3 py-1.5 text-[11.5px] font-bold", inspectorOpen ? "bg-[#1a4a20] text-white" : "bg-slate-100 text-slate-600")}
+              title="Ouvrir / fermer l'inspecteur du LT sélectionné (double-clic sur une ligne)"
+            >
+              Inspecteur
+            </button>
+            <div className="flex-1" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Filtrer les LT, le WBS, les notes…"
+              aria-label="Filtrer les lots de tâches"
+              className="h-8 w-56 bg-white text-[12px]"
+            />
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <form action={createTaskAction}>
+              <input type="hidden" name="projectId" value={view.aggregate.project.id} />
+              <input type="hidden" name="parentId" value={selectedTask?.parentId ?? ""} />
+              <Button variant="outline" size="sm" type="submit">
+                {selectedTask ? "+ LT au même niveau" : "+ LT racine"}
+              </Button>
+            </form>
+            <form action={createTaskAction}>
+              <input type="hidden" name="projectId" value={view.aggregate.project.id} />
+              <input type="hidden" name="parentId" value={selectedTask?.id ?? ""} />
+              <Button size="sm" variant="outline" type="submit" disabled={!selectedTask}>
+                + Sous-LT
+              </Button>
+            </form>
+            <form action={createTaskAction}>
+              <input type="hidden" name="projectId" value={view.aggregate.project.id} />
+              <input type="hidden" name="parentId" value={selectedTask?.parentId ?? ""} />
+              <input type="hidden" name="type" value="MILESTONE" />
+              <input type="hidden" name="name" value="Nouveau jalon" />
+              <Button variant="outline" size="sm" type="submit">
+                + Jalon
+              </Button>
+            </form>
+            <form action={captureBaselineAction}>
+              <input type="hidden" name="projectId" value={view.aggregate.project.id} />
+              <input type="hidden" name="baselineName" value={`PI (Planning Initial) ${new Date().toLocaleDateString("fr-FR")}`} />
+              <input type="hidden" name="capturedBy" value={view.aggregate.project.ownerName} />
+              <Button
+                variant="secondary"
+                size="sm"
+                type="submit"
+                title="Enregistre le planning courant comme nouvelle variante ET la désigne comme PI : trait noir sur le Gantt, suivi B2P en rouge (réalisé) et vert (prévision)."
+              >
+                Figer le planning (PI)
+              </Button>
+            </form>
+            <div
+              role="status"
+              aria-live="polite"
+              className={cn(
+                "rounded-full px-3 py-1 text-[11px] font-medium",
+                ganttState.status === "error"
+                  ? "bg-rose-50 text-rose-700"
+                  : ganttState.status === "success"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "text-slate-500",
+              )}
+            >
+              {ganttPending
+                ? "Application du déplacement…"
+                : ganttState.message || "Glissez une barre pour la déplacer, ses bords pour la redimensionner."}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowKeyboardHelp(true)}
+              className="ml-auto rounded-full px-2 py-1 text-[11px] font-semibold text-slate-400 hover:text-slate-700"
+              title={keyboardNotice}
+            >
+              Raccourcis clavier (?)
+            </button>
           </div>
         </CardHeader>
         <CardContent className="p-0 flex flex-col flex-1 overflow-hidden">
@@ -1253,326 +1674,41 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
             </div>
           ) : null}
           {hasTasks ? (
-            <div className="flex flex-1 min-h-0" style={{ overflow: 'hidden' }}>
-              {/* ── SOMMAIRE (task grid) ── */}
-              <div
-                className="border-r border-border/70 bg-white/75 overflow-hidden flex-shrink-0 flex flex-col"
-                style={{
-                  transition: `width 0.38s ${EASING}`,
-                  width: panelMode === 'grid' ? '100%' : panelMode === 'gantt' ? 200 : 390,
-                  maxWidth: panelMode === 'grid' ? undefined : panelMode === 'gantt' ? 200 : 390,
-                }}
-              >
-                {/* Column headers — hide DEBUT/FIN/DUR/MARGE in narrow (gantt) mode */}
-                {panelMode === 'gantt' ? (
-                  <div className="flex h-14 items-center border-b border-border/70 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                    Taches
-                  </div>
-                ) : (
-                <div className="grid h-14 grid-cols-[60px_minmax(0,1fr)_80px_80px_60px_70px] items-center border-b border-border/70 px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 shrink-0">
-                  <div>WBS</div>
-                  <div>Tache</div>
-                  <div>Debut</div>
-                  <div>Fin</div>
-                  <div>Dur.</div>
-                  <div>Marge</div>
-                </div>
-                )}
-                <div className="overflow-y-auto flex-1">
-                  {hasFilteredTasks ? (
-                    filteredTasks.map((task) => {
-                      const owners = getTaskOwners(view, task.id);
-                      const selected = selectedTask?.id === task.id;
-                      const isNarrow = panelMode === 'gantt';
-
-                      return (
-                        <button
-                          key={task.id}
-                          type="button"
-                          className={cn(
-                            "w-full items-center border-b border-border/50 px-3 text-left transition flex",
-                            isNarrow ? "gap-1.5" : "grid",
-                            !isNarrow && "grid-cols-[60px_minmax(0,1fr)_80px_80px_60px_70px]",
-                            selected
-                              ? "bg-teal-950/[0.06]"
-                              : "bg-transparent hover:bg-slate-100/70",
-                          )}
-                          style={{ height: rowHeight }}
-                          onClick={() =>
-                            startTransition(() => {
-                              setSelectedTaskId(task.id);
-                            })
-                          }
-                        >
-                          {isNarrow ? (
-                            /* Narrow mode: just coloured dot + name */
-                            <>
-                              <span
-                                className="shrink-0 size-2 rounded-full"
-                                style={{
-                                  background: task.isCritical ? '#e55353' : task.status === 'DONE' ? '#56a45b' : '#94a3b8',
-                                  marginLeft: `${task.depth * 10}px`,
-                                }}
-                              />
-                              <span className="truncate text-xs font-medium text-slate-800">
-                                {task.name}
-                              </span>
-                            </>
-                          ) : (
-                            /* Full mode: all columns */
-                            <>
-                              <div className="text-xs font-semibold text-slate-500">{task.wbsCode}</div>
-                              <div className="min-w-0" style={{ paddingLeft: `${task.depth * 14}px` }}>
-                                <div className={cn("truncate font-medium text-slate-950", densityConfig.taskText)}>
-                                  {task.name}
-                                </div>
-                                <div className={cn("truncate text-slate-500", densityConfig.subText)}>
-                                  {owners.length ? owners.join(", ") : formatTaskTypeLabel(task.type)}
-                                </div>
-                              </div>
-                              <div className="text-xs text-slate-700">
-                                {formatDateLabel(task.scheduledStartDate)}
-                              </div>
-                              <div className="text-xs text-slate-700">
-                                {formatDateLabel(task.scheduledFinishDate)}
-                              </div>
-                              <div className="text-xs text-slate-700">{task.durationDays}d</div>
-                              <div
-                                className={cn(
-                                  "text-xs font-semibold",
-                                  (task.totalSlackDays ?? 0) <= 0
-                                    ? "text-rose-700"
-                                    : "text-slate-700",
-                                )}
-                              >
-                                {task.totalSlackDays ?? 0}d
-                              </div>
-                            </>
-                          )}
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <div className="px-6 py-12 text-sm text-slate-500">
-                      Aucune tache ne correspond au filtre actuel. Effacez la recherche pour retrouver toute la decomposition.
-                    </div>
-                  )}
-                </div>
+            filteredTasks.length === 0 ? (
+              <div className="flex min-h-[280px] items-center justify-center px-8 text-center text-sm text-slate-500">
+                Aucun lot de tâches ne correspond au filtre. Effacez la recherche pour retrouver toute la décomposition.
               </div>
-              {/* ── GANTT (timeline) ── */}
-              <div
-                className="bg-[#f7f6f1] flex-1 min-w-0"
-                style={{
-                  transition: TRANS,
-                  overflow: panelMode === 'grid' ? 'hidden' : 'auto',
-                  maxWidth: panelMode === 'grid' ? 0 : undefined,
-                  opacity: panelMode === 'grid' ? 0 : 1,
-                  pointerEvents: panelMode === 'grid' ? 'none' : undefined,
-                }}
-              >
-                {hasFilteredTasks ? (
-                  <div style={{ width: timelineWidth }}>
-                    {scale === "day" ? (
-                      <div className="sticky top-0 z-20 grid h-14 grid-flow-col border-b border-border/70 bg-[#f7f6f1]/95 backdrop-blur">
-                        {timelineDays.map((date) => {
-                          const day = parseIsoDate(date);
-                          const workday = isWorkingDay(date, view.aggregate.calendar);
-                          const isMonthBoundary = day.getUTCDate() === 1;
-                          const isWeekStart = day.getUTCDay() === 1;
-                          return (
-                            <div
-                              key={date}
-                              className="flex h-14 flex-col items-center justify-center text-[10px] font-semibold uppercase tracking-[0.1em]"
-                              style={{
-                                width: cellWidth,
-                                borderRight: isWeekStart
-                                  ? "1px solid rgba(15,23,42,0.14)"
-                                  : "1px solid rgba(15,23,42,0.04)",
-                                background: workday ? "transparent" : "rgba(26,74,32,0.05)",
-                                color: workday ? "rgba(15,23,42,0.48)" : "rgba(15,23,42,0.30)",
-                              }}
-                            >
-                              <div>{WEEKDAY_LABELS[day.getUTCDay()]}</div>
-                              <div className="text-[13px] font-bold tracking-normal text-slate-800">
-                                {day.getUTCDate()}
-                              </div>
-                              {isMonthBoundary ? (
-                                <div className="text-[9px] font-bold" style={{ color: "#3f8f48" }}>
-                                  {day.toLocaleString("fr-FR", {
-                                    month: "short",
-                                    timeZone: "UTC",
-                                  })}
-                                </div>
-                              ) : null}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      /* Échelle mois / semaine : colonnes groupées, sans libellés de jour. */
-                      <div className="sticky top-0 z-20 flex h-14 border-b border-border/70 bg-[#f7f6f1]/95 backdrop-blur">
-                        {headerGroups.map((g) => (
-                          <div
-                            key={g.key}
-                            className="flex h-14 items-center justify-center text-[11.5px] font-bold capitalize tracking-[0.02em]"
-                            style={{
-                              width: g.span * cellWidth,
-                              borderRight: "1px solid rgba(15,23,42,0.14)",
-                              color: "#1a4a20",
-                            }}
-                          >
-                            <span className="truncate px-1">{g.label}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="relative">
-                      <svg
-                        className="pointer-events-none absolute inset-0 z-10"
-                        width={timelineWidth}
-                        height={filteredTasks.length * rowHeight}
-                        aria-hidden="true"
-                      >
-                        {ganttDependencies
-                          .map((dependency) => {
-                            const path = getDependencyPath(
-                              dependency,
-                              taskPositions,
-                              timelineStart,
-                              cellWidth,
-                              rowHeight,
-                            );
-
-                            if (!path) {
-                              return null;
-                            }
-
-                            return (
-                              <path
-                                key={dependency.id}
-                                d={path}
-                                fill="none"
-                                stroke="rgba(15, 23, 42, 0.38)"
-                                strokeWidth="1.3"
-                                strokeLinecap="round"
-                              />
-                            );
-                          })}
-                      </svg>
-                      {/* ── Ligne « aujourd'hui » (orange Cheetah) ── */}
-                      {todayOffset >= 0 && todayOffset < timelineDays.length ? (
-                        <div
-                          className="pointer-events-none absolute inset-y-0 z-20"
-                          style={{ left: todayOffset * cellWidth + Math.round(cellWidth / 2) }}
-                          aria-hidden="true"
-                        >
-                          <div className="h-full w-px" style={{ background: "#f4a321", boxShadow: "0 0 6px rgba(244,163,33,0.55)" }} />
-                          <span
-                            className="absolute -top-[1px] left-1 rounded px-1 text-[9px] font-black text-white"
-                            style={{ background: "#e0902a" }}
-                          >
-                            AUJ.
-                          </span>
-                        </div>
-                      ) : null}
-                      {/* ── Traits verticaux des B2P (méthode FGF, charte Cheetah) ── */}
-                      <div className="pointer-events-none absolute inset-y-0 left-0 right-0 z-10" aria-hidden="true">
-                        {b2pGanttDates.map((date, i) => {
-                          const offset = diffCalendarDays(timelineStart, date);
-                          if (offset < 0 || offset >= timelineDays.length) return null;
-                          const isPast = date < b2pTodayIso;
-                          const isCurrent = i === currentB2pIndex;
-                          // Passé = vert Cheetah · courant = orange · futur = gris pointillé.
-                          const lineColor = isCurrent ? "#f4a321" : isPast ? "#56a45b" : "rgba(15,23,42,0.30)";
-                          const chipBg = isCurrent ? "#e0902a" : isPast ? "#3f8f48" : "rgba(15,23,42,0.45)";
-                          return (
-                            <div
-                              key={`b2p-${i}-${date}`}
-                              className="absolute inset-y-0"
-                              style={{ left: offset * cellWidth + Math.round(cellWidth / 2) }}
-                            >
-                              <div
-                                className="h-full"
-                                style={{
-                                  width: isCurrent ? 2 : 1,
-                                  background: isCurrent || isPast ? lineColor : "transparent",
-                                  borderLeft: isCurrent || isPast ? "none" : `1px dashed ${lineColor}`,
-                                }}
-                              />
-                              <span
-                                className="absolute top-0.5 left-1 rounded px-1 text-[9px] font-black text-white"
-                                style={{ background: chipBg }}
-                                title={`B2P${i}${isCurrent ? " · courant" : isPast ? " · passé" : " · à venir"} — ${date}`}
-                              >
-                                B2P{i}
-                                {isPast ? " ✓" : ""}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {filteredTasks.map((task) => (
-                        <div
-                          key={task.id}
-                          className={cn(
-                            "relative border-b border-border/50",
-                            selectedTask?.id === task.id
-                              ? "bg-teal-950/[0.05]"
-                              : "bg-transparent",
-                          )}
-                          style={{ height: rowHeight }}
-                        >
-                          <div className="absolute inset-y-0 left-0 right-0 grid grid-flow-col">
-                            {timelineDays.map((date, di) => {
-                              const isBoundary = boundaryIndices.has(di);
-                              // Grisé week-end seulement en échelle « jour » (sinon rayures parasites).
-                              const off = scale === "day" && !isWorkingDay(date, view.aggregate.calendar);
-                              return (
-                                <div
-                                  key={`${task.id}-${date}`}
-                                  style={{
-                                    width: cellWidth,
-                                    borderRight: isBoundary
-                                      ? "1px solid rgba(15,23,42,0.10)"
-                                      : "1px solid rgba(15,23,42,0.028)",
-                                    background: off ? "rgba(26,74,32,0.04)" : "transparent",
-                                  }}
-                                />
-                              );
-                            })}
-                          </div>
-                          <TimelineBar
-                            task={task}
-                            baseline={view.baselineVarianceByTaskId[task.id]?.snapshot}
-                            timelineStart={timelineStart}
-                            cellWidth={cellWidth}
-                            showBaseline={showBaseline}
-                            owners={getTaskOwners(view, task.id)}
-                            selected={selectedTask?.id === task.id}
-                            pseudoCritical={pseudoTaskIds.has(task.id)}
-                            onSelect={() => setSelectedTaskId(task.id)}
-                            onScheduleCommit={commitGanttSchedule}
-                          />
-                          <div
-                            className="absolute inset-0 z-20 cursor-pointer"
-                            onClick={() => setSelectedTaskId(task.id)}
-                          />
-                          {task.progressPercent > 0 && task.type !== "SUMMARY" ? (
-                            <div className="absolute right-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/85 px-2 py-0.5 text-[10px] font-semibold text-slate-700 shadow-sm">
-                              {formatPercent(task.progressPercent)}
-                            </div>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex min-h-[280px] items-center justify-center px-8 text-center text-sm text-slate-500">
-                    Le calendrier est masque car le filtre actuel retire toutes les taches visibles.
-                  </div>
-                )}
-              </div>
-            </div>
+            ) : (
+            <GanttBoard
+              view={view}
+              tasks={filteredTasks}
+              selectedTaskId={selectedTask?.id}
+              onSelect={(id) => startTransition(() => setSelectedTaskId(id))}
+              onOpenInspector={(id) => {
+                setSelectedTaskId(id);
+                setInspectorOpen(true);
+              }}
+              panelMode={panelMode}
+              rowHeight={rowHeight}
+              density={densityConfig}
+              cellWidth={cellWidth}
+              timelineStart={timelineStart}
+              timelineDays={timelineDays}
+              scale={scale}
+              headerGroups={headerGroups}
+              boundaryIndices={boundaryIndices}
+              dependencies={ganttDependencies}
+              todayOffset={todayOffset}
+              b2pDates={b2pGanttDates}
+              currentB2pIndex={currentB2pIndex}
+              statusDate={b2pTodayIso}
+              showBaseline={showBaseline}
+              pseudoTaskIds={pseudoTaskIds}
+              unitLabel={timeUnitShortLabel(timeUnit)}
+              toUnit={(d) => fromWorkingDays(d, timeUnit)}
+              onScheduleCommit={commitGanttSchedule}
+            />
+            )
           ) : (
             <div className="p-6">
               <EmptyState
@@ -1607,21 +1743,33 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
         className="flex-shrink-0 overflow-hidden"
         style={{
           transition: TRANS,
-          width: panelMode === 'gantt' ? 0 : panelMode === 'inspector' ? undefined : 360,
+          width: panelMode === 'inspector' ? undefined : inspectorOpen ? 380 : 0,
           flex: panelMode === 'inspector' ? '1 1 0' : undefined,
-          opacity: panelMode === 'gantt' ? 0 : 1,
-          pointerEvents: panelMode === 'gantt' ? 'none' : undefined,
+          opacity: panelMode === 'inspector' || inspectorOpen ? 1 : 0,
+          pointerEvents: panelMode === 'inspector' || inspectorOpen ? undefined : 'none',
           minWidth: panelMode === 'inspector' ? 0 : undefined,
         }}
       >
       <div className="space-y-5 h-full overflow-y-auto pr-0.5">
         <Card className="border-white/70 bg-white/95">
           <CardHeader className="border-b border-border/70 pb-4">
-            <CardTitle className="text-xl">Inspecteur de tache</CardTitle>
-            <p className="text-sm leading-6 text-slate-600">
-              Mettez a jour la ligne selectionnee, puis affinez la logique des precedences
-              ou capturez une baseline quand le planning est stabilise.
-            </p>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="section-label">Inspecteur</div>
+                <CardTitle className="mt-0.5 text-[15px] font-black text-[#0d1f10]">Lot de tâches sélectionné</CardTitle>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setInspectorOpen(false);
+                  if (panelMode === 'inspector') setPanelMode('all');
+                }}
+                className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-500 hover:bg-slate-50"
+                aria-label="Fermer l'inspecteur"
+              >
+                Fermer ✕
+              </button>
+            </div>
           </CardHeader>
           <CardContent className="space-y-6 p-5">
             {selectedTask ? (

@@ -146,6 +146,13 @@ export interface Project {
   b2pScenarios?: Record<string, string>;
   /** Unité de temps choisie à la création (saisie/affichage des durées). */
   timeUnit?: TimeUnit | null;
+  /**
+   * Date d'état (data date) : le reste à faire n'est jamais replanifié avant
+   * cette date. Absente : date du jour dès que le PI est figé (suivi B2P).
+   */
+  statusDate?: ISODate | null;
+  /** Coefficient du chemin pseudo-critique (CdC p. 4, « au choix du planificateur »). Défaut 1,3. */
+  pseudoCriticalCoefficient?: number | null;
   levelingStrategy: LevelingStrategy;
   levelingMaxDelayDays: number;
   archivedAt?: string | null;
@@ -192,6 +199,8 @@ export interface Task {
   budgetAmount?: number | null;
   /** Code structuré (LT01, PTO01, TH01…) — vocabulaire FGF de la suite. */
   code?: string | null;
+  /** Durée saisie dans l'unité du projet (ex. 3 pour « 3 mois »). Prioritaire en mode mois. */
+  durationUnits?: number | null;
 }
 
 export interface Dependency {
@@ -203,6 +212,14 @@ export interface Dependency {
   successorTaskId: string;
   type: DependencyType;
   lagDays: number;
+  /** Délai saisi dans l'unité du projet (ex. −1 pour « −1 mois »). */
+  lagUnits?: number | null;
+  /**
+   * « RESOURCE » : lien ressource créé par le nivellement (FGF Q6/Q7). Ignoré
+   * par le Gantt « au plus tôt / avant nivellement », pris en compte par les
+   * marges après nivellement. Absent = lien logique saisi par le planificateur.
+   */
+  kind?: "LOGIC" | "RESOURCE";
   label?: string;
   createdAt: string;
 }
@@ -460,7 +477,12 @@ export interface ScheduledTask extends Task {
   latestFinishDate?: ISODate | null;
   totalSlackDays?: number | null;
   freeSlackDays?: number | null;
+  /** Marges exprimées dans l'unité du projet (mois calendaires exacts en mode mois). */
+  totalSlackUnits?: number | null;
+  freeSlackUnits?: number | null;
   isCritical: boolean;
+  /** Chemin pseudo-critique : 0 < MT ≤ coefficient × plus petite marge positive. */
+  isPseudoCritical?: boolean;
 }
 
 export interface ScheduleResult {
@@ -470,6 +492,8 @@ export interface ScheduleResult {
   tasksById: Record<string, ScheduledTask>;
   criticalPathTaskIds: string[];
   issues: ScheduleIssue[];
+  /** Date d'état appliquée au calcul (null = planification pure, sans suivi). */
+  statusDate?: ISODate | null;
 }
 
 export interface BaselineVariance {

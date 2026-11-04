@@ -16,6 +16,7 @@ import {
 } from "@/lib/interop/suite-bridge";
 import {
   addWorkingDays,
+  normalizeWorkingDate,
   compareIsoDates,
   countWorkingDaysInclusive,
   formatIsoDate,
@@ -1811,21 +1812,27 @@ function buildDailyResourceLoadBuckets(
       continue;
     }
 
-    const dailyWorkHours = getAssignmentDailyWorkHours(assignment, task, aggregate);
-    let cursor = task.scheduledStartDate;
+    // Mode mois (FGF) : la charge journalière = intensité × capacité du jour
+    // (une durée en mois calendaires n'a pas un nombre fixe de jours ouvrés).
+    const intensityMode = aggregate.project.timeUnit === "mois";
+    const dailyWorkHours = intensityMode ? 0 : getAssignmentDailyWorkHours(assignment, task, aggregate);
     const taskCalendar = getTaskWorkingCalendar(aggregate, task);
+    let cursor = normalizeWorkingDate(task.scheduledStartDate, taskCalendar);
 
     while (compareIsoDates(cursor, task.scheduledFinishDate) <= 0) {
       const key = `${assignment.resourceId}:${cursor}`;
+      const capacityHours = getResourceCapacityHoursOnDate(aggregate, resource, cursor);
       const existing = buckets.get(key) ?? {
         resourceId: assignment.resourceId,
         date: cursor,
         allocatedHours: 0,
-        capacityHours: getResourceCapacityHoursOnDate(aggregate, resource, cursor),
+        capacityHours,
         taskIds: new Set<string>(),
       };
 
-      existing.allocatedHours += dailyWorkHours;
+      existing.allocatedHours += intensityMode
+        ? (assignment.allocationPct / 100) * resource.capacityHoursPerDay
+        : dailyWorkHours;
       existing.taskIds.add(task.id);
       buckets.set(key, existing);
 
@@ -1924,51 +1931,132 @@ function pickLevelingCandidate(
   return candidates[0] ?? null;
 }
 
+/**
+ * Nivellement par les charges (FGF, corrigé Q6/Q7).
+ *
+ * Ancien algorithme : décalage d'un jour à la fois, plafonné à
+ * `levelingMaxDelayDays` → il abandonnait et laissait des surcharges (B2/B3 du
+ * cas sportif restaient en parallèle à intensité 1 chacune).
+ *
+ * Nouvel algorithme : à chaque surcharge, le LT à décaler est placé APRÈS le LT
+ * concurrent par un LIEN RESSOURCE (FD, délai 0). Le moteur recalcule alors
+ * naturellement dates ET marges : après nivellement, la chaîne ressource
+ * devient critique (« toutes les tâches sont critiques » dans le corrigé).
+ */
+const LEVELING_LINK_LABEL = "Lien ressource (nivellement)";
+const LEVELING_TIME_BUDGET_MS = 15_000;
+
+function isLevelingLink(dependency: Dependency) {
+  return dependency.kind === "RESOURCE";
+}
+
+function reachable(dependencies: Dependency[], fromTaskId: string, toTaskId: string) {
+  const adjacency = new Map<string, string[]>();
+  for (const d of dependencies) {
+    const list = adjacency.get(d.predecessorTaskId) ?? [];
+    list.push(d.successorTaskId);
+    adjacency.set(d.predecessorTaskId, list);
+  }
+  const seen = new Set<string>();
+  const stack = [fromTaskId];
+  while (stack.length) {
+    const id = stack.pop()!;
+    if (id === toTaskId) return true;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    stack.push(...(adjacency.get(id) ?? []));
+  }
+  return false;
+}
+
 function calculateLevelingPlan(aggregate: ProjectAggregate) {
-  const delayByTaskId = new Map(aggregate.tasks.map((task) => [task.id, 0]));
-  const maxIterations = Math.max(
-    aggregate.assignments.length * Math.max(aggregate.project.levelingMaxDelayDays, 1),
-    100,
-  );
+  const logicLinks = aggregate.dependencies.filter((d) => !isLevelingLink(d));
+  const resourceLinks: Dependency[] = [];
+  const started = Date.now();
+  const maxIterations = Math.max(200, aggregate.tasks.length * 4);
   let stabilized = false;
+  let remainingOverloads = 0;
 
   for (let iteration = 0; iteration < maxIterations; iteration += 1) {
-    const tasksWithDelay = aggregate.tasks.map((task) => ({
-      ...task,
-      levelingDelayDays: delayByTaskId.get(task.id) ?? 0,
-    }));
+    const dependencies = [...logicLinks, ...resourceLinks];
     const leveledAggregate = {
       ...aggregate,
-      tasks: tasksWithDelay,
+      tasks: aggregate.tasks.map((task) => ({ ...task, levelingDelayDays: 0 })),
+      dependencies,
     } satisfies ProjectAggregate;
     const schedule = buildSchedule(leveledAggregate);
-    const overload = buildDailyResourceLoadBuckets(
-      leveledAggregate,
-      schedule.tasksById,
-    ).find((bucket) => bucket.allocatedHours - bucket.capacityHours > 0.05);
-
-    if (!overload) {
+    const overloads = buildDailyResourceLoadBuckets(leveledAggregate, schedule.tasksById).filter(
+      (bucket) => bucket.allocatedHours - bucket.capacityHours > 0.05,
+    );
+    remainingOverloads = overloads.length;
+    if (!overloads.length) {
       stabilized = true;
       break;
     }
+    if (Date.now() - started > LEVELING_TIME_BUDGET_MS) break;
 
-    const candidate = pickLevelingCandidate(
-      overload.taskIds,
-      schedule.tasksById,
-      aggregate,
-      delayByTaskId,
-    );
-    if (!candidate) {
-      break;
+    let linked = false;
+    for (const overload of overloads) {
+      const tasksInBucket = [...overload.taskIds]
+        .map((id) => schedule.tasksById[id])
+        .filter((task): task is ScheduledTask => Boolean(task) && isLevelableTask(task));
+      if (tasksInBucket.length < 2) continue;
+
+      // Le LT décalé : choisi par la stratégie du projet (priorité, marge…).
+      const ordered = [...tasksInBucket];
+      const first = pickLevelingCandidate(
+        ordered.map((t) => t.id),
+        schedule.tasksById,
+        { ...aggregate, project: { ...aggregate.project, levelingMaxDelayDays: Number.MAX_SAFE_INTEGER } },
+        new Map(),
+      );
+      const candidates = first ? [first, ...ordered.filter((t) => t.id !== first.id)] : ordered;
+
+      for (const candidate of candidates) {
+        // Bloqueur : le concurrent qui libère la ressource le plus tôt, sans créer de cycle.
+        const blockers = tasksInBucket
+          .filter((t) => t.id !== candidate.id)
+          .filter((t) => !reachable(dependencies, candidate.id, t.id))
+          .sort((a, b) => compareIsoDates(a.scheduledFinishDate ?? null, b.scheduledFinishDate ?? null));
+        const blocker = blockers[0];
+        if (!blocker) continue;
+        resourceLinks.push({
+          id: `lvl-${aggregate.project.id}-${resourceLinks.length + 1}-${blocker.id}-${candidate.id}`,
+          projectId: aggregate.project.id,
+          predecessorProjectId: aggregate.project.id,
+          predecessorTaskId: blocker.id,
+          successorProjectId: aggregate.project.id,
+          successorTaskId: candidate.id,
+          type: "FS",
+          lagDays: 0,
+          lagUnits: 0,
+          kind: "RESOURCE",
+          label: LEVELING_LINK_LABEL,
+          createdAt: nowIso(),
+        });
+        linked = true;
+        break;
+      }
+      if (linked) break;
     }
-
-    delayByTaskId.set(candidate.id, (delayByTaskId.get(candidate.id) ?? 0) + 1);
+    if (!linked) break;
   }
 
-  return {
-    delayByTaskId,
-    stabilized,
-  };
+  return { resourceLinks, stabilized, remainingOverloads };
+}
+
+/** Surcharges ressources restantes (jour par jour) d'une vue — recette Q6 et alertes. */
+export function findResourceOverloads(view: ProjectView) {
+  const names = new Map(view.aggregate.resources.map((r) => [r.id, r.name]));
+  return buildDailyResourceLoadBuckets(view.aggregate, view.schedule.tasksById)
+    .filter((bucket) => bucket.allocatedHours - bucket.capacityHours > 0.05)
+    .map((bucket) => ({
+      resourceId: bucket.resourceId,
+      resourceName: names.get(bucket.resourceId) ?? bucket.resourceId,
+      date: bucket.date,
+      load: Math.round((bucket.allocatedHours / Math.max(bucket.capacityHours, 0.01)) * 100) / 100,
+      taskIds: [...bucket.taskIds],
+    }));
 }
 
 function buildBaselineFromStore(
@@ -2728,7 +2816,20 @@ function buildDashboardMetrics(
   dependencyNetwork: DependencyNetworkEntry[],
 ) {
   const executableTasks = tasks.filter((task) => !task.isSummary);
-  const leveledTasks = executableTasks.filter((task) => (task.levelingDelayDays ?? 0) > 0);
+  // Décalage dû au nivellement = écart entre « au plus tôt pur » et le planifié
+  // (couvre les délais historiques ET les liens ressources du nouveau nivellement).
+  const levelingShiftByTaskId = new Map<string, number>();
+  for (const task of executableTasks) {
+    if (task.earliestStartDate && task.scheduledStartDate && task.scheduledStartDate > task.earliestStartDate) {
+      levelingShiftByTaskId.set(
+        task.id,
+        workingDayDistance(task.earliestStartDate, task.scheduledStartDate, aggregate.calendar),
+      );
+    } else if ((task.levelingDelayDays ?? 0) > 0) {
+      levelingShiftByTaskId.set(task.id, task.levelingDelayDays);
+    }
+  }
+  const leveledTasks = executableTasks.filter((task) => (levelingShiftByTaskId.get(task.id) ?? 0) > 0);
   const totalPlannedWorkHours = roundWorkHours(
     executableTasks.reduce((total, task) => total + (task.effortHours ?? 0), 0),
   );
@@ -2750,7 +2851,7 @@ function buildDashboardMetrics(
   const totalActualCost = roundCurrency(getProjectActualCost(aggregate));
   const actualCostBreakdown = getProjectActualCostBreakdown(aggregate);
   const totalLevelingDelayDays = leveledTasks.reduce(
-    (total, task) => total + (task.levelingDelayDays ?? 0),
+    (total, task) => total + (levelingShiftByTaskId.get(task.id) ?? 0),
     0,
   );
   const baselineBudgetAtCompletion = Object.keys(baselineVarianceByTaskId).length
@@ -3382,10 +3483,49 @@ function buildProjectViewFromAggregate(
   };
 }
 
-function buildProjectViewFromStore(store: AppDataStore, projectId: string) {
+/* ── Cache du contexte portefeuille ─────────────────────────────────────────
+   Chaque onglet recalculait tout le portefeuille (~1 s). Le contexte est
+   désormais mis en cache tant que le store n'a pas changé (même révision,
+   même jour — la date d'état intervient dans le calcul). */
+const portfolioContextCache = new Map<string, PortfolioScheduleContext>();
+const PORTFOLIO_CACHE_LIMIT = 6;
+
+function getPortfolioScheduleContext(store: AppDataStore, scope = "*"): PortfolioScheduleContext {
+  const key = [
+    scope,
+    store.metadata?.lastUpdatedAt ?? "",
+    store.projects.length,
+    store.projects.reduce((n, p) => n + p.tasks.length, 0),
+    todayIso(),
+  ].join("|");
+  const cached = portfolioContextCache.get(key);
+  if (cached) return cached;
   const context = buildPortfolioScheduleContext(store);
+  portfolioContextCache.set(key, context);
+  while (portfolioContextCache.size > PORTFOLIO_CACHE_LIMIT) {
+    const oldest = portfolioContextCache.keys().next().value;
+    if (oldest === undefined) break;
+    portfolioContextCache.delete(oldest);
+  }
+  return context;
+}
+
+const projectViewCache = new Map<string, ProjectView>();
+
+function buildProjectViewFromStore(store: AppDataStore, projectId: string) {
+  const key = `${store.metadata?.lastUpdatedAt ?? ""}|${store.projects.length}|${todayIso()}|${projectId}`;
+  const cachedView = projectViewCache.get(key);
+  if (cachedView) return cachedView;
+  const context = getPortfolioScheduleContext(store);
   const aggregate = getAggregateOrThrow(store, projectId);
-  return buildProjectViewFromAggregate(aggregate, context);
+  const view = buildProjectViewFromAggregate(aggregate, context);
+  projectViewCache.set(key, view);
+  while (projectViewCache.size > 12) {
+    const oldest = projectViewCache.keys().next().value;
+    if (oldest === undefined) break;
+    projectViewCache.delete(oldest);
+  }
+  return view;
 }
 
 export async function listProjectViews(options: ListProjectViewsOptions = {}) {
@@ -3397,12 +3537,15 @@ export async function listProjectViews(options: ListProjectViewsOptions = {}) {
       (!workspaceId || aggregate.project.workspaceId === workspaceId) &&
       (includeArchived || !aggregate.project.archivedAt),
   );
-  const context = buildPortfolioScheduleContext({
-    ...store,
-    projects: workspaceId
-      ? store.projects.filter((aggregate) => aggregate.project.workspaceId === workspaceId)
-      : store.projects,
-  });
+  const context = getPortfolioScheduleContext(
+    {
+      ...store,
+      projects: workspaceId
+        ? store.projects.filter((aggregate) => aggregate.project.workspaceId === workspaceId)
+        : store.projects,
+    },
+    workspaceId ?? "*",
+  );
   return aggregates.map((aggregate) => buildProjectViewFromAggregate(aggregate, context));
 }
 
@@ -3594,6 +3737,8 @@ function buildStructuredAggregate(
       priority: "MEDIUM",
       progressPercent: 0,
       durationDays,
+      // Valeur saisie dans l'unité du projet (mois calendaires exacts en mode mois).
+      durationUnits: durationDays > 0 ? durationUnitValue : null,
       schedulingMode: "AUTO",
       workFormula: "FIXED_DURATION",
       effortHours,
@@ -3680,6 +3825,7 @@ function buildStructuredAggregate(
         successorTaskId,
         type: ensureDependencyType(pred.type ?? "FS"),
         lagDays: toSignedWorkingDays(pred.lag ?? 0, unit, hoursPerDay),
+        lagUnits: Number(pred.lag) || 0,
         createdAt: nowIso(),
       });
     }
@@ -4394,6 +4540,8 @@ export async function saveTask(input: SaveTaskInput) {
         validated.remainingWorkHours ?? task.remainingWorkHours ?? null,
     });
 
+    // La durée en unité projet n'est conservée que si la durée n'a pas changé.
+    const keepDurationUnits = task.durationDays === normalizedPlanningState.durationDays;
     Object.assign(task, {
       name: validated.name,
       description: validated.description,
@@ -4405,6 +4553,7 @@ export async function saveTask(input: SaveTaskInput) {
       priority: validated.priority,
       progressPercent: normalizedExecutionState.progressPercent,
       durationDays: normalizedPlanningState.durationDays,
+      durationUnits: keepDurationUnits ? task.durationUnits ?? null : null,
       schedulingMode: normalizedPlanningState.schedulingMode,
       workFormula: normalizedPlanningState.workFormula,
       effortHours: normalizedPlanningState.effortHours,
@@ -4732,6 +4881,7 @@ export async function saveDependency(input: SaveDependencyInput) {
       existing.predecessorProjectId = validated.predecessorProjectId;
       existing.successorProjectId = validated.successorProjectId;
       existing.type = validated.type;
+      if (existing.lagDays !== validated.lagDays) existing.lagUnits = null;
       existing.lagDays = validated.lagDays;
     } else {
       aggregate.dependencies.push({
@@ -5255,19 +5405,22 @@ export async function setActiveBaseline(projectId: string, baselineId: string) {
 }
 
 export async function levelProjectResources(projectId: string) {
+  let result = { stabilized: true, remainingOverloads: 0, links: 0 };
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
-    const { delayByTaskId } = calculateLevelingPlan(aggregate);
+    const plan = calculateLevelingPlan(aggregate);
 
+    aggregate.dependencies = [
+      ...aggregate.dependencies.filter((d) => !isLevelingLink(d)),
+      ...plan.resourceLinks,
+    ];
     for (const task of aggregate.tasks) {
-      task.levelingDelayDays = delayByTaskId.get(task.id) ?? 0;
-      if (task.schedulingMode === "MANUAL" || task.type === "SUMMARY") {
-        task.levelingDelayDays = 0;
-      }
+      task.levelingDelayDays = 0;
     }
-
+    result = { stabilized: plan.stabilized, remainingOverloads: plan.remainingOverloads, links: plan.resourceLinks.length };
     aggregate.project.updatedAt = nowIso();
   });
+  return result;
 }
 
 /**
@@ -5481,6 +5634,7 @@ export async function clearProjectLeveling(projectId: string) {
     for (const task of aggregate.tasks) {
       task.levelingDelayDays = 0;
     }
+    aggregate.dependencies = aggregate.dependencies.filter((d) => !isLevelingLink(d));
 
     aggregate.project.updatedAt = nowIso();
   });
