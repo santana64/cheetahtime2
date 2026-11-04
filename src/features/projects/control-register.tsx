@@ -32,7 +32,7 @@ function StateMessage({ message, status }: { message?: string; status?: string }
 function TaskSelect({ tasks, defaultValue = "" }: { tasks: ScheduledTask[]; defaultValue?: string | null }) {
   return (
     <Select name="taskId" defaultValue={defaultValue ?? ""} className="h-9 text-xs">
-      <option value="">Projet / non lie a une tache</option>
+      <option value="">Projet / non lié a une tâche</option>
       {tasks
         .filter((task) => !task.isSummary)
         .map((task) => (
@@ -88,7 +88,7 @@ function IssueForm({ projectId, tasks }: { projectId: string; tasks: ScheduledTa
         <Input name="title" required placeholder="Ex. Retard fournisseur sur le lot equipement" className="h-9" />
       </label>
       <label className="grid gap-1 text-xs font-semibold text-slate-600">
-        Tache liee
+        Tâche liée
         <TaskSelect tasks={tasks} />
       </label>
       <label className="grid gap-1 text-xs font-semibold text-slate-600">
@@ -100,7 +100,7 @@ function IssueForm({ projectId, tasks }: { projectId: string; tasks: ScheduledTa
         <Select name="severity" defaultValue="MEDIUM" className="h-9">
           <option value="LOW">Faible</option>
           <option value="MEDIUM">Moyenne</option>
-          <option value="HIGH">Elevee</option>
+          <option value="HIGH">Élevée</option>
           <option value="CRITICAL">Critique</option>
         </Select>
       </label>
@@ -109,7 +109,7 @@ function IssueForm({ projectId, tasks }: { projectId: string; tasks: ScheduledTa
         <Select name="status" defaultValue="OPEN" className="h-9">
           <option value="OPEN">Ouvert</option>
           <option value="INVESTIGATING">Analyse</option>
-          <option value="RESOLVED">Resolu</option>
+          <option value="RESOLVED">Résolu</option>
           <option value="CLOSED">Ferme</option>
         </Select>
       </label>
@@ -141,7 +141,7 @@ function ChangeForm({ projectId, tasks }: { projectId: string; tasks: ScheduledT
         <Input name="title" required placeholder="Ex. Ajouter un lot de migration complementaire" className="h-9" />
       </label>
       <label className="grid gap-1 text-xs font-semibold text-slate-600">
-        Tache impactee
+        Tâche impactee
         <TaskSelect tasks={tasks} />
       </label>
       <label className="grid gap-1 text-xs font-semibold text-slate-600">
@@ -159,7 +159,7 @@ function ChangeForm({ projectId, tasks }: { projectId: string; tasks: ScheduledT
         <Input name="scheduleImpactDays" type="number" defaultValue={0} className="h-9" />
       </label>
       <label className="grid gap-1 text-xs font-semibold text-slate-600">
-        Impact cout
+        Impact coût
         <Input name="costImpactAmount" type="number" defaultValue={0} step={0.01} className="h-9" />
       </label>
       <label className="grid gap-1 text-xs font-semibold text-slate-600">
@@ -167,7 +167,7 @@ function ChangeForm({ projectId, tasks }: { projectId: string; tasks: ScheduledT
         <Select name="impactLevel" defaultValue="MEDIUM" className="h-9">
           <option value="LOW">Faible</option>
           <option value="MEDIUM">Moyen</option>
-          <option value="HIGH">Eleve</option>
+          <option value="HIGH">Élevé</option>
           <option value="CRITICAL">Critique</option>
         </Select>
       </label>
@@ -223,7 +223,7 @@ export function ControlRegister({
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Incidents / problemes</CardTitle>
-            <p className="text-xs text-slate-500">Suivi operationnel des blocages, ecarts et decisions d'action.</p>
+            <p className="text-xs text-slate-500">Suivi operationnel des blocages, écarts et decisions d'action.</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <IssueForm projectId={projectId} tasks={tasks} />
@@ -257,7 +257,7 @@ export function ControlRegister({
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Demandes de changement</CardTitle>
-            <p className="text-xs text-slate-500">Controle PMO des impacts planning, budget et perimetre.</p>
+            <p className="text-xs text-slate-500">Contrôle PMO des impacts planning, budget et perimetre.</p>
           </CardHeader>
           <CardContent className="space-y-4">
             <ChangeForm projectId={projectId} tasks={tasks} />

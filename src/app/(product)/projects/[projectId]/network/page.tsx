@@ -10,172 +10,100 @@ import { PageHeader } from "@/components/app/ui-kit";
 const LINK_FR: Record<string, string> = { FS: "FD", SS: "DD", FF: "FF", SF: "DF" };
 const linkFr = (t: string) => LINK_FR[t] ?? t;
 
-const NODE_W = 200;
-const NODE_H = 54;
-const COL_GAP = 80;
-const ROW_GAP = 18;
-
-function layoutNodes(nodes: ReturnType<typeof buildPertNetwork>["nodes"]) {
-  const byDepth = new Map<number, typeof nodes>();
-  for (const node of nodes) {
-    const bucket = byDepth.get(node.depth) ?? [];
-    bucket.push(node);
-    byDepth.set(node.depth, bucket);
-  }
-
-  const depths = [...byDepth.keys()].sort((a, b) => a - b);
-  const positions = new Map<string, { x: number; y: number }>();
-
-  for (const depth of depths) {
-    const col = depths.indexOf(depth);
-    const colNodes = byDepth.get(depth) ?? [];
-    const totalH = colNodes.length * NODE_H + (colNodes.length - 1) * ROW_GAP;
-    let y = -totalH / 2;
-    for (const node of colNodes) {
-      positions.set(node.id, { x: col * (NODE_W + COL_GAP), y });
-      y += NODE_H + ROW_GAP;
-    }
-  }
-
-  return { positions, colCount: depths.length };
-}
-
-function PertDiagram({ nodes, edges }: ReturnType<typeof buildPertNetwork>) {
-  const { positions, colCount } = layoutNodes(nodes);
-
+/**
+ * Représentation potentiel-tâches « une tâche par ligne » (CdC p. 15) :
+ * chaque LT occupe sa ligne ; son petit rectangle est placé horizontalement
+ * selon son rang dans l'enchaînement ; les flèches relient prédécesseurs et
+ * successeurs (type de lien FD/DD/FF/DF et délai).
+ */
+function PotentielLineGrid({
+  nodes,
+  edges,
+  pseudo,
+}: ReturnType<typeof buildPertNetwork> & { pseudo: Set<string> }) {
   if (!nodes.length) {
-    return (
-      <div className="py-10 text-center text-sm text-slate-400">
-        Aucune tâche dans ce projet.
-      </div>
-    );
+    return <div className="py-10 text-center text-sm text-slate-400">Aucune tâche.</div>;
   }
-
-  const allY = [...positions.values()].map((p) => p.y);
-  const minY = Math.min(...allY) - 20;
-  const maxY = Math.max(...allY) + NODE_H + 20;
-  const totalW = colCount * (NODE_W + COL_GAP) + 40;
-  const totalH = maxY - minY;
-  const offsetY = -minY;
+  const LABEL_W = 250, COL_W = 92, BOX_W = 64, ROW_H = 30, BOX_H = 18, PAD = 12;
+  // Rang dans l'enchaînement (plus long chemin depuis un LT sans prédécesseur),
+  // et non la profondeur WBS : c'est ce qui place chaque LT horizontalement.
+  const isSummaryNode = (n: (typeof nodes)[number]) => n.type === "SUMMARY";
+  const preds = new Map<string, string[]>();
+  for (const e of edges) preds.set(e.target, [...(preds.get(e.target) ?? []), e.source]);
+  const rank = new Map<string, number>();
+  const visiting = new Set<string>();
+  const rankOf = (id: string): number => {
+    if (rank.has(id)) return rank.get(id)!;
+    if (visiting.has(id)) return 0; // cycle : on coupe
+    visiting.add(id);
+    const r = Math.max(-1, ...(preds.get(id) ?? []).map(rankOf)) + 1;
+    visiting.delete(id);
+    rank.set(id, r);
+    return r;
+  };
+  nodes.forEach((n) => rankOf(n.id));
+  const maxRank = Math.max(0, ...nodes.filter((n) => !isSummaryNode(n)).map((n) => rank.get(n.id) ?? 0));
+  const depths = Array.from({ length: maxRank + 1 }, (_, i) => i);
+  const row = new Map(nodes.map((n, i) => [n.id, i]));
+  const xOf = (id: string) => LABEL_W + (rank.get(id) ?? 0) * COL_W + PAD;
+  const yOf = (id: string) => PAD + (row.get(id) ?? 0) * ROW_H;
+  const W = LABEL_W + depths.length * COL_W + PAD * 2;
+  const H = PAD * 2 + nodes.length * ROW_H;
+  const colorOf = (n: (typeof nodes)[number]) => (n.critical ? "#e2424a" : pseudo.has(n.id) ? "#f4a321" : "#56a45b");
 
   return (
     <div className="overflow-x-auto">
-      <svg
-        viewBox={`0 0 ${totalW} ${totalH}`}
-        style={{ minWidth: totalW, height: Math.max(totalH, 200) }}
-        className="w-full"
-      >
-        {/* Arrow marker */}
+      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Grille potentiel-tâches : une tâche par ligne, flèches de précédence">
         <defs>
-          <marker id="arrow-pert" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 z" fill="#94a3b8" />
+          <marker id="pl-arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L7,3 z" fill="#475569" />
           </marker>
-          <marker id="arrow-pert-critical" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 z" fill="#f87171" />
+          <marker id="pl-arrow-crit" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L7,3 z" fill="#e2424a" />
           </marker>
         </defs>
-
-        {/* Edges first (behind nodes) */}
-        {edges.map((edge) => {
-          const src = positions.get(edge.source);
-          const tgt = positions.get(edge.target);
-          if (!src || !tgt) return null;
-
-          const srcNode = nodes.find((n) => n.id === edge.source);
-          const tgtNode = nodes.find((n) => n.id === edge.target);
-          const isCritical = srcNode?.critical && tgtNode?.critical;
-
-          const x1 = src.x + NODE_W;
-          const y1 = src.y + offsetY + NODE_H / 2;
-          const x2 = tgt.x - 4;
-          const y2 = tgt.y + offsetY + NODE_H / 2;
-          const mx = (x1 + x2) / 2;
-
+        {nodes.map((n, i) => (
+          <g key={`row-${n.id}`}>
+            {i % 2 === 0 ? <rect x={0} y={yOf(n.id) - 6} width={W} height={ROW_H} fill="#faf9f5" /> : null}
+            <text x={PAD + (isSummaryNode(n) ? 0 : 10)} y={yOf(n.id) + BOX_H / 2 + 4} fontSize="11" fill={isSummaryNode(n) ? "#1a4a20" : "#0f172a"} fontWeight={isSummaryNode(n) ? 800 : n.critical ? 700 : 500}>
+              {n.label.length > 36 ? `${n.label.slice(0, 35)}…` : n.label}
+            </text>
+          </g>
+        ))}
+        {depths.map((d, i) => (
+          <line key={`col-${d}`} x1={LABEL_W + i * COL_W + PAD / 2} x2={LABEL_W + i * COL_W + PAD / 2} y1={0} y2={H} stroke="#ece9e1" />
+        ))}
+        {edges.map((e) => {
+          if (!row.has(e.source) || !row.has(e.target)) return null;
+          const src = nodes[row.get(e.source)!];
+          const tgt = nodes[row.get(e.target)!];
+          const crit = src.critical && tgt.critical;
+          const x1 = xOf(e.source) + BOX_W;
+          const y1 = yOf(e.source) + BOX_H / 2;
+          const x2 = xOf(e.target) - 2;
+          const y2 = yOf(e.target) + BOX_H / 2;
+          const mx = Math.max(x1 + 8, x2 - 14);
           return (
-            <g key={edge.id}>
-              <path
-                d={`M ${x1} ${y1} C ${mx} ${y1} ${mx} ${y2} ${x2} ${y2}`}
-                fill="none"
-                stroke={isCritical ? "#f87171" : "#cbd5e1"}
-                strokeWidth={isCritical ? 2.5 : 1.5}
-                markerEnd={isCritical ? "url(#arrow-pert-critical)" : "url(#arrow-pert)"}
-              />
-              {edge.lagDays !== 0 && (
-                <text
-                  x={mx}
-                  y={(y1 + y2) / 2 - 4}
-                  fontSize="10"
-                  fill="#94a3b8"
-                  textAnchor="middle"
-                >
-                  {linkFr(edge.type)}{edge.lagDays > 0 ? `+${edge.lagDays}j` : `${edge.lagDays}j`}
+            <g key={e.id}>
+              <path d={`M ${x1} ${y1} H ${mx} V ${y2} H ${x2}`} fill="none" stroke={crit ? "#e2424a" : "#64748b"} strokeWidth={crit ? 1.8 : 1.1} markerEnd={crit ? "url(#pl-arrow-crit)" : "url(#pl-arrow)"} />
+              {e.type !== "FS" || e.lagDays ? (
+                <text x={mx + 2} y={y2 - 3} fontSize="8" fill="#64748b" fontWeight="700">
+                  {linkFr(e.type)}
+                  {e.lagDays ? (e.lagDays > 0 ? `+${e.lagDays}j` : `${e.lagDays}j`) : ""}
                 </text>
-              )}
+              ) : null}
             </g>
           );
         })}
-
-        {/* Nodes */}
-        {nodes.map((node) => {
-          const pos = positions.get(node.id);
-          if (!pos) return null;
-          const x = pos.x;
-          const y = pos.y + offsetY;
-          const isMilestone = node.type === "MILESTONE";
-          const isSummary = node.type === "SUMMARY";
-
+        {nodes.map((n) => {
+          if (isSummaryNode(n)) return null;
+          const c = colorOf(n);
+          const code = n.label.split(" ")[0];
           return (
-            <g key={node.id}>
-              <rect
-                x={x}
-                y={y}
-                width={NODE_W}
-                height={NODE_H}
-                rx={isMilestone ? 27 : 8}
-                fill={node.critical ? "#fff1f2" : isSummary ? "#f8fafc" : "white"}
-                stroke={node.critical ? "#fca5a5" : isSummary ? "#94a3b8" : "#e2e8f0"}
-                strokeWidth={node.critical ? 2 : 1}
-              />
-              {/* WBS chip */}
-              <rect
-                x={x + 6}
-                y={y + 6}
-                width={34}
-                height={16}
-                rx={4}
-                fill={node.critical ? "#fecdd3" : "#f1f5f9"}
-              />
-              <text
-                x={x + 23}
-                y={y + 18}
-                fontSize="9"
-                fontWeight="bold"
-                fill={node.critical ? "#be123c" : "#64748b"}
-                textAnchor="middle"
-              >
-                {node.label.split(" ")[0]}
-              </text>
-              {/* Name */}
-              <text
-                x={x + 46}
-                y={y + 22}
-                fontSize="11"
-                fontWeight={node.critical ? "700" : "500"}
-                fill={node.critical ? "#9f1239" : "#0f172a"}
-              >
-                {node.label.slice(node.label.indexOf(" ") + 1).slice(0, 22)}
-                {node.label.slice(node.label.indexOf(" ") + 1).length > 22 ? "…" : ""}
-              </text>
-              {/* Type badge */}
-              <text
-                x={x + 46}
-                y={y + 36}
-                fontSize="9"
-                fill={node.critical ? "#e11d48" : "#94a3b8"}
-                fontWeight="600"
-              >
-                {isMilestone ? "◆ JALON" : isSummary ? "▶ LOT" : "▪ TÂCHE"}
-                {node.critical ? " — CRITIQUE" : ""}
+            <g key={`box-${n.id}`}>
+              <rect x={xOf(n.id)} y={yOf(n.id)} width={BOX_W} height={BOX_H} rx="4" fill="#fff" stroke={c} strokeWidth={n.critical ? 2.2 : 1.4} strokeDasharray={pseudo.has(n.id) ? "3 2" : undefined} />
+              <text x={xOf(n.id) + BOX_W / 2} y={yOf(n.id) + BOX_H / 2 + 4} fontSize="10" textAnchor="middle" fill="#0f172a" fontWeight="700">
+                {code}
               </text>
             </g>
           );
@@ -194,11 +122,6 @@ type PtTask = {
   totalSlackDays?: number | null;
 };
 
-/**
- * Représentation « potentiel-tâches » (méthode MPM/FGF) — refonte spec François 29/08 :
- * chaque tâche est une BOÎTE (durée, dates au plus tôt / au plus tard, marge) et les liens
- * de précédence sont de vraies FLÈCHES. Colonnes = niveaux de précédence.
- */
 function PotentielGrid({
   nodes,
   edges,
@@ -341,8 +264,8 @@ export default async function ProjectNetworkPage({
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Diagramme réseau PERT"
-        title="Logique de dépendances"
+        eyebrow="Représentation potentiel-tâches"
+        title="Logique de précédence"
         description={
           <>
             Vue logique indépendante de l&apos;axe temps. Chemin critique en{" "}
@@ -360,13 +283,27 @@ export default async function ProjectNetworkPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Potentiel-tâches (méthode MPM)</CardTitle>
+          <CardTitle className="text-base">Grille potentiel-tâches — une tâche par ligne</CardTitle>
+          <p className="text-xs text-slate-500">
+            Représentation du CdC (p. 15) : chaque LT sur sa ligne, placé selon son rang dans l&apos;enchaînement,
+            flèches de précédence (FD par défaut ; DD, FF, DF et délais indiqués). Critique en rouge épais,
+            pseudo-critique en orange pointillé.
+          </p>
+        </CardHeader>
+        <CardContent className="p-4">
+          <PotentielLineGrid nodes={network.nodes} edges={network.edges} pseudo={pseudo} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Potentiel-tâches détaillé (dates et marges)</CardTitle>
           <p className="text-xs text-slate-500">
             Chaque tâche est une boîte (durée, dates au plus tôt / au plus tard, marge) ; les liens de
             précédence sont des <span className="font-semibold">flèches</span>. Colonnes = niveaux de précédence.
             Critique en <span className="font-semibold" style={{ color: "#e2424a" }}>rouge</span>,
             pseudo-critique en <span className="font-semibold" style={{ color: "#f4a321" }}>orange</span>{" "}
-            (marge &lt; 1,3× la plus faible), hors-critique en{" "}
+            (marge ≤ coefficient du projet × la plus faible marge positive), hors-critique en{" "}
             <span className="font-semibold" style={{ color: "#56a45b" }}>vert</span>.
           </p>
         </CardHeader>

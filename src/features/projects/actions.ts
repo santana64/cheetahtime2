@@ -223,7 +223,7 @@ export async function createProjectAction(
   } catch (error) {
     return {
       status: "error",
-      message: getErrorMessage(error, "Impossible de creer le projet."),
+      message: getErrorMessage(error, "Impossible de créer le projet."),
     };
   }
 }
@@ -401,12 +401,12 @@ export async function updateProjectMetadataAction(
 
     return {
       status: "success",
-      message: "Metadonnees du projet mises a jour.",
+      message: "Métadonnées du projet mises à jour.",
     };
   } catch (error) {
     return {
       status: "error",
-      message: getErrorMessage(error, "Impossible de mettre a jour le projet."),
+      message: getErrorMessage(error, "Impossible de mettre à jour le projet."),
     };
   }
 }
@@ -442,12 +442,12 @@ export async function updateProjectCalendarAction(
 
     return {
       status: "success",
-      message: "Calendrier projet mis a jour.",
+      message: "Calendrier projet mis à jour.",
     };
   } catch (error) {
     return {
       status: "error",
-      message: getErrorMessage(error, "Impossible de mettre a jour le calendrier projet."),
+      message: getErrorMessage(error, "Impossible de mettre à jour le calendrier projet."),
     };
   }
 }
@@ -539,12 +539,12 @@ export async function setProjectArchiveStateAction(
 
     return {
       status: "success",
-      message: archived ? "Projet archive." : "Projet restaure dans le portefeuille actif.",
+      message: archived ? "Projet archive." : "Projet restauré dans le portefeuille actif.",
     };
   } catch (error) {
     return {
       status: "error",
-      message: getErrorMessage(error, "Impossible de mettre a jour le cycle de vie du projet."),
+      message: getErrorMessage(error, "Impossible de mettre à jour le cycle de vie du projet."),
     };
   }
 }
@@ -636,12 +636,12 @@ export async function saveTaskAction(
 
     return {
       status: "success",
-      message: "Tache mise a jour.",
+      message: "Tâche mise à jour.",
     };
   } catch (error) {
     return {
       status: "error",
-      message: getErrorMessage(error, "Impossible d'enregistrer la tache."),
+      message: getErrorMessage(error, "Impossible d'enregistrer la tâche."),
     };
   }
 }
@@ -654,7 +654,7 @@ export async function createTaskAction(formData: FormData) {
     const taskId = await createTask({
       projectId,
       parentId: optional(formData, "parentId"),
-      name: optional(formData, "name") ?? "Nouvelle tache",
+      name: optional(formData, "name") ?? "Nouvelle tâche",
       type: (optional(formData, "type") as TaskType | null) ?? "TASK",
     });
     eventHint.taskId = taskId;
@@ -688,12 +688,12 @@ export async function moveTaskAction(
 
     return {
       status: "success",
-      message: "Plan de tache mis a jour.",
+      message: "Plan de tâche mis à jour.",
     };
   } catch (error) {
     return {
       status: "error",
-      message: getErrorMessage(error, "Impossible de deplacer la tache."),
+      message: getErrorMessage(error, "Impossible de déplacer la tâche."),
     };
   }
 }
@@ -770,12 +770,12 @@ export async function saveDependencyAction(
 
     return {
       status: "success",
-      message: "Dependance enregistree.",
+      message: "Dépendance enregistrée.",
     };
   } catch (error) {
     return {
       status: "error",
-      message: getErrorMessage(error, "Impossible d'enregistrer la dependance."),
+      message: getErrorMessage(error, "Impossible d'enregistrer la dépendance."),
     };
   }
 }
@@ -837,7 +837,7 @@ export async function createResourceAction(
         name: required(formData, "name"),
         role: required(formData, "role"),
         type: required(formData, "type") as ResourceType,
-        location: optional(formData, "location") ?? "Non affecte",
+        location: optional(formData, "location") ?? "Non affecté",
         availabilityPct: numberValue(formData, "availabilityPct", 100),
         capacityHoursPerDay: numberValue(formData, "capacityHoursPerDay", 8),
         calendarWorkingDays: integerList(formData, "resourceCalendarWorkingDays"),
@@ -864,12 +864,12 @@ export async function createResourceAction(
 
     return {
       status: "success",
-      message: "Ressource ajoutee.",
+      message: "Ressource ajoutée.",
     };
   } catch (error) {
     return {
       status: "error",
-      message: getErrorMessage(error, "Impossible de creer la ressource."),
+      message: getErrorMessage(error, "Impossible de créer la ressource."),
     };
   }
 }
@@ -885,7 +885,7 @@ export async function updateResourceDirectAction(formData: FormData) {
       name: required(formData, "name"),
       role: required(formData, "role"),
       type: required(formData, "type") as ResourceType,
-      location: optional(formData, "location") ?? "Non affecte",
+      location: optional(formData, "location") ?? "Non affecté",
       availabilityPct: numberValue(formData, "availabilityPct", 100),
       capacityHoursPerDay: numberValue(formData, "capacityHoursPerDay", 8),
       calendarWorkingDays: integerList(formData, "resourceCalendarWorkingDays"),
@@ -966,7 +966,7 @@ export async function saveAssignmentAction(
 
     return {
       status: "success",
-      message: "Affectation enregistree.",
+      message: "Affectation enregistrée.",
     };
   } catch (error) {
     return {
@@ -1035,7 +1035,7 @@ export async function saveTimesheetEntryAction(
 
     return {
       status: "success",
-      message: "Imputation enregistree.",
+      message: "Imputation enregistrée.",
     };
   } catch (error) {
     return {
@@ -1107,12 +1107,12 @@ export async function saveActualCostEntryAction(
 
     return {
       status: "success",
-      message: "Cout reel enregistre.",
+      message: "Coût réel enregistre.",
     };
   } catch (error) {
     return {
       status: "error",
-      message: getErrorMessage(error, "Impossible d'enregistrer le cout reel."),
+      message: getErrorMessage(error, "Impossible d'enregistrer le coût réel."),
     };
   }
 }
@@ -1300,7 +1300,7 @@ export async function addTaskAttachmentAction(
 
     revalidatePath(`/projects/${projectId}/activity`);
     revalidatePath(`/projects/${projectId}/planning`);
-    return { status: "success", message: "Piece jointe ajoutee." };
+    return { status: "success", message: "Piece jointe ajoutée." };
   } catch (error) {
     return { status: "error", message: getErrorMessage(error, "Impossible d'ajouter la piece jointe.") };
   }
@@ -1393,7 +1393,7 @@ export async function saveChangeRequestAction(
     revalidatePath(`/projects/${projectId}/risks`);
     revalidatePath(`/projects/${projectId}/activity`);
     revalidatePath(`/projects/${projectId}/dashboard`);
-    return { status: "success", message: "Demande de changement enregistree." };
+    return { status: "success", message: "Demande de changement enregistrée." };
   } catch (error) {
     return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer la demande de changement.") };
   }
@@ -1431,9 +1431,9 @@ export async function saveProjectTemplateAction(
     });
     revalidatePath("/settings");
     revalidatePath(`/projects/${projectId}/settings`);
-    return { status: "success", message: "Modele projet enregistre." };
+    return { status: "success", message: "Modèle projet enregistre." };
   } catch (error) {
-    return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer le modele.") };
+    return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer le modèle.") };
   }
 }
 
@@ -1451,7 +1451,7 @@ export async function createProjectFromTemplateAction(
       actorName: session.name,
     });
   } catch (error) {
-    return { status: "error", message: getErrorMessage(error, "Impossible de creer le projet depuis le modele.") };
+    return { status: "error", message: getErrorMessage(error, "Impossible de créer le projet depuis le modèle.") };
   }
 
   revalidatePath("/projects");
@@ -1475,7 +1475,7 @@ export async function createProjectFromBtpTemplateAction(
       clientName: optional(formData, "clientName") ?? "Client BTP",
     });
   } catch (error) {
-    return { status: "error", message: getErrorMessage(error, "Impossible de creer le projet BTP.") };
+    return { status: "error", message: getErrorMessage(error, "Impossible de créer le projet BTP.") };
   }
 
   revalidatePath("/projects");

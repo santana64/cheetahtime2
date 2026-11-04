@@ -80,12 +80,12 @@ const CONSTRAINT_OPTIONS: Array<{
   value: TaskConstraintType;
   label: string;
 }> = [
-  { value: "ASAP", label: "Des que possible" },
-  { value: "START_NO_EARLIER_THAN", label: "Debut au plus tot le" },
-  { value: "START_NO_LATER_THAN", label: "Debut au plus tard le" },
-  { value: "FINISH_NO_EARLIER_THAN", label: "Fin au plus tot le" },
+  { value: "ASAP", label: "Dès que possible" },
+  { value: "START_NO_EARLIER_THAN", label: "Début au plus tôt le" },
+  { value: "START_NO_LATER_THAN", label: "Début au plus tard le" },
+  { value: "FINISH_NO_EARLIER_THAN", label: "Fin au plus tôt le" },
   { value: "FINISH_NO_LATER_THAN", label: "Fin au plus tard le" },
-  { value: "MUST_START_ON", label: "Doit debuter le" },
+  { value: "MUST_START_ON", label: "Doit débuter le" },
   { value: "MUST_FINISH_ON", label: "Doit finir le" },
 ];
 const SCHEDULING_MODE_OPTIONS: Array<{
@@ -99,9 +99,9 @@ const WORK_FORMULA_OPTIONS: Array<{
   value: TaskWorkFormula;
   label: string;
 }> = [
-  { value: "FIXED_DURATION", label: "Duree fixe" },
+  { value: "FIXED_DURATION", label: "Durée fixe" },
   { value: "FIXED_WORK", label: "Charge fixe" },
-  { value: "FIXED_UNITS", label: "Unites fixes" },
+  { value: "FIXED_UNITS", label: "Unités fixes" },
 ];
 
 function diffCalendarDays(startDate: string, endDate: string) {
@@ -130,7 +130,7 @@ function todayIso() {
 function getConstraintLabel(constraintType: TaskConstraintType) {
   return (
     CONSTRAINT_OPTIONS.find((option) => option.value === constraintType)?.label ??
-    "Des que possible"
+    "Dès que possible"
   );
 }
 
@@ -144,7 +144,7 @@ function getSchedulingModeLabel(schedulingMode: TaskSchedulingMode) {
 function getWorkFormulaLabel(workFormula: TaskWorkFormula) {
   return (
     WORK_FORMULA_OPTIONS.find((option) => option.value === workFormula)?.label ??
-    "Duree fixe"
+    "Durée fixe"
   );
 }
 
@@ -537,7 +537,7 @@ function TimelineBar({
           )}
           style={{ left, width, background: forecastBackground ?? barColor, borderColor: critBorderColor }}
           data-gantt-draggable="true"
-          title={hasPI ? "Prévision (vert) — glisser pour replanifier" : "Glisser pour deplacer. Attraper les bords pour redimensionner."}
+          title={hasPI ? "Prévision (vert) — glisser pour replanifier" : "Glisser pour déplacer. Attraper les bords pour redimensionner."}
           onPointerDown={(event) => beginDrag(event, "move")}
           onPointerMove={updateDrag}
           onPointerUp={finishDrag}
@@ -545,7 +545,7 @@ function TimelineBar({
         >
           <div
             className="absolute inset-y-0 left-0 z-30 w-2 cursor-ew-resize bg-white/25"
-            title="Redimensionner depuis le debut"
+            title="Redimensionner depuis le début"
             onPointerDown={(event) => beginDrag(event, "resize-start")}
           />
           <div
@@ -595,7 +595,8 @@ type GanttBoardProps = {
   panelMode: PanelMode;
   rowHeight: number;
   density: (typeof DENSITY_CONFIG)[DensityMode];
-  cellWidth: number;
+  /** Facteur de zoom (1 = projet entier dans la largeur visible). */
+  zoom: number;
   timelineStart: string;
   timelineDays: string[];
   scale: "day" | "week" | "month";
@@ -620,17 +621,18 @@ function formatUnitValue(value: number) {
 function GanttBoard(props: GanttBoardProps) {
   const {
     view, tasks, selectedTaskId, onSelect, onOpenInspector, panelMode, rowHeight, density,
-    cellWidth, timelineStart, timelineDays, scale, headerGroups, boundaryIndices,
+    zoom, timelineStart, timelineDays, scale, headerGroups, boundaryIndices,
     dependencies, todayOffset, b2pDates, currentB2pIndex, statusDate, showBaseline,
     pseudoTaskIds, unitLabel, toUnit, onScheduleCommit,
   } = props;
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [viewport, setViewport] = useState({ top: 0, height: 900 });
+  const [viewport, setViewport] = useState({ top: 0, height: 900, width: 1100 });
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const update = () => setViewport({ top: el.scrollTop, height: el.clientHeight || 900 });
+    const update = () =>
+      setViewport({ top: el.scrollTop, height: el.clientHeight || 900, width: el.clientWidth || 1100 });
     update();
     let frame = 0;
     const onScroll = () => {
@@ -663,8 +665,11 @@ function GanttBoard(props: GanttBoardProps) {
 
   const showTimeline = panelMode !== "grid";
   const isNarrow = panelMode === "gantt";
-  const leftWidth = panelMode === "grid" ? 0 : isNarrow ? 300 : 520;
-  const timelineWidth = timelineDays.length * cellWidth;
+  const leftWidth = panelMode === "grid" ? 0 : isNarrow ? 300 : 500;
+  // Échelle adaptative : à zoom 1, tout le projet tient dans la largeur RÉELLEMENT visible.
+  const available = Math.max(240, viewport.width - leftWidth - 12);
+  const cellWidth = Math.max(1.5, (available / Math.max(1, timelineDays.length)) * zoom);
+  const timelineWidth = Math.ceil(timelineDays.length * cellWidth);
   const bodyHeight = tasks.length * rowHeight;
   const firstIndex = Math.max(0, Math.floor(viewport.top / rowHeight) - GANTT_OVERSCAN);
   const lastIndex = Math.min(
@@ -748,9 +753,14 @@ function GanttBoard(props: GanttBoardProps) {
   }
   const monthLabelFits = (span: number) => span * cellWidth >= 34;
 
+  // Mode « Tableau » : toutes les colonnes ; mode « Tableau + Gantt » : sans la colonne Début
+  // (visible sur la barre) pour laisser la place au nom du LT.
+  const fullColumns = panelMode === "grid";
   const gridCols = isNarrow
-    ? "grid-cols-[56px_minmax(0,1fr)_64px]"
-    : "grid-cols-[56px_minmax(0,1fr)_78px_78px_58px_62px]";
+    ? "grid-cols-[52px_minmax(0,1fr)_64px]"
+    : fullColumns
+      ? "grid-cols-[60px_minmax(0,1fr)_90px_90px_70px_72px]"
+      : "grid-cols-[48px_minmax(0,1fr)_80px_52px_60px]";
 
   function slackClass(slack: number) {
     if (slack < 0) return "text-white bg-[#e2424a] rounded px-1";
@@ -782,7 +792,7 @@ function GanttBoard(props: GanttBoardProps) {
               <div className="text-right">Marge</div>
             ) : (
               <>
-                <div>Début</div>
+                {fullColumns ? <div>Début</div> : null}
                 <div>Fin</div>
                 <div>Durée</div>
                 <div className="text-right">Marge</div>
@@ -969,7 +979,9 @@ function GanttBoard(props: GanttBoardProps) {
                   </span>
                   {isNarrow ? null : (
                     <>
-                      <span className="font-mono text-[11px] tabular-nums text-slate-700">{formatDateLabel(task.scheduledStartDate)}</span>
+                      {fullColumns ? (
+                        <span className="font-mono text-[11px] tabular-nums text-slate-700">{formatDateLabel(task.scheduledStartDate)}</span>
+                      ) : null}
                       <span className="font-mono text-[11px] tabular-nums text-slate-700">{formatDateLabel(task.scheduledFinishDate)}</span>
                       <span className="font-mono text-[11px] tabular-nums text-slate-700">
                         {formatUnitValue(toUnit(task.durationDays))} {unitLabel}
@@ -1070,7 +1082,24 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
   const EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
   const TRANS = `all 0.38s ${EASING}`;
 
-  function commitGanttSchedule(taskId: string, startDate: string, finishDate: string) {
+  // Annuler / rétablir RÉELS pour les déplacements Gantt de la session
+  // (les éditions de l'inspecteur restent tracées dans l'onglet Activité).
+  const undoStackRef = useRef<{ taskId: string; from: [string, string]; to: [string, string] }[]>([]);
+  const redoStackRef = useRef<{ taskId: string; from: [string, string]; to: [string, string] }[]>([]);
+
+  function commitGanttSchedule(taskId: string, startDate: string, finishDate: string, record = true) {
+    if (record) {
+      const current = view.tasks.find((t) => t.id === taskId);
+      if (current?.scheduledStartDate && current.scheduledFinishDate) {
+        undoStackRef.current.push({
+          taskId,
+          from: [current.scheduledStartDate, current.scheduledFinishDate],
+          to: [startDate, finishDate],
+        });
+        if (undoStackRef.current.length > 50) undoStackRef.current.shift();
+        redoStackRef.current = [];
+      }
+    }
     const formData = new FormData();
     formData.set("projectId", view.aggregate.project.id);
     formData.set("taskId", taskId);
@@ -1161,7 +1190,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
     if (!formData) return;
     startTransition(() => {
       void saveTaskAction(initialFormState, formData).then((state) => {
-        pushKeyboardNotice(state.message || "Tache convertie en jalon.");
+        pushKeyboardNotice(state.message || "Tâche convertie en jalon.");
         router.refresh();
       });
     });
@@ -1183,15 +1212,29 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
       return;
     }
 
-    if (event.ctrlKey && key === "z") {
+    if ((event.ctrlKey || event.metaKey) && key === "z" && !event.shiftKey) {
       event.preventDefault();
-      pushKeyboardNotice("Undo memoire pret: les editions clavier sont journalisees cote client, les mutations serveur restent tracables dans l'activite.");
+      const last = undoStackRef.current.pop();
+      if (!last) {
+        pushKeyboardNotice("Rien à annuler : seuls les déplacements Gantt de cette session sont annulables (les autres modifications sont tracées dans l'onglet Activité).");
+        return;
+      }
+      redoStackRef.current.push(last);
+      commitGanttSchedule(last.taskId, last.from[0], last.from[1], false);
+      pushKeyboardNotice("Déplacement annulé.");
       return;
     }
 
-    if (event.ctrlKey && key === "y") {
+    if ((event.ctrlKey || event.metaKey) && (key === "y" || (key === "z" && event.shiftKey))) {
       event.preventDefault();
-      pushKeyboardNotice("Redo memoire pret: aucune mutation annulee a rejouer dans cette session.");
+      const next = redoStackRef.current.pop();
+      if (!next) {
+        pushKeyboardNotice("Rien à rétablir.");
+        return;
+      }
+      undoStackRef.current.push(next);
+      commitGanttSchedule(next.taskId, next.to[0], next.to[1], false);
+      pushKeyboardNotice("Déplacement rétabli.");
       return;
     }
 
@@ -1209,7 +1252,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
           name: `${selectedTask.name} - copie`,
           type: selectedTask.type,
         });
-        pushKeyboardNotice("Duplication creee apres la selection.");
+        pushKeyboardNotice("Duplication créée après la selection.");
       }
       return;
     }
@@ -1221,7 +1264,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
         name: selectedTask ? `Groupe - ${selectedTask.name}` : "Nouveau groupe",
         type: "SUMMARY",
       });
-      pushKeyboardNotice("Groupe recapitulatif cree au niveau courant.");
+      pushKeyboardNotice("Groupe récapitulatif créé au niveau courant.");
       return;
     }
 
@@ -1252,7 +1295,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
     if (key === "g") {
       event.preventDefault();
       setGoPrefix(true);
-      pushKeyboardNotice("Navigation: P planning, D dashboard, R ressources, B baselines, L look-ahead, A analytics, S soutenance, N reseau.");
+      pushKeyboardNotice("Navigation: P planning, D dashboard, R ressources, B baselines, L à venir, A analytics, S soutenance, N réseau.");
       return;
     }
 
@@ -1279,19 +1322,19 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
 
     if (key === "+" || event.key === "=") {
       event.preventDefault();
-      setZoom((current) => Math.min(current + 0.15, 1.8));
+      setZoom((current) => Math.min(current * 1.5, 24));
       return;
     }
 
     if (key === "-" || event.key === "_") {
       event.preventDefault();
-      setZoom((current) => Math.max(current - 0.15, 0.65));
+      setZoom((current) => Math.max(current / 1.5, 0.5));
       return;
     }
 
     if (key === "f") {
       event.preventDefault();
-      setZoom(0.78);
+      setZoom(1);
       pushKeyboardNotice("Gantt ajuste pour voir davantage du projet.");
       return;
     }
@@ -1317,7 +1360,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
     if (key === "n") {
       event.preventDefault();
       createTaskFromShortcut({ parentId: selectedTask?.parentId ?? null });
-      pushKeyboardNotice("Nouvelle tache creee au meme niveau.");
+      pushKeyboardNotice("Nouvelle tâche créée au meme niveau.");
       return;
     }
 
@@ -1389,16 +1432,6 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
   const todayOffset = diffCalendarDays(timelineStart, b2pTodayIso);
   const densityConfig = DENSITY_CONFIG[density];
   const rowHeight = densityConfig.rowHeight;
-  // Échelle de temps ADAPTATIVE (demande François : « le planning doit être visible en
-  // entier »). Par défaut (zoom = 1), toute la durée du projet tient dans ~1360 px, quelle
-  // que soit l'unité ou la durée (18 mois compris). Le zoom permet d'agrandir pour le détail.
-  const FIT_WIDTH = 1360;
-  const fitCell =
-    timelineDays.length > 0
-      ? Math.max(3, Math.min(CELL_WIDTH, FIT_WIDTH / timelineDays.length))
-      : CELL_WIDTH;
-  const cellWidth = Math.max(2, Math.round(fitCell * zoom));
-
   // Échelle de temps selon l'UNITÉ du projet (spec François 29/08) : mois → colonnes
   // mensuelles, semaine → colonnes hebdo, jour → colonnes journalières (L/Ma/Me visibles
   // seulement en jour). Les barres restent positionnées au jour (précision) ; seul l'en-tête
@@ -1691,7 +1724,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
               panelMode={panelMode}
               rowHeight={rowHeight}
               density={densityConfig}
-              cellWidth={cellWidth}
+              zoom={zoom}
               timelineStart={timelineStart}
               timelineDays={timelineDays}
               scale={scale}
@@ -1713,13 +1746,13 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
             <div className="p-6">
               <EmptyState
                 eyebrow="Plan vide"
-                title="Creer la premiere ligne de planification"
-                description="Commencez par une tache racine ou un jalon, puis construisez la hierarchie, la logique, les ressources et les baselines autour d'un vrai reseau de planning."
+                title="Créer la première ligne de planification"
+                description="Commencez par une tâche racine ou un jalon, puis construisez la hiérarchie, la logique, les ressources et les baselines autour d'un vrai réseau de planning."
                 ctaAction={
                   <div className="flex flex-wrap gap-3">
                     <form action={createTaskAction}>
                       <input type="hidden" name="projectId" value={view.aggregate.project.id} />
-                      <Button type="submit">Ajouter une tache racine</Button>
+                      <Button type="submit">Ajouter une tâche racine</Button>
                     </form>
                     <form action={createTaskAction}>
                       <input type="hidden" name="projectId" value={view.aggregate.project.id} />
@@ -1789,7 +1822,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                     <div className="mt-1 text-sm text-slate-600">
                       {selectedTask.scheduledStartDate && selectedTask.scheduledFinishDate
                         ? `${formatLongDate(selectedTask.scheduledStartDate)} au ${formatLongDate(selectedTask.scheduledFinishDate)}`
-                        : "Cette tache n'est pas encore entierement planifiee."}
+                        : "Cette tâche n'est pas encore entierement planifiée."}
                     </div>
                   </div>
                 </div>
@@ -1807,7 +1840,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                         Edition du plan
                       </div>
                       <div className="mt-1 text-sm text-slate-600">
-                        Deplacez la branche selectionnee dans la decomposition sans editer manuellement la structure WBS.
+                        Deplacez la branche sélectionnée dans la décomposition sans editer manuellement la structure WBS.
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -1864,7 +1897,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                     )}
                   >
                     {moveState.message ||
-                      "Les mouvements renumerotent immediatement le WBS et preservent la hierarchie."}
+                      "Les mouvements renumerotent immediatement le WBS et preservent la hiérarchie."}
                   </div>
                 </form>
 
@@ -1875,19 +1908,19 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                     </div>
                     <div className="mt-3 grid gap-2 text-sm text-slate-700">
                       <div className="flex items-center justify-between gap-3">
-                        <span>Debut au plus tot</span>
+                        <span>Début au plus tôt</span>
                         <span className="font-medium">
                           {formatDateLabel(selectedTask.earliestStartDate)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span>Fin au plus tot</span>
+                        <span>Fin au plus tôt</span>
                         <span className="font-medium">
                           {formatDateLabel(selectedTask.earliestFinishDate)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span>Debut au plus tard</span>
+                        <span>Début au plus tard</span>
                         <span className="font-medium">
                           {formatDateLabel(selectedTask.latestStartDate)}
                         </span>
@@ -1919,13 +1952,13 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span>Charge planifiee</span>
+                        <span>Charge planifiée</span>
                         <span className="font-medium">
                           {formatHours(selectedTask.effortHours)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span>Charge reelle</span>
+                        <span>Charge réelle</span>
                         <span className="font-medium">
                           {formatHours(selectedTask.actualWorkHours)}
                         </span>
@@ -1937,17 +1970,17 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span>Unites affectees</span>
+                        <span>Unités affectees</span>
                         <span className="font-medium">
                           {selectedTask.isSummary
                             ? "Consolidee"
                             : selectedTaskAllocationPct > 0
                               ? formatPercent(selectedTaskAllocationPct)
-                              : "Non affecte"}
+                              : "Non affecté"}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span>Capacite quotidienne</span>
+                        <span>Capacité quotidienne</span>
                         <span className="font-medium">
                           {selectedTask.isSummary
                             ? "Consolidee"
@@ -1973,19 +2006,19 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span>Debut reel</span>
+                        <span>Début réel</span>
                         <span className="font-medium">
                           {formatDateLabel(selectedTask.actualStartDate)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span>Fin reelle</span>
+                        <span>Fin réelle</span>
                         <span className="font-medium">
                           {formatDateLabel(selectedTask.actualFinishDate)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span>Echeance</span>
+                        <span>Échéance</span>
                         <span
                           className={cn(
                             "font-medium",
@@ -2010,7 +2043,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                 {selectedTaskIssues.length ? (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
                     <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-800">
-                      Alertes de planning de la tache
+                      Alertes de planning de la tâche
                     </div>
                     <div className="mt-3 space-y-2 text-sm text-amber-900">
                       {selectedTaskIssues.map((issue) => (
@@ -2084,8 +2117,8 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
                       Type
                       <Select name="type" defaultValue={selectedTask.type}>
-                        <option value="TASK">Tache</option>
-                        <option value="SUMMARY">Recapitulatif</option>
+                        <option value="TASK">Tâche</option>
+                        <option value="SUMMARY">Récapitulatif</option>
                         <option value="MILESTONE">Jalon</option>
                       </Select>
                     </label>
@@ -2095,7 +2128,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                         <option value="NOT_STARTED">Non demarree</option>
                         <option value="IN_PROGRESS">En cours</option>
                         <option value="BLOCKED">Bloquee</option>
-                        <option value="DONE">Terminee</option>
+                        <option value="DONE">Terminée</option>
                       </Select>
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
@@ -2103,7 +2136,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                       <Select name="priority" defaultValue={selectedTask.priority}>
                         <option value="LOW">Faible</option>
                         <option value="MEDIUM">Normale</option>
-                        <option value="HIGH">Elevee</option>
+                        <option value="HIGH">Élevée</option>
                         <option value="URGENT">Urgente</option>
                       </Select>
                     </label>
@@ -2154,13 +2187,13 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                       </Select>
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
-                      Calendrier de tache
+                      Calendrier de tâche
                       <Select
                         name="calendarMode"
                         defaultValue={selectedTask.calendarMode}
                       >
                         <option value="PROJECT">Utiliser le calendrier du projet</option>
-                        <option value="CUSTOM">Calendrier de tache personnalise</option>
+                        <option value="CUSTOM">Calendrier de tâche personnalise</option>
                       </Select>
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
@@ -2175,7 +2208,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                       />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
-                      Heures de tache / jour
+                      Heures de tâche / jour
                       <Input
                         name="taskCalendarHoursPerDay"
                         type="number"
@@ -2185,7 +2218,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                       />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
-                      Priorite de lissage
+                      Priorité de lissage
                       <Input
                         name="levelingPriority"
                         type="number"
@@ -2207,7 +2240,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                       />
                     </label>
                     <div className="grid gap-2 text-sm font-medium text-slate-700 md:col-span-2">
-                      <div>Semaine ouvrée de la tache</div>
+                      <div>Semaine ouvrée de la tâche</div>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                         {WORKING_DAY_OPTIONS.map((day) => (
                           <label
@@ -2229,7 +2262,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                       </div>
                     </div>
                     <label className="grid gap-2 text-sm font-medium text-slate-700 md:col-span-2">
-                      Exceptions du calendrier de tache
+                      Exceptions du calendrier de tâche
                       <Textarea
                         name="taskCalendarExceptions"
                         defaultValue={serializeCalendarExceptions(
@@ -2279,7 +2312,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                       />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
-                      Debut manuel
+                      Début manuel
                       <Input
                         name="manualStartDate"
                         type="date"
@@ -2295,7 +2328,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                       />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
-                      Debut reel
+                      Début réel
                       <Input
                         name="actualStartDate"
                         type="date"
@@ -2303,7 +2336,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                       />
                     </label>
                     <label className="grid gap-2 text-sm font-medium text-slate-700">
-                      Fin reelle
+                      Fin réelle
                       <Input
                         name="actualFinishDate"
                         type="date"
@@ -2313,11 +2346,11 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                   </div>
 
                   <div className="rounded-2xl border border-border/70 bg-slate-50/70 px-4 py-3 text-sm text-slate-600">
-                    La planification automatique suit les dependances et les contraintes. La planification manuelle
-                    preserve les dates saisies et remonte une alerte en cas de conflit avec le reseau.
+                    La planification automatique suit les dépendances et les contraintes. La planification manuelle
+                    preserve les dates saisies et remonte une alerte en cas de conflit avec le réseau.
                     La duree fixe recalcule la charge a partir des unites ; la charge fixe et les unites fixes
-                    preservent la charge planifiee et rederivent la duree depuis la capacite disponible.
-                    Les calendriers de tache, la priorite de lissage, la charge reelle, la charge restante et
+                    preservent la charge planifiée et rederivent la durée depuis la capacité disponible.
+                    Les calendriers de tâche, la priorité de lissage, la charge réelle, la charge restante et
                     les dates reelles alimentent le meme modele de planning, de consommation et d'ecarts de baseline.
                   </div>
 
@@ -2335,7 +2368,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                       {taskState.message || "Les changements enregistres declenchent un recalcul du planning."}
                     </div>
                     <Button type="submit" disabled={taskPending}>
-                      {taskPending ? "Enregistrement..." : "Enregistrer la tache"}
+                      {taskPending ? "Enregistrement..." : "Enregistrer la tâche"}
                     </Button>
                   </div>
                 </form>
@@ -2348,7 +2381,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                     <input type="hidden" name="projectId" value={view.aggregate.project.id} />
                     <input type="hidden" name="taskId" value={selectedTask.id} />
                     <Button type="submit" variant="destructive">
-                      Supprimer {selectedTask.isSummary ? "la branche" : "la tache"}
+                      Supprimer {selectedTask.isSummary ? "la branche" : "la tâche"}
                     </Button>
                   </form>
                 </div>
@@ -2368,7 +2401,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                     <input type="hidden" name="successorTaskId" value={selectedTask.id} />
                     <div>
                       <div className="text-sm font-semibold text-slate-900">
-                        Ajouter une logique de precedente
+                        Ajouter une logique de précédente
                       </div>
                       <p className="mt-1 text-sm text-slate-600">
                         Ajoutez une logique a la tache selectionnee depuis ce projet ou n'importe quel plan connecte.
@@ -2376,7 +2409,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                     </div>
                     <div className="grid gap-4 md:grid-cols-2">
                       <label className="grid gap-2 text-sm font-medium text-slate-700">
-                        Projet precedent
+                        Projet précédent
                         <Select
                           name="predecessorProjectId"
                           value={selectedPredecessorProject?.projectId ?? view.aggregate.project.id}
@@ -2395,10 +2428,10 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                         </Select>
                       </label>
                       <label className="grid gap-2 text-sm font-medium text-slate-700">
-                        Tache precedente
+                        Tâche précédente
                         <Select name="predecessorTaskId" defaultValue="">
                           <option value="" disabled>
-                            Choisir une precedente
+                            Choisir une précédente
                           </option>
                           {availablePredecessorTasks.map((task) => (
                             <option key={task.taskId} value={task.taskId}>
@@ -2434,10 +2467,10 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                               : "text-slate-500",
                         )}
                       >
-                        {dependencyState.message || "Les precedences recalculent le Gantt immediatement."}
+                        {dependencyState.message || "Les précédences recalculent le Gantt immediatement."}
                       </div>
                       <Button type="submit" variant="outline" disabled={dependencyPending}>
-                        {dependencyPending ? "Enregistrement..." : "Ajouter la precedente"}
+                        {dependencyPending ? "Enregistrement..." : "Ajouter la précédente"}
                       </Button>
                     </div>
                   </form>
@@ -2461,7 +2494,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
 
         <Card className="border-white/70 bg-white/95">
           <CardHeader className="border-b border-border/70 pb-4">
-            <CardTitle className="text-lg">Contexte de dependance</CardTitle>
+            <CardTitle className="text-lg">Contexte de dépendance</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5 p-5">
             <div>
@@ -2482,7 +2515,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                               {entry.predecessor.projectCode} {entry.predecessor.projectName}
                             </div>
                             <div className="mt-1 text-slate-700">
-                              {(entry.predecessor.wbsCode ?? "Tache")} {entry.predecessor.taskName}
+                              {(entry.predecessor.wbsCode ?? "LT")} {entry.predecessor.taskName}
                             </div>
                             <div className="mt-1 text-slate-600">
                               {entry.dependency.type === "FS" ? "FD" : entry.dependency.type === "SS" ? "DD" : entry.dependency.type === "SF" ? "DF" : entry.dependency.type}{" "}
@@ -2529,7 +2562,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                               {entry.successor.projectCode} {entry.successor.projectName}
                             </div>
                             <div className="mt-1 text-slate-700">
-                              {(entry.successor.wbsCode ?? "Tache")} {entry.successor.taskName}
+                              {(entry.successor.wbsCode ?? "LT")} {entry.successor.taskName}
                             </div>
                             <div className="mt-1 text-slate-600">
                               {entry.dependency.type === "FS" ? "FD" : entry.dependency.type === "SS" ? "DD" : entry.dependency.type === "SF" ? "DF" : entry.dependency.type}{" "}
@@ -2553,7 +2586,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                   })
                 ) : (
                   <div className="text-sm text-slate-500">
-                    Cette tache ne pilote actuellement aucun travail en aval.
+                    Cette tâche ne pilote actuellement aucun travail en aval.
                   </div>
                 )}
               </div>
@@ -2620,23 +2653,23 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                   ["G D", "Tableau de bord"],
                   ["G R", "Ressources"],
                   ["G B", "Baselines"],
-                  ["G L", "Look-ahead 4 semaines"],
+                  ["G L", "À venir 4 semaines"],
                   ["G A", "Analytics (ES, Monte Carlo)"],
                   ["G S", "Rapport soutenance"],
-                  ["G N", "Reseau PERT"],
+                  ["G N", "Réseau PERT"],
                 ],
               },
               {
                 category: "Planification",
                 shortcuts: [
-                  ["N", "Nouvelle tache au meme niveau"],
+                  ["N", "Nouvelle tâche au meme niveau"],
                   ["Ctrl+M", "Convertir en jalon"],
-                  ["Ctrl+D", "Dupliquer la tache"],
-                  ["Ctrl+G", "Creer un groupe recapitulatif"],
+                  ["Ctrl+D", "Dupliquer la tâche"],
+                  ["Ctrl+G", "Créer un groupe récapitulatif"],
                   ["Alt + Gauche", "Diminuer le niveau WBS"],
                   ["Alt + Droite", "Augmenter le niveau WBS"],
-                  ["Ctrl + Haut/Bas", "Deplacer la tache"],
-                  ["Delete", "Supprimer la tache selectionnee"],
+                  ["Ctrl + Haut/Bas", "Déplacer la tâche"],
+                  ["Delete", "Supprimer la tâche sélectionnée"],
                 ],
               },
               {
@@ -2656,9 +2689,9 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                 category: "Divers",
                 shortcuts: [
                   ["? ", "Afficher/masquer cette aide"],
-                  ["Ctrl+Z", "Annuler (undo)"],
-                  ["Ctrl+Y", "Refaire (redo)"],
-                  ["Haut / Bas", "Naviguer entre les taches"],
+                  ["Ctrl+Z", "Annuler le dernier déplacement Gantt"],
+                  ["Ctrl+Y", "Rétablir le déplacement annulé"],
+                  ["Haut / Bas", "Naviguer entre les tâches"],
                   ["Echap", "Fermer les panneaux"],
                 ],
               },

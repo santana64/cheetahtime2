@@ -18,8 +18,8 @@ export function ProjectImportPanel() {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="text-sm text-slate-600">
-          Importez un vrai fichier de planification dans Cheetah Time. Les allers-retours MSPDI XML
-          sont supportes de bout en bout, l'import `.xer` ouvre les plannings Primavera P6, et l'import natif `.mpp` est gere via le bridge MPXJ.
+          Importez un planning existant : fichier MS Project (.mpp ou XML), Primavera P6 (.xer).
+          L&apos;export vers MS Project se fait au format XML (MSPDI), que MS Project ouvre directement.
         </div>
 
         <form
@@ -46,7 +46,7 @@ export function ProjectImportPanel() {
 
                 if (!response.ok || !payload.projectId) {
                   throw new Error(
-                    payload.error || "Impossible d'importer le fichier de planification selectionne.",
+                    payload.error || "Impossible d'importer le fichier de planification sélectionné.",
                   );
                 }
 
@@ -59,7 +59,7 @@ export function ProjectImportPanel() {
                 setMessage(
                   error instanceof Error
                     ? error.message
-                    : "Impossible d'importer le fichier de planification selectionne.",
+                    : "Impossible d'importer le fichier de planification sélectionné.",
                 );
               }
             });
@@ -75,7 +75,7 @@ export function ProjectImportPanel() {
             />
           </label>
           <label className="grid gap-2 text-sm font-medium text-slate-700">
-            Importe par
+            Importé par
             <Input name="importedBy" defaultValue="Import PMO" />
           </label>
           <div className="flex items-end">
@@ -86,9 +86,9 @@ export function ProjectImportPanel() {
         </form>
 
         <div className="grid gap-2 text-xs text-slate-500 md:grid-cols-3">
-          <div>Formats acceptes : MSPDI XML, Primavera P6 `.xer`, import natif `.mpp`.</div>
-          <div>Meilleur format d'aller-retour : MSPDI XML avec extensions Cheetah Time.</div>
-          <div>L'export natif `.mpp` n'est pas disponible dans le bridge open source actuel.</div>
+          <div>Formats acceptés : MS Project (.mpp, .xml), Primavera P6 (.xer).</div>
+          <div>Meilleur aller-retour : MS Project XML (MSPDI), avec les extensions Cheetah Time.</div>
+          <div>Export MS Project : fichier .xml (MSPDI). Un .mpp natif n&apos;est pas produit : ouvrez le .xml dans MS Project puis « Enregistrer sous » .mpp.</div>
         </div>
 
         {message ? (

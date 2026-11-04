@@ -408,17 +408,17 @@ export interface DuplicateProjectInput {
 function validateProjectInputs(
   input: Omit<CreateProjectInput, "budgetAmount"> & { budgetAmount: number },
 ) {
-  const name = ensureText(input.name, "Project name", { maxLength: 120 });
-  const clientName = ensureText(input.clientName, "Client name", {
+  const name = ensureText(input.name, "Nom du projet", { maxLength: 120 });
+  const clientName = ensureText(input.clientName, "Maître d'ouvrage", {
     maxLength: 120,
   });
-  const ownerName = ensureText(input.ownerName, "Project owner", {
+  const ownerName = ensureText(input.ownerName, "Responsable", {
     maxLength: 120,
   });
-  const sponsorName = ensureText(input.sponsorName, "Project sponsor", {
+  const sponsorName = ensureText(input.sponsorName, "Commanditaire", {
     maxLength: 120,
   });
-  const portfolio = ensureText(input.portfolio, "Portfolio", {
+  const portfolio = ensureText(input.portfolio, "Portefeuille", {
     maxLength: 120,
   });
   const targetStartDate = ensureIsoDate(
@@ -440,17 +440,17 @@ function validateProjectInputs(
   }
 
   return {
-    workspaceId: ensureOptionalText(input.workspaceId ?? null, "Workspace id", 120) ?? "workspace-cheetah-time",
+    workspaceId: ensureOptionalText(input.workspaceId ?? null, "Espace de travail", 120) ?? "workspace-cheetah-time",
     name,
     clientName,
-    ownerUserId: ensureOptionalText(input.ownerUserId ?? null, "Project owner user id", 120),
+    ownerUserId: ensureOptionalText(input.ownerUserId ?? null, "Responsable (identifiant)", 120),
     ownerName,
-    sponsorUserId: ensureOptionalText(input.sponsorUserId ?? null, "Project sponsor user id", 120),
+    sponsorUserId: ensureOptionalText(input.sponsorUserId ?? null, "Commanditaire (identifiant)", 120),
     sponsorName,
     portfolio,
     targetStartDate,
     targetFinishDate,
-    budgetAmount: ensureNumber(input.budgetAmount, "Budget amount", {
+    budgetAmount: ensureNumber(input.budgetAmount, "Budget", {
       min: 0,
       max: 1_000_000_000,
     }),
@@ -464,17 +464,17 @@ function validateProjectMetadataInput(input: UpdateProjectInput) {
   return {
     ...validated,
     description:
-      ensureOptionalText(input.description, "Project description", 4000) ?? "",
+      ensureOptionalText(input.description, "Description du projet", 4000) ?? "",
     status: ensureProjectStatus(input.status),
     health: ensureProjectHealth(input.health),
   };
 }
 
 function validateTaskInput(input: SaveTaskInput) {
-  const name = ensureText(input.name, "Task name", { maxLength: 160 });
+  const name = ensureText(input.name, "Nom du LT", { maxLength: 160 });
   const description =
-    ensureOptionalText(input.description, "Task description", 4000) ?? "";
-  const notes = ensureOptionalText(input.notes, "Task notes", 4000) ?? "";
+    ensureOptionalText(input.description, "Description du LT", 4000) ?? "";
+  const notes = ensureOptionalText(input.notes, "Notes du LT", 4000) ?? "";
   const type = ensureTaskType(input.type);
   const status = ensureTaskStatus(input.status);
   const priority = ensureTaskPriority(input.priority);
@@ -482,7 +482,7 @@ function validateTaskInput(input: SaveTaskInput) {
   const workFormula = ensureTaskWorkFormula(input.workFormula);
   const calendarMode = ensureTaskCalendarMode(input.calendarMode ?? "PROJECT");
   const constraintType = ensureTaskConstraintType(input.constraintType);
-  const sortOrder = ensureInteger(input.sortOrder, "Task sort order", {
+  const sortOrder = ensureInteger(input.sortOrder, "Ordre du LT", {
     min: 0,
     max: 100_000,
   });
@@ -499,7 +499,7 @@ function validateTaskInput(input: SaveTaskInput) {
   const effortHours =
     input.effortHours == null
       ? null
-      : ensureNumber(input.effortHours, "Task work", {
+      : ensureNumber(input.effortHours, "Charge du LT", {
           min: 0,
           max: 100_000,
         });
@@ -526,7 +526,7 @@ function validateTaskInput(input: SaveTaskInput) {
     "Constraint date",
     { required: false },
   );
-  const deadlineDate = ensureIsoDate(input.deadlineDate ?? null, "Deadline date", {
+  const deadlineDate = ensureIsoDate(input.deadlineDate ?? null, "Échéance", {
     required: false,
   });
   const manualStartDate = ensureIsoDate(
@@ -552,14 +552,14 @@ function validateTaskInput(input: SaveTaskInput) {
   const actualWorkHours =
     input.actualWorkHours == null
       ? null
-      : ensureNumber(input.actualWorkHours, "Actual work", {
+      : ensureNumber(input.actualWorkHours, "Travail réel", {
           min: 0,
           max: 100_000,
         });
   const remainingWorkHours =
     input.remainingWorkHours == null
       ? null
-      : ensureNumber(input.remainingWorkHours, "Remaining work", {
+      : ensureNumber(input.remainingWorkHours, "Reste à faire", {
           min: 0,
           max: 100_000,
         });
@@ -569,7 +569,7 @@ function validateTaskInput(input: SaveTaskInput) {
     { min: 0, max: 1000 },
   );
   if (constraintType !== "ASAP" && !constraintDate) {
-    throw validationError("This constraint requires a constraint date.");
+    throw validationError("Cette contrainte nécessite une date.");
   }
 
   if (schedulingMode === "MANUAL") {
@@ -580,12 +580,12 @@ function validateTaskInput(input: SaveTaskInput) {
     }
 
     if (compareIsoDates(manualFinishDate, manualStartDate) < 0) {
-      throw validationError("Manual finish date cannot be earlier than manual start date.");
+      throw validationError("La fin manuelle ne peut pas précéder le début manuel.");
     }
   }
 
   if (actualFinishDate && !actualStartDate) {
-    throw validationError("Actual finish date requires an actual start date.");
+    throw validationError("Une fin réelle nécessite un début réel.");
   }
 
   if (
@@ -593,7 +593,7 @@ function validateTaskInput(input: SaveTaskInput) {
     actualFinishDate &&
     compareIsoDates(actualFinishDate, actualStartDate) < 0
   ) {
-    throw validationError("Actual finish date cannot be earlier than actual start date.");
+    throw validationError("La fin réelle ne peut pas précéder le début réel.");
   }
 
   if (status === "NOT_STARTED") {
@@ -610,7 +610,7 @@ function validateTaskInput(input: SaveTaskInput) {
   }
 
   if (actualFinishDate && status !== "DONE") {
-    throw validationError("Only completed tasks can carry an actual finish date.");
+    throw validationError("Seul un LT terminé peut avoir une date de fin réelle.");
   }
 
   return {
@@ -650,18 +650,18 @@ function validateCreateTaskInput(input: CreateTaskInput) {
     sortOrder:
       input.sortOrder === undefined
         ? undefined
-        : ensureInteger(input.sortOrder, "Task sort order", {
+        : ensureInteger(input.sortOrder, "Ordre du LT", {
             min: 0,
             max: 100_000,
           }),
-    name: ensureOptionalText(input.name, "Task name", 160) ?? "New task",
+    name: ensureOptionalText(input.name, "Nom du LT", 160) ?? "New task",
     type: input.type ? ensureTaskType(input.type) : "TASK",
   };
 }
 
 function validateMoveTaskInput(input: MoveTaskInput) {
   return {
-    taskId: ensureText(input.taskId, "Task id", { maxLength: 120 }),
+    taskId: ensureText(input.taskId, "Identifiant du LT", { maxLength: 120 }),
     direction: ensureEnum(
       input.direction,
       taskMoveDirections,
@@ -732,7 +732,7 @@ function validateDependencyInput(input: SaveDependencyInput) {
       "Predecessor project",
       { maxLength: 120 },
     ),
-    predecessorTaskId: ensureText(input.predecessorTaskId, "Predecessor task", {
+    predecessorTaskId: ensureText(input.predecessorTaskId, "Prédécesseur", {
       maxLength: 120,
     }),
     successorProjectId: ensureText(
@@ -740,11 +740,11 @@ function validateDependencyInput(input: SaveDependencyInput) {
       "Successor project",
       { maxLength: 120 },
     ),
-    successorTaskId: ensureText(input.successorTaskId, "Successor task", {
+    successorTaskId: ensureText(input.successorTaskId, "Successeur", {
       maxLength: 120,
     }),
     type: ensureDependencyType(input.type),
-    lagDays: ensureInteger(Math.round(input.lagDays), "Dependency lag", {
+    lagDays: ensureInteger(Math.round(input.lagDays), "Délai sur lien", {
       min: -3650,
       max: 3650,
     }),
@@ -756,11 +756,11 @@ function validateResourceInput(
   fallbackColor = "#0f766e",
 ) {
   return {
-    name: ensureText(input.name, "Resource name", { maxLength: 120 }),
-    role: ensureText(input.role, "Resource role", { maxLength: 120 }),
+    name: ensureText(input.name, "Nom de la ressource", { maxLength: 120 }),
+    role: ensureText(input.role, "Rôle", { maxLength: 120 }),
     type: ensureResourceType(input.type),
     location:
-      ensureOptionalText(input.location, "Resource location", 120) ??
+      ensureOptionalText(input.location, "Lieu", 120) ??
       "Unassigned",
     availabilityPct: ensureInteger(
       Math.round(input.availabilityPct),
@@ -795,18 +795,18 @@ function validateResourceInput(
     costRate:
       input.costRate == null
         ? null
-        : ensureNumber(input.costRate, "Cost rate", {
+        : ensureNumber(input.costRate, "Taux horaire", {
             min: 0,
             max: 1_000_000,
           }),
-    color: ensureHexColor(input.color ?? null, "Resource color", fallbackColor),
+    color: ensureHexColor(input.color ?? null, "Couleur de la ressource", fallbackColor),
   };
 }
 
 function validateAssignmentInput(input: SaveAssignmentInput) {
   return {
-    taskId: ensureText(input.taskId, "Assignment task", { maxLength: 120 }),
-    resourceId: ensureText(input.resourceId, "Assignment resource", {
+    taskId: ensureText(input.taskId, "LT affecté", { maxLength: 120 }),
+    resourceId: ensureText(input.resourceId, "Ressource affectée", {
       maxLength: 120,
     }),
     allocationPct: ensureInteger(
@@ -814,16 +814,16 @@ function validateAssignmentInput(input: SaveAssignmentInput) {
       "Assignment allocation",
       { min: 0, max: 400 },
     ),
-    notes: ensureOptionalText(input.notes, "Assignment notes", 2000) ?? undefined,
+    notes: ensureOptionalText(input.notes, "Notes d'affectation", 2000) ?? undefined,
   };
 }
 
 function validateProjectCalendarInput(input: UpdateProjectCalendarInput) {
-  const name = ensureText(input.name, "Calendar name", { maxLength: 120 });
+  const name = ensureText(input.name, "Nom du calendrier", { maxLength: 120 });
   const timezone = ensureTimezone(input.timezone);
   const hoursPerDay = ensureInteger(
     Math.round(input.hoursPerDay),
-    "Hours per day",
+    "Heures par jour",
     { min: 1, max: 24 },
   );
   const normalizedWorkingDays = validateWorkingDays(
@@ -852,23 +852,23 @@ function validateProjectCalendarInput(input: UpdateProjectCalendarInput) {
 function validateTimesheetEntryInput(input: SaveTimesheetEntryInput) {
   return {
     entryId:
-      ensureOptionalText(input.entryId ?? null, "Timesheet entry id", 120) ?? null,
-    taskId: ensureText(input.taskId, "Timesheet task", { maxLength: 120 }),
+      ensureOptionalText(input.entryId ?? null, "Identifiant de saisie", 120) ?? null,
+    taskId: ensureText(input.taskId, "LT", { maxLength: 120 }),
     resourceId:
-      ensureOptionalText(input.resourceId ?? null, "Timesheet resource", 120) ?? null,
-    entryDate: ensureIsoDate(input.entryDate, "Timesheet date")!,
-    workHours: ensureNumber(input.workHours, "Timesheet work", {
+      ensureOptionalText(input.resourceId ?? null, "Ressource", 120) ?? null,
+    entryDate: ensureIsoDate(input.entryDate, "Date de saisie")!,
+    workHours: ensureNumber(input.workHours, "Heures saisies", {
       min: 0.25,
       max: 1000,
     }),
     costAmount:
       input.costAmount == null
         ? null
-        : ensureNumber(input.costAmount, "Timesheet actual cost", {
+        : ensureNumber(input.costAmount, "Coût réel", {
             min: 0,
             max: 10_000_000,
           }),
-    notes: ensureOptionalText(input.notes ?? null, "Timesheet notes", 2000) ?? "",
+    notes: ensureOptionalText(input.notes ?? null, "Notes de saisie", 2000) ?? "",
   };
 }
 
@@ -876,41 +876,41 @@ function validateActualCostEntryInput(input: SaveActualCostEntryInput) {
   const quantity =
     input.quantity == null
       ? null
-      : ensureNumber(input.quantity, "Actual cost quantity", {
+      : ensureNumber(input.quantity, "Quantité", {
           min: 0,
           max: 10_000_000,
         });
   const unitCost =
     input.unitCost == null
       ? null
-      : ensureNumber(input.unitCost, "Actual cost unit cost", {
+      : ensureNumber(input.unitCost, "Coût unitaire", {
           min: 0,
           max: 10_000_000,
         });
   const explicitAmount =
     input.amount == null
       ? null
-      : ensureNumber(input.amount, "Actual cost amount", {
+      : ensureNumber(input.amount, "Montant du coût réel", {
           min: 0,
           max: 10_000_000,
         });
 
   return {
     entryId:
-      ensureOptionalText(input.entryId ?? null, "Actual cost entry id", 120) ?? null,
-    taskId: ensureOptionalText(input.taskId ?? null, "Actual cost task", 120) ?? null,
+      ensureOptionalText(input.entryId ?? null, "Identifiant du coût réel", 120) ?? null,
+    taskId: ensureOptionalText(input.taskId ?? null, "LT du coût réel", 120) ?? null,
     resourceId:
-      ensureOptionalText(input.resourceId ?? null, "Actual cost resource", 120) ?? null,
-    entryDate: ensureIsoDate(input.entryDate, "Actual cost date")!,
+      ensureOptionalText(input.resourceId ?? null, "Ressource du coût réel", 120) ?? null,
+    entryDate: ensureIsoDate(input.entryDate, "Date du coût réel")!,
     source: ensureEnum("MANUAL", actualCostSources, "Actual cost source"),
     category: ensureEnum(input.category, actualCostCategories, "Actual cost category"),
     vendorName:
-      ensureOptionalText(input.vendorName ?? null, "Actual cost vendor", 160) ?? null,
+      ensureOptionalText(input.vendorName ?? null, "Fournisseur", 160) ?? null,
     referenceCode:
-      ensureOptionalText(input.referenceCode ?? null, "Actual cost reference", 120) ??
+      ensureOptionalText(input.referenceCode ?? null, "Référence du coût réel", 120) ??
       null,
     description:
-      ensureOptionalText(input.description ?? null, "Actual cost description", 2000) ??
+      ensureOptionalText(input.description ?? null, "Description du coût réel", 2000) ??
       "",
     quantity,
     unitCost,
@@ -1333,7 +1333,7 @@ function assertValidParent(tasks: Task[], taskId: string, parentId?: string | nu
 
   const parent = tasks.find((task) => task.id === parentId);
   if (!parent) {
-    throw notFoundError("Parent task not found.");
+    throw notFoundError("LT parent introuvable.");
   }
 
   const descendants = collectDescendantTaskIds(tasks, taskId);
@@ -1395,7 +1395,7 @@ function assertParentCanAcceptChildren(
 
   const parent = tasks.find((task) => task.id === parentId);
   if (!parent) {
-    throw notFoundError("Parent task not found.");
+    throw notFoundError("LT parent introuvable.");
   }
 
   if (
@@ -2252,7 +2252,7 @@ function createProjectSkeleton(projectId: string) {
       projectId,
       parentId: `${projectId}-phase-1`,
       sortOrder: 11,
-      name: "Kickoff complete",
+      name: "Kickoff complète",
       description: "Confirm objectives, scope, and decision rights.",
       notes: "",
       type: "MILESTONE",
@@ -2720,25 +2720,25 @@ function deriveProjectHealth(input: {
   if (input.scheduleSlipDays > 0) {
     severity = Math.max(severity, input.scheduleSlipDays > 5 ? 3 : 2);
     reasons.push(
-      `La fin previsionnelle depasse la cible de ${input.scheduleSlipDays} jour(s) ouvres.`,
+      `La fin prévisionnelle dépasse la cible de ${input.scheduleSlipDays} jour(s) ouvres.`,
     );
   }
 
   if (input.overdueCriticalCount > 0) {
     severity = Math.max(severity, 3);
     reasons.push(
-      `${input.overdueCriticalCount} tache(s) critique(s) ont deja depasse leur date de fin.`,
+      `${input.overdueCriticalCount} tâche(s) critique(s) ont déjà dépasse leur date de fin.`,
     );
   }
 
   if (input.deadlineMissCount > 0) {
     severity = Math.max(severity, input.deadlineMissCount > 1 ? 3 : 2);
-    reasons.push(`${input.deadlineMissCount} echeance(s) de tache sont deja depassees.`);
+    reasons.push(`${input.deadlineMissCount} échéance(s) de tâche sont déjà depassees.`);
   }
 
   if (input.delayedTaskCount > 0) {
     severity = Math.max(severity, input.delayedTaskCount > 3 ? 2 : 1);
-    reasons.push(`${input.delayedTaskCount} tache(s) sont actuellement en retard.`);
+    reasons.push(`${input.delayedTaskCount} tâche(s) sont actuellement en retard.`);
   }
 
   if (input.overloadedResourceCount > 0) {
@@ -2756,19 +2756,19 @@ function deriveProjectHealth(input: {
   if (input.externalDependencyCount > 0) {
     severity = Math.max(severity, input.externalPredecessorCount > 0 ? 2 : 1);
     reasons.push(
-      `${input.externalDependencyCount} lien(s) de dependance inter-projets influencent le plan.`,
+      `${input.externalDependencyCount} lien(s) de dépendance inter-projets influencent le plan.`,
     );
   }
 
   if (input.maxBaselineSlip > 0) {
     severity = Math.max(severity, input.maxBaselineSlip > 5 ? 2 : 1);
-    reasons.push(`Le plus grand ecart de fin par rapport a la baseline est de ${input.maxBaselineSlip} jour(s).`);
+    reasons.push(`Le plus grand écart de fin par rapport à la baseline est de ${input.maxBaselineSlip} jour(s).`);
   }
 
   if (input.totalLevelingDelayDays > 0) {
     severity = Math.max(severity, input.totalLevelingDelayDays > 5 ? 2 : 1);
     reasons.push(
-      `Le lissage des ressources ajoute actuellement ${input.totalLevelingDelayDays} jour(s) ouvres de retard.`,
+      `Le lissage des ressources ajouté actuellement ${input.totalLevelingDelayDays} jour(s) ouvres de retard.`,
     );
   }
 
@@ -2788,7 +2788,7 @@ function deriveProjectHealth(input: {
       (input.costPerformanceIndex ?? 1) < 0.9 ? 2 : 1,
     );
     reasons.push(
-      `L'indice de performance cout en valeur acquise est de ${(input.costPerformanceIndex ?? 0).toFixed(2)}.`,
+      `L'indice de performance coût en valeur acquise est de ${(input.costPerformanceIndex ?? 0).toFixed(2)}.`,
     );
   }
 
@@ -3570,7 +3570,7 @@ export async function getProjectView(projectId: string, options: { workspaceId?:
   const store = await readStore();
   const view = buildProjectViewFromStore(store, projectId);
   if (options.workspaceId && view.aggregate.project.workspaceId !== options.workspaceId) {
-    throw notFoundError("Project not found in this workspace.");
+    throw notFoundError("Projet introuvable dans cet espace de travail.");
   }
   return view;
 }
@@ -3579,7 +3579,7 @@ export async function getProjectAggregate(projectId: string, options: { workspac
   const store = await readStore();
   const aggregate = getAggregateOrThrow(store, projectId);
   if (options.workspaceId && aggregate.project.workspaceId !== options.workspaceId) {
-    throw notFoundError("Project not found in this workspace.");
+    throw notFoundError("Projet introuvable dans cet espace de travail.");
   }
   return aggregate;
 }
@@ -4223,7 +4223,7 @@ export async function setProjectArchived(
   archived: boolean,
   actor: string,
 ) {
-  const archivedBy = ensureText(actor, "Archive actor", { maxLength: 120 });
+  const archivedBy = ensureText(actor, "Auteur de l'archivage", { maxLength: 120 });
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
@@ -4239,7 +4239,7 @@ export async function setProjectDeclassed(
   declassed: boolean,
   actor: string,
 ) {
-  const declassedBy = ensureText(actor, "Declass actor", { maxLength: 120 });
+  const declassedBy = ensureText(actor, "Auteur du déclassement", { maxLength: 120 });
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
@@ -4256,7 +4256,7 @@ export async function duplicateProject(input: DuplicateProjectInput) {
     "Duplicate project name",
     120,
   );
-  const duplicatedBy = ensureText(input.duplicatedBy, "Duplicated by", {
+  const duplicatedBy = ensureText(input.duplicatedBy, "Dupliqué par", {
     maxLength: 120,
   });
 
@@ -4379,7 +4379,7 @@ export async function importProjectDocument(
   importedBy: string,
 ) {
   let importedProjectId = "";
-  const actor = ensureText(importedBy, "Imported by", { maxLength: 120 });
+  const actor = ensureText(importedBy, "Importé par", { maxLength: 120 });
 
   await mutateStore((draft) => {
     const importedAt = nowIso();
@@ -4622,7 +4622,7 @@ export async function saveTask(input: SaveTaskInput) {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
     const task = aggregate.tasks.find((entry) => entry.id === input.taskId);
     if (!task) {
-      throw notFoundError("Task not found.");
+      throw notFoundError("LT introuvable.");
     }
 
     assertValidParent(aggregate.tasks, task.id, validated.parentId);
@@ -4722,10 +4722,10 @@ export async function saveTask(input: SaveTaskInput) {
 }
 
 export async function rescheduleTaskFromGantt(input: RescheduleTaskFromGanttInput) {
-  const startDate = ensureIsoDate(input.startDate, "Gantt start date", {
+  const startDate = ensureIsoDate(input.startDate, "Début", {
     required: true,
   });
-  const finishDate = ensureIsoDate(input.finishDate, "Gantt finish date", {
+  const finishDate = ensureIsoDate(input.finishDate, "Fin", {
     required: true,
   });
 
@@ -4737,15 +4737,15 @@ export async function rescheduleTaskFromGantt(input: RescheduleTaskFromGanttInpu
   const aggregate = getAggregateOrThrow(store, input.projectId);
   const task = aggregate.tasks.find((entry) => entry.id === input.taskId);
   if (!task) {
-    throw notFoundError("Task not found.");
+    throw notFoundError("LT introuvable.");
   }
   if (task.type === "SUMMARY") {
-    throw validationError("Une tache recapitulitative se pilote par ses enfants, pas par glisser-deposer direct.");
+    throw validationError("Une tâche hamac se pilote par ses LT, pas par glisser-déposer direct.");
   }
 
   const normalizedFinishDate = task.type === "MILESTONE" ? startDate : finishDate;
   if (compareIsoDates(normalizedFinishDate, startDate) < 0) {
-    throw validationError("La fin Gantt ne peut pas etre anterieure au debut.");
+    throw validationError("La fin ne peut pas être antérieure au début.");
   }
 
   const taskCalendar = getTaskWorkingCalendar(aggregate, task);
@@ -4858,7 +4858,7 @@ export async function moveTask(input: MoveTaskInput) {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
     const task = aggregate.tasks.find((entry) => entry.id === validated.taskId);
     if (!task) {
-      throw notFoundError("Task not found.");
+      throw notFoundError("LT introuvable.");
     }
 
     const currentParentId = task.parentId ?? null;
@@ -4926,7 +4926,7 @@ export async function moveTask(input: MoveTaskInput) {
 
         const parent = aggregate.tasks.find((entry) => entry.id === currentParentId);
         if (!parent) {
-          throw notFoundError("Parent task not found.");
+          throw notFoundError("LT parent introuvable.");
         }
 
         const newParentId = parent.parentId ?? null;
@@ -4966,7 +4966,7 @@ export async function saveDependency(input: SaveDependencyInput) {
     );
 
     if (!predecessorRecord || !successorRecord) {
-      throw notFoundError("Dependency tasks must exist in their referenced projects.");
+      throw notFoundError("Les LT liés doivent exister dans leurs projets.");
     }
 
     if (
@@ -5079,7 +5079,7 @@ export async function updateResource(input: UpdateResourceInput) {
     const resource = aggregate.resources.find((entry) => entry.id === input.resourceId);
 
     if (!resource) {
-      throw notFoundError("Resource not found.");
+      throw notFoundError("Ressource introuvable.");
     }
 
     const validated = validateResourceInput(input, resource.color);
@@ -5118,7 +5118,7 @@ export async function setResourceAvailability(input: {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
     const resource = aggregate.resources.find((entry) => entry.id === input.resourceId);
-    if (!resource) throw notFoundError("Resource not found.");
+    if (!resource) throw notFoundError("Ressource introuvable.");
     // Nettoyage : ne garde que des clés "YYYY-MM" avec une intensité >= 0.
     const clean: Record<string, number> = {};
     for (const [k, v] of Object.entries(input.availabilityByMonth)) {
@@ -5142,15 +5142,15 @@ export async function saveAssignment(input: SaveAssignmentInput) {
     );
 
     if (!task) {
-      throw notFoundError("Task not found for assignment.");
+      throw notFoundError("LT introuvable pour cette affectation.");
     }
 
     if (!resource) {
-      throw notFoundError("Resource not found for assignment.");
+      throw notFoundError("Ressource introuvable pour cette affectation.");
     }
 
     if (task.type === "SUMMARY" || taskHasChildren(aggregate.tasks, task.id)) {
-      throw conflictError("Assignments can only be placed on executable tasks.");
+      throw conflictError("Assignments can only be placed on exécutable tasks.");
     }
 
     const existing = aggregate.assignments.find(
@@ -5192,15 +5192,15 @@ export async function saveTimesheetEntry(input: SaveTimesheetEntryInput) {
       : null;
 
     if (!task) {
-      throw notFoundError("Task not found for timesheet entry.");
+      throw notFoundError("LT introuvable pour cette saisie de temps.");
     }
 
     if (task.type === "SUMMARY" || taskHasChildren(aggregate.tasks, task.id)) {
-      throw conflictError("Timesheet actuals can only be logged against executable tasks.");
+      throw conflictError("Timesheet actuals can only be logged against exécutable tasks.");
     }
 
     if (validated.resourceId && !resource) {
-      throw notFoundError("Resource not found for timesheet entry.");
+      throw notFoundError("Ressource introuvable pour cette saisie de temps.");
     }
 
     const persistedCostAmount =
@@ -5250,7 +5250,7 @@ export async function deleteTimesheetEntry(projectId: string, entryId: string) {
     const entry = aggregate.timesheetEntries.find((item) => item.id === entryId);
 
     if (!entry) {
-      throw notFoundError("Timesheet entry not found.");
+      throw notFoundError("Saisie de temps introuvable.");
     }
 
     aggregate.timesheetEntries = aggregate.timesheetEntries.filter(
@@ -5276,16 +5276,16 @@ export async function saveActualCostEntry(input: SaveActualCostEntryInput) {
       : null;
 
     if (validated.taskId && !task) {
-      throw notFoundError("Actual cost task not found.");
+      throw notFoundError("LT introuvable pour ce coût réel.");
     }
 
     if (validated.resourceId && !resource) {
-      throw notFoundError("Actual cost resource not found.");
+      throw notFoundError("Ressource introuvable pour ce coût réel.");
     }
 
     if (task && (task.type === "SUMMARY" || taskHasChildren(aggregate.tasks, task.id))) {
       throw conflictError(
-        "Manual actual costs can only be posted against executable tasks or the project ledger.",
+        "Manual actual costs can only be posted against exécutable tasks or the project ledger.",
       );
     }
 
@@ -5329,7 +5329,7 @@ export async function deleteActualCostEntry(projectId: string, entryId: string) 
     const entry = aggregate.actualCostEntries.find((item) => item.id === entryId);
 
     if (!entry) {
-      throw notFoundError("Actual cost entry not found.");
+      throw notFoundError("Coût réel introuvable.");
     }
 
     if (entry.source === "TIMESHEET" && entry.timesheetEntryId) {
@@ -5351,7 +5351,7 @@ export async function deleteTask(projectId: string, taskId: string) {
     const task = aggregate.tasks.find((entry) => entry.id === taskId);
 
     if (!task) {
-      throw notFoundError("Task not found.");
+      throw notFoundError("LT introuvable.");
     }
 
     const taskIdsToDelete = new Set([taskId, ...collectDescendantTaskIds(aggregate.tasks, taskId)]);
@@ -5402,7 +5402,7 @@ export async function deleteDependency(projectId: string, dependencyId: string) 
     );
 
     if (!ownerAggregate) {
-      throw notFoundError("Dependency not found.");
+      throw notFoundError("Lien introuvable.");
     }
 
     ownerAggregate.dependencies = ownerAggregate.dependencies.filter(
@@ -5422,7 +5422,7 @@ export async function deleteResource(projectId: string, resourceId: string) {
 
     aggregate.resources = aggregate.resources.filter((resource) => resource.id !== resourceId);
     if (aggregate.resources.length === resourceCount) {
-      throw notFoundError("Resource not found.");
+      throw notFoundError("Ressource introuvable.");
     }
 
     aggregate.assignments = aggregate.assignments.filter(
@@ -5457,7 +5457,7 @@ export async function deleteAssignment(projectId: string, assignmentId: string) 
     const assignment = aggregate.assignments.find((entry) => entry.id === assignmentId);
 
     if (!assignment) {
-      throw notFoundError("Assignment not found.");
+      throw notFoundError("Affectation introuvable.");
     }
 
     aggregate.assignments = aggregate.assignments.filter(
@@ -5473,7 +5473,7 @@ export async function deleteAssignment(projectId: string, assignmentId: string) 
 }
 
 export async function deleteProject(projectId: string, confirmationName: string) {
-  const expectedName = ensureText(confirmationName, "Project confirmation name", {
+  const expectedName = ensureText(confirmationName, "Nom de confirmation", {
     maxLength: 160,
   });
 
@@ -5504,8 +5504,8 @@ export async function deleteProject(projectId: string, confirmationName: string)
 }
 
 export async function captureBaseline(projectId: string, name: string, capturedBy: string) {
-  const baselineName = ensureText(name, "Baseline name", { maxLength: 120 });
-  const baselineOwner = ensureText(capturedBy, "Baseline captured by", {
+  const baselineName = ensureText(name, "Référentiel name", { maxLength: 120 });
+  const baselineOwner = ensureText(capturedBy, "Référentiel captured by", {
     maxLength: 120,
   });
 
@@ -5538,7 +5538,7 @@ export async function setActiveBaseline(projectId: string, baselineId: string) {
     const baseline = aggregate.baselines.find((entry) => entry.id === baselineId);
 
     if (!baseline) {
-      throw notFoundError("Baseline not found.");
+      throw notFoundError("Référentiel introuvable.");
     }
 
     for (const entry of aggregate.baselines) {

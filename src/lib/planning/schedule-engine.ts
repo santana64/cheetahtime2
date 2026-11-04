@@ -218,7 +218,7 @@ export function buildSchedule(
     if (progressPercent !== node.task.progressPercent) {
       issues.push({
         code: "INVALID_PROGRESS",
-        message: `La tache ${node.task.name} avait un avancement hors plage 0-100 et a ete normalisee.`,
+        message: `La tâche ${node.task.name} avait un avancement hors plage 0-100 et a été normalisee.`,
         taskId: node.task.id,
       });
     }
@@ -244,7 +244,7 @@ export function buildSchedule(
     if (parentId && !taskMap.has(parentId)) {
       issues.push({
         code: "ORPHAN_PARENT",
-        message: `La tache ${task.name} reference un parent introuvable.`,
+        message: `La tâche ${task.name} référence un parent introuvable.`,
         taskId: task.id,
       });
     }
@@ -267,7 +267,7 @@ export function buildSchedule(
     if (!predecessor || !successor) {
       issues.push({
         code: "MISSING_TASK",
-        message: `La dependance ${dependency.id} reference une tache introuvable.`,
+        message: `La dépendance ${dependency.id} référence une tâche introuvable.`,
         dependencyId: dependency.id,
       });
       continue;
@@ -279,7 +279,7 @@ export function buildSchedule(
     ) {
       issues.push({
         code: "SELF_DEPENDENCY",
-        message: `La tache ${predecessor.name} ne peut pas dependre d'elle-meme.`,
+        message: `La tâche ${predecessor.name} ne peut pas dependre d'elle-meme.`,
         taskId: predecessor.id,
         dependencyId: dependency.id,
       });
@@ -289,7 +289,7 @@ export function buildSchedule(
     if (predecessor.isSummary || successor.isSummary) {
       issues.push({
         code: "SUMMARY_DEPENDENCY",
-        message: `Les taches recapitulatives ne peuvent pas etre utilisees dans la logique de dependance (${predecessor.name} -> ${successor.name}).`,
+        message: `Les tâches récapitulatives ne peuvent pas être utilisees dans la logique de dépendance (${predecessor.name} -> ${successor.name}).`,
         dependencyId: dependency.id,
       });
       continue;
@@ -324,7 +324,7 @@ export function buildSchedule(
   if (!topoOrder) {
     issues.push({
       code: "CYCLE",
-      message: "Le reseau de dependances contient un cycle. Les dates sont calculees sans les liens cycliques.",
+      message: "Le réseau de dépendances contient un cycle. Les dates sont calculees sans les liens cycliques.",
     });
   }
 
@@ -800,7 +800,7 @@ function applyConstraintAndDeadlineIssues(
     ) {
       issues.push({
         code: "MANUAL_CONFLICT",
-        message: `${task.name} est planifiee manuellement avant son debut au plus tot issu des dependances (${task.earliestStartDate}).`,
+        message: `${task.name} est planifiée manuellement avant son début au plus tôt issu des dépendances (${task.earliestStartDate}).`,
         taskId: task.id,
       });
     }
@@ -811,7 +811,7 @@ function applyConstraintAndDeadlineIssues(
     ) {
       issues.push({
         code: "DEADLINE_MISSED",
-        message: `${task.name} est prevue apres son echeance (${task.deadlineDate}).`,
+        message: `${task.name} est prévue après son échéance (${task.deadlineDate}).`,
         taskId: task.id,
       });
     }
@@ -853,19 +853,19 @@ function formatConstraintLabel(constraintType: MutableScheduledTask["constraintT
     case "ASAP":
       return "ASAP";
     case "START_NO_EARLIER_THAN":
-      return "Debut au plus tot le";
+      return "Début au plus tôt le";
     case "START_NO_LATER_THAN":
-      return "Debut au plus tard le";
+      return "Début au plus tard le";
     case "FINISH_NO_EARLIER_THAN":
-      return "Fin au plus tot le";
+      return "Fin au plus tôt le";
     case "FINISH_NO_LATER_THAN":
       return "Fin au plus tard le";
     case "MUST_START_ON":
-      return "Doit debuter le";
+      return "Doit débuter le";
     case "MUST_FINISH_ON":
       return "Doit finir le";
     default:
-      return "Tache";
+      return "Contrainte";
   }
 }
 

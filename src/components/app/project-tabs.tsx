@@ -36,7 +36,7 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
             href={tab.href}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "relative border-b-2 px-3 py-2.5 text-[12.5px] font-bold whitespace-nowrap transition-colors duration-100 select-none",
+              "relative border-b-2 px-2.5 py-2.5 text-[12px] font-bold whitespace-nowrap transition-colors duration-100 select-none",
               isActive
                 ? "border-[#56a45b] text-[#3f8f48]"
                 : "border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800",

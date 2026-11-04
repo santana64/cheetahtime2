@@ -131,8 +131,8 @@ export function LevelingGantt({ view }: { view: ProjectView }) {
         </p>
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="Avant nivellement (au plus tôt)" kind="before" />
-        <Panel title="Après nivellement (planifié)" kind="after" />
+        {Panel({ title: "Avant nivellement (au plus tôt)", kind: "before" })}
+        {Panel({ title: "Après nivellement (planifié)", kind: "after" })}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,16 +47,8 @@ export function B2PBilanView({
   const selectedDate = dates[index] ?? dates[0] ?? "";
 
   const [state, action, pending] = useActionState(saveB2PNoteAction, initialFormState);
-  const [note, setNote] = useState(notes[selectedDate] ?? "");
-  useEffect(() => {
-    setNote(notes[selectedDate] ?? "");
-  }, [selectedDate, notes]);
 
   const [scenState, scenAction, scenPending] = useActionState(saveB2PScenarioAction, initialFormState);
-  const [scenario, setScenario] = useState(scenarios[selectedDate] ?? "");
-  useEffect(() => {
-    setScenario(scenarios[selectedDate] ?? "");
-  }, [selectedDate, scenarios]);
 
   return (
     <div className="space-y-5">
@@ -156,8 +148,8 @@ export function B2PBilanView({
             <input type="hidden" name="date" value={selectedDate} />
             <textarea
               name="note"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
+              key={`note-${selectedDate}`}
+              defaultValue={notes[selectedDate] ?? ""}
               rows={4}
               placeholder="Ex : glissement du lot Lots techniques, action de rattrapage décidée…"
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-900 outline-none focus:border-[#56a45b]"
@@ -187,8 +179,8 @@ export function B2PBilanView({
             <input type="hidden" name="date" value={selectedDate} />
             <textarea
               name="scenario"
-              value={scenario}
-              onChange={(e) => setScenario(e.target.value)}
+              key={`scenario-${selectedDate}`}
+              defaultValue={scenarios[selectedDate] ?? ""}
               rows={5}
               placeholder={"Ex :\n• Envisagé A : +1 équipe sur B4 (intensité 2) → −1 mois\n• Envisagé B : chevaucher B5/B6 (lien DD) → −0,5 mois\n• RETENU : A (rattrapage 1 mois, coût accepté)"}
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-[13px] text-slate-900 outline-none focus:border-[#56a45b]"

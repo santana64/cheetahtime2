@@ -47,6 +47,7 @@ export default async function ProjectLayout({
     { label: "Classeur Excel (.xlsx)", href: `/api/projects/${project.id}/reports?format=excel` },
     { label: "Tableau CSV", href: `/api/projects/${project.id}/reports?format=csv` },
     { label: "Gantt (image SVG)", href: `/api/projects/${project.id}/reports?format=gantt-svg` },
+    { label: "MS Project (.xml — à ouvrir dans MS Project)", href: `/api/projects/${project.id}/export?format=mspdi` },
     { label: "Sauvegarde du projet (JSON)", href: `/api/projects/${project.id}/export` },
   ];
 
@@ -89,7 +90,7 @@ export default async function ProjectLayout({
                 Responsable : <strong className="text-slate-700">{project.ownerName}</strong>
               </span>
               <details className="relative">
-                <summary className="toolbar-btn list-none [&::-webkit-details-marker]:hidden">Exporter ▾</summary>
+                <summary className="toolbar-btn list-none [&::-webkit-détails-marker]:hidden">Exporter ▾</summary>
                 <div className="absolute right-0 z-50 mt-1 w-60 rounded-xl border border-black/[0.08] bg-white p-1 shadow-lg">
                   {exports.map(({ label, href }) => (
                     <a key={label} href={href} download className="block rounded-lg px-3 py-2 text-[12.5px] font-semibold text-slate-700 hover:bg-[#56a45b]/10">

@@ -28,79 +28,79 @@ export const workingDayOptionsFr = [
 const projectHealthLabels: Record<ProjectHealth, string> = {
   ON_TRACK: "En bonne voie",
   WATCH: "Sous surveillance",
-  AT_RISK: "A risque",
+  AT_RISK: "À risque",
   OFF_TRACK: "Hors trajectoire",
 };
 
 const projectStatusLabels: Record<ProjectStatus, string> = {
   ACTIVE: "Actif",
   PLANNING: "Planification",
-  AT_RISK: "A risque",
+  AT_RISK: "À risque",
   ON_HOLD: "En pause",
-  COMPLETED: "Termine",
+  COMPLETED: "Terminé",
 };
 
 const projectOriginLabels: Record<ProjectOrigin, string> = {
-  SEEDED: "Demo",
-  CREATED: "Cree",
-  DUPLICATED: "Duplique",
-  TEMPLATE: "Modele",
+  SEEDED: "Démo",
+  CREATED: "Créé",
+  DUPLICATED: "Dupliqué",
+  TEMPLATE: "Modèle",
 };
 
 const taskStatusLabels: Record<TaskStatus, string> = {
-  DONE: "Termine",
+  DONE: "Terminé",
   IN_PROGRESS: "En cours",
-  BLOCKED: "Bloque",
-  NOT_STARTED: "Non demarre",
+  BLOCKED: "Bloqué",
+  NOT_STARTED: "Non démarré",
 };
 
 const taskPriorityLabels: Record<TaskPriority, string> = {
   URGENT: "Urgente",
-  HIGH: "Elevee",
+  HIGH: "Élevée",
   MEDIUM: "Normale",
   LOW: "Faible",
 };
 
 const taskTypeLabels: Record<TaskType, string> = {
-  SUMMARY: "Recapitulatif",
-  TASK: "Tache",
+  SUMMARY: "Tâche hamac",
+  TASK: "LT",
   MILESTONE: "Jalon",
 };
 
 const taskConstraintLabels: Record<TaskConstraintType, string> = {
-  ASAP: "Des que possible",
-  START_NO_EARLIER_THAN: "Debut au plus tot le",
-  START_NO_LATER_THAN: "Debut au plus tard le",
-  FINISH_NO_EARLIER_THAN: "Fin au plus tot le",
+  ASAP: "Dès que possible",
+  START_NO_EARLIER_THAN: "Début au plus tôt le",
+  START_NO_LATER_THAN: "Début au plus tard le",
+  FINISH_NO_EARLIER_THAN: "Fin au plus tôt le",
   FINISH_NO_LATER_THAN: "Fin au plus tard le",
-  MUST_START_ON: "Doit debuter le",
+  MUST_START_ON: "Doit débuter le",
   MUST_FINISH_ON: "Doit finir le",
 };
 
 const taskSchedulingModeLabels: Record<TaskSchedulingMode, string> = {
-  AUTO: "Planifie automatiquement",
-  MANUAL: "Planifie manuellement",
+  AUTO: "Planifié automatiquement",
+  MANUAL: "Planifié manuellement",
 };
 
 const taskWorkFormulaLabels: Record<TaskWorkFormula, string> = {
-  FIXED_DURATION: "Duree fixe",
+  FIXED_DURATION: "Durée fixe",
   FIXED_WORK: "Charge fixe",
-  FIXED_UNITS: "Unites fixes",
+  FIXED_UNITS: "Unités fixes",
 };
 
 const resourceTypeLabels: Record<ResourceType, string> = {
   PERSON: "Personne",
-  TEAM: "Equipe",
-  EQUIPMENT: "Equipement",
+  TEAM: "Équipe",
+  EQUIPMENT: "Équipement",
 };
 
 const actualCostCategoryLabels: Record<ActualCostCategory, string> = {
-  LABOR: "Main-d'oeuvre",
-  MATERIAL: "Materiel",
-  EQUIPMENT: "Equipement",
+  LABOR: "Main-d’œuvre",
+  MATERIAL: "Matériel",
+  EQUIPMENT: "Équipement",
   SUBCONTRACT: "Sous-traitance",
-  TRAVEL: "Deplacement",
-  OVERHEAD: "Frais generaux",
+  TRAVEL: "Déplacement",
+  OVERHEAD: "Frais généraux",
   OTHER: "Autre",
 };
 

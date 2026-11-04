@@ -70,7 +70,7 @@ export default async function ProjectSoutenancePage({
             <div className="flex justify-between gap-3"><span>Avancement</span><strong>{formatPercent(view.metrics.overallProgress)}</strong></div>
             <div className="flex justify-between gap-3"><span>Fin prévisionnelle</span><strong>{formatDateLabel(view.schedule.projectFinishDate)}</strong></div>
             <div className="flex justify-between gap-3"><span>Fin contractuelle</span><strong>{formatDateLabel(view.aggregate.project.targetFinishDate)}</strong></div>
-            <div className="flex justify-between gap-3"><span>SPI_t</span><strong>{earnedSchedule.SPI_t?.toFixed(2) ?? "n/a"}</strong></div>
+            <div className="flex justify-between gap-3"><span>Indice délai</span><strong>{earnedSchedule.SPI_t?.toFixed(2) ?? "n/a"}</strong></div>
             <div className="flex justify-between gap-3"><span>Chemin critique</span><strong>{view.metrics.criticalTaskCount}</strong></div>
             <div className="flex justify-between gap-3"><span>Surcharges</span><strong>{view.metrics.overloadedResourceCount}</strong></div>
           </CardContent>

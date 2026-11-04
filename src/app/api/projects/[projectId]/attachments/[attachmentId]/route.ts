@@ -28,6 +28,6 @@ export async function GET(
       },
     });
   } catch (error) {
-    return jsonErrorFromUnknown(error, "Impossible de telecharger la piece jointe.", 400);
+    return jsonErrorFromUnknown(error, "Impossible de télécharger la piece jointe.", 400);
   }
 }

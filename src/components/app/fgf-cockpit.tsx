@@ -104,7 +104,7 @@ export function FgfCockpit({ view }: { view: ProjectView }) {
 
   const rows: { label: string; value: React.ReactNode; tone?: string }[] = [
     { label: "Écart (FP − PàD)", value: ecartLabel, tone: (banner.ecart ?? 0) > 0 ? NEG : POS },
-    { label: "Fin selon la durée acquise", value: formatDateLabel(es.IEAC_t), tone: "#b45309" },
+    { label: "Fin selon la durée acquise", value: es.IEAC_t ? formatDateLabel(es.IEAC_t) : "—", tone: "#b45309" },
     { label: "LT critiques", value: `${metrics.criticalTaskCount}` },
     { label: "Avancement", value: formatPercent(metrics.overallProgress) },
   ];
@@ -125,7 +125,7 @@ export function FgfCockpit({ view }: { view: ProjectView }) {
               <span className="truncate">{verdict}</span>
             </h2>
             <p className="mt-1 text-[11px] text-slate-500">
-              {project.name} · avancement {formatPercent(metrics.overallProgress)} · {metrics.executableTaskCount} tâche·s au réseau
+              {project.name} · avancement {formatPercent(metrics.overallProgress)} · {metrics.executableTaskCount} LT au réseau
             </p>
           </div>
           {b2pDates.length > 0 && (

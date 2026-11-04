@@ -633,11 +633,11 @@ export function buildLookAhead(view: ProjectView, weeks = 4): LookAheadTask[] {
         task,
         status: late ? "late" : atRisk ? "at_risk" : "ok",
         reason: late
-          ? "Tache en retard"
+          ? "Tâche en retard"
           : atRisk
             ? task.isCritical
               ? "Chemin critique"
-              : "Marge faible ou ecart baseline"
+              : "Marge faible ou écart baseline"
             : "Pret pour execution",
         resourceNames: assignments
           .map((assignment) => resourceMap.get(assignment.resourceId))

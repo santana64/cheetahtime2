@@ -116,7 +116,7 @@ export function buildSmartAlerts(view: ProjectView): SmartAlert[] {
         view,
         AlertType.MILESTONE_DELAYED,
         "critical",
-        `Jalon depasse: ${task.wbsCode} ${task.name} devait finir le ${task.scheduledFinishDate}.`,
+        `Jalon dépasse: ${task.wbsCode} ${task.name} devait finir le ${task.scheduledFinishDate}.`,
         task.id,
       );
       continue;
@@ -172,7 +172,7 @@ export function buildSmartAlerts(view: ProjectView): SmartAlert[] {
         view,
         AlertType.FREE_FLOAT_CONSUMED,
         "warning",
-        `${task.wbsCode} ${task.name} a consomme sa marge libre: ${task.freeSlackDays} jour(s) restant(s).`,
+        `${task.wbsCode} ${task.name} a consommé sà marge libre: ${task.freeSlackDays} jour(s) restant(s).`,
         task.id,
       );
     }
@@ -196,7 +196,7 @@ export function buildSmartAlerts(view: ProjectView): SmartAlert[] {
       view,
       AlertType.COST_IMPACT,
       costImpact.totalCostImpact > 50_000 ? "critical" : "warning",
-      `Glissement de ${costImpact.scheduleSlipDays} jour(s): impact cout estime ${Math.round(costImpact.totalCostImpact).toLocaleString("fr-FR")} ${currency}.`,
+      `Glissement de ${costImpact.scheduleSlipDays} jour(s): impact coût estime ${Math.round(costImpact.totalCostImpact).toLocaleString("fr-FR")} ${currency}.`,
     );
   }
 
@@ -207,7 +207,7 @@ export function buildSmartAlerts(view: ProjectView): SmartAlert[] {
       view,
       AlertType.SCHEDULE_SLIP_TREND,
       earnedSchedule.predictedSlip >= 14 ? "critical" : "warning",
-      `Tendance delai negative: SPI_t ${earnedSchedule.SPI_t?.toFixed(2) ?? "n/a"}, fin projet projetee ${earnedSchedule.IEAC_t ?? "n/a"}.`,
+      `Tendance délai négative: indice délai ${earnedSchedule.SPI_t?.toFixed(2) ?? "n/a"}, fin projet projetée ${earnedSchedule.IEAC_t ?? "n/a"}.`,
     );
   }
 
@@ -244,7 +244,7 @@ export function buildSmartAlerts(view: ProjectView): SmartAlert[] {
         view,
         AlertType.SUBCONTRACTOR_AT_RISK,
         "warning",
-        `${resourceName} concentre ${tasks.length} taches en retard: sous-traitant ou equipe a risque.`,
+        `${resourceName} concentre ${tasks.length} tâches en retard: sous-traitant ou équipe à risque.`,
         tasks[0]?.id,
       );
     }
@@ -273,7 +273,7 @@ export async function createSmartAlertDigest(input: {
     workspaceId: input.workspaceId,
     userId: input.userId,
     channel: input.channel ?? "IN_APP",
-    title: `Etat de vos projets: ${critical.length} critique(s), ${warning.length} avertissement(s)`,
+    title: `État de vos projets: ${critical.length} critique(s), ${warning.length} avertissement(s)`,
     body:
       alerts
         .slice(0, 12)

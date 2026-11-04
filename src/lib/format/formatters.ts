@@ -1,14 +1,20 @@
 import type { ISODate } from "@/types/planning";
 import { parseIsoDate } from "@/lib/planning/date-utils";
 
+/**
+ * Format de date UNIQUE de l'application : « 08 juin 26 » (jour, mois, année).
+ * L'année est toujours affichée : un projet de 18 mois couvre deux années.
+ */
 export function formatDateLabel(date?: ISODate | null) {
   if (!date) {
-    return "Non planifié";
+    return "—";
   }
 
   return new Intl.DateTimeFormat("fr-FR", {
     day: "2-digit",
     month: "short",
+    year: "2-digit",
+    timeZone: "UTC",
   }).format(parseIsoDate(date));
 }
 

@@ -112,17 +112,17 @@ export function BaselineView({ view }: { view: ProjectView }) {
               Referentiels
             </div>
             <h2 className="mt-0.5 text-base font-black" style={{ color: "#0d1f10", letterSpacing: "-0.02em" }}>
-              Capturer un nouveau referentiel
+              Capturer un nouveau référentiel
             </h2>
           </div>
           <form action={captureBaselineAction} className="flex flex-col gap-3 md:flex-row md:items-end">
             <input type="hidden" name="projectId" value={view.aggregate.project.id} />
             <input type="hidden" name="capturedBy" value={view.aggregate.project.ownerName} />
             <label className="grid flex-1 gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "rgba(0,0,0,0.50)" }}>
-              Nom du referentiel
+              Nom du référentiel
               <Input
                 name="baselineName"
-                defaultValue={`Referentiel ${new Date().toLocaleDateString("fr-FR")}`}
+                defaultValue={`Référentiel ${new Date().toLocaleDateString("fr-FR")}`}
                 className="h-9 text-sm"
               />
             </label>
@@ -135,7 +135,7 @@ export function BaselineView({ view }: { view: ProjectView }) {
                 boxShadow: "0 2px 10px rgba(86,164,91,0.30)",
               }}
             >
-              Capturer le referentiel
+              Capturer le référentiel
             </Button>
           </form>
         </div>
@@ -146,12 +146,12 @@ export function BaselineView({ view }: { view: ProjectView }) {
           {/* KPI grid */}
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <MetricCard
-              label="Referentiel actif"
+              label="Référentiel actif"
               value={view.activeBaseline?.name ?? "Aucun"}
               sub={
                 view.activeBaseline
                   ? `Capture le ${new Date(view.activeBaseline.capturedAt).toLocaleDateString("fr-FR")} par ${view.activeBaseline.capturedBy}`
-                  : "Activez un referentiel pour comparer la derive planning."
+                  : "Activez un référentiel pour comparer la derive planning."
               }
               accent="green"
               delay={0}
@@ -159,28 +159,28 @@ export function BaselineView({ view }: { view: ProjectView }) {
             <MetricCard
               label="Variance de fin"
               value={`${slippedTasks} en retard / ${aheadTasks} en avance`}
-              sub={`${stableTasks} taches restent sur leurs dates approuvees.`}
+              sub={`${stableTasks} tâches restent sur leurs dates approuvees.`}
               accent={slippedTasks > 0 ? "red" : "green"}
               delay={80}
             />
             <MetricCard
               label="Historique"
               value={String(view.aggregate.baselines.length)}
-              sub="Referentiels captures. Reactivez le bon point de comparaison selon la gouvernance."
+              sub="Référentiels captures. Reactivez le bon point de comparaison selon la gouvernance."
               accent="green"
               delay={160}
             />
             <MetricCard
               label="Variance chemin critique"
               value={`${criticalSlips} gliss. / ${worstFinishSlip}j max`}
-              sub="Taches critiques depassant le referentiel — a traiter en priorite."
+              sub="Tâches critiques depassant le référentiel — a traiter en priorité."
               accent={criticalSlips > 0 ? "red" : "green"}
               delay={240}
             />
             <MetricCard
               label="Variance charge"
               value={formatHours(totalWorkVariance)}
-              sub="Delta charge planifiee vs referentiel actif."
+              sub="Delta charge planifiée vs référentiel actif."
               accent={totalWorkVariance > 0 ? "orange" : "green"}
               delay={320}
             />
@@ -206,14 +206,14 @@ export function BaselineView({ view }: { view: ProjectView }) {
                   Historique
                 </div>
                 <h3 className="mt-0.5 text-base font-black" style={{ color: "#0d1f10", letterSpacing: "-0.02em" }}>
-                  Referentiels captures
+                  Référentiels captures
                 </h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full border-separate border-spacing-y-1.5">
                   <thead>
                     <tr className="text-left text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: "rgba(0,0,0,0.38)" }}>
-                      <th className="px-3 py-2">Referentiel</th>
+                      <th className="px-3 py-2">Référentiel</th>
                       <th className="px-3 py-2">Capture</th>
                       <th className="px-3 py-2">Instantanes</th>
                       <th className="px-3 py-2">Charge gelee</th>
@@ -313,17 +313,17 @@ export function BaselineView({ view }: { view: ProjectView }) {
                     Analyse
                   </div>
                   <h3 className="mt-0.5 text-base font-black" style={{ color: "#0d1f10", letterSpacing: "-0.02em" }}>
-                    Variance par tache
+                    Variance par tâche
                   </h3>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="min-w-full border-separate border-spacing-y-1.5">
                     <thead>
                       <tr className="text-left text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "rgba(0,0,0,0.38)" }}>
-                        <th className="px-3 py-2">Tache</th>
-                        <th className="px-3 py-2">Referentiel</th>
+                        <th className="px-3 py-2">Tâche</th>
+                        <th className="px-3 py-2">Référentiel</th>
                         <th className="px-3 py-2">Actuel</th>
-                        <th className="px-3 py-2">Delta debut</th>
+                        <th className="px-3 py-2">Delta début</th>
                         <th className="px-3 py-2">Delta fin</th>
                         <th className="px-3 py-2">Delta charge</th>
                         <th className="px-3 py-2">Nivellement</th>
@@ -398,9 +398,9 @@ export function BaselineView({ view }: { view: ProjectView }) {
         </>
       ) : (
         <EmptyState
-          eyebrow="Aucun referentiel"
+          eyebrow="Aucun référentiel"
           title="Capturez le plan approuve"
-          description="Les referentiels gelee le planning actuel pour que Cheetah Time puisse afficher la variance de dates et suivre la derive au fil du temps."
+          description="Les référentiels gelee le planning actuel pour que Cheetah Time puisse afficher la variance de dates et suivre la derive au fil du temps."
         />
       )}
     </div>

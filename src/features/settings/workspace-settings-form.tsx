@@ -85,7 +85,7 @@ export function WorkspaceSettingsForm({ settings }: { settings: WorkspaceSetting
             <Toggle
               name="inAppNotifications"
               label="Notifications in-app"
-              description="Mentions et evenements visibles dans Cheetah Time."
+              description="Mentions et événements visibles dans Cheetah Time."
               defaultChecked={settings.inAppNotifications}
             />
             <Toggle
@@ -127,7 +127,7 @@ export function WorkspaceSettingsForm({ settings }: { settings: WorkspaceSetting
             state.status === "idle" && "text-slate-500",
           )}
         >
-          {state.message || `Derniere mise a jour: ${new Date(settings.updatedAt).toLocaleString("fr-FR")}`}
+          {state.message || `Dernière mise à jour: ${new Date(settings.updatedAt).toLocaleString("fr-FR")}`}
         </p>
         <Button type="submit" disabled={pending}>
           {pending ? "Enregistrement..." : "Enregistrer les paramètres"}

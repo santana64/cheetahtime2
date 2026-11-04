@@ -563,7 +563,7 @@ export async function signInWithPassword(
       user?.lockedUntil &&
       user.lockedUntil.getTime() > Date.now()
     ) {
-      throw new Error("Compte temporairement verrouille apres trop d'echecs de connexion.");
+      throw new Error("Compte temporairement verrouillé après trop d'echecs de connexion.");
     }
 
     if (!user || user.status !== "ACTIVE" || !verifyPassword(password, user.passwordHash)) {
@@ -597,7 +597,7 @@ export async function signInWithPassword(
 
     const membership = user.memberships.find((entry) => entry.workspaceId === user.defaultWorkspaceId) ?? user.memberships[0];
     if (!membership) {
-      throw new Error("Aucun espace de travail n'est associe a cet utilisateur.");
+      throw new Error("Aucun espace de travail n'est associé a cet utilisateur.");
     }
 
     const sessionRow = await db.session.create({
@@ -633,7 +633,7 @@ export async function signInWithPassword(
   await mutateIdentityStore((draft) => {
     const user = draft.users.find((entry) => entry.email === normalizedEmail);
     if (user?.lockedUntil && new Date(user.lockedUntil).getTime() > Date.now()) {
-      throw new Error("Compte temporairement verrouille apres trop d'echecs de connexion.");
+      throw new Error("Compte temporairement verrouillé après trop d'echecs de connexion.");
     }
     if (!user || user.status !== "ACTIVE" || !verifyPassword(password, user.passwordHash)) {
       if (user) {
@@ -658,7 +658,7 @@ export async function signInWithPassword(
       draft.memberships.find((entry) => entry.workspaceId === user.defaultWorkspaceId && entry.userId === user.id) ??
       draft.memberships.find((entry) => entry.userId === user.id);
     if (!membership) {
-      throw new Error("Aucun espace de travail n'est associe a cet utilisateur.");
+      throw new Error("Aucun espace de travail n'est associé a cet utilisateur.");
     }
 
     const workspace = draft.workspaces.find((entry) => entry.id === membership.workspaceId);
@@ -694,7 +694,7 @@ export async function signInWithPassword(
   });
 
   if (!createdSession) {
-    throw new Error("Session non creee.");
+    throw new Error("Session non créée.");
   }
 
   return { token, session: createdSession };
@@ -963,7 +963,7 @@ export function roleCan(role: WorkspaceRole, permission: string) {
 export async function requirePermission(permission: string) {
   const session = await requireCurrentSession();
   if (!roleCan(session.role, permission)) {
-    throw new Error("Droits insuffisants pour cette operation.");
+    throw new Error("Droits insuffisants pour cette opération.");
   }
   return session;
 }
@@ -1042,7 +1042,7 @@ export async function requireApiPermission(permission: string): Promise<AuthSess
     throw new AuthError("Authentification requise.", 401);
   }
   if (!roleCan(session.role, permission)) {
-    throw new AuthError("Droits insuffisants pour cette operation.", 403);
+    throw new AuthError("Droits insuffisants pour cette opération.", 403);
   }
   return session;
 }

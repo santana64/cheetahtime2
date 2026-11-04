@@ -313,7 +313,7 @@ export function buildTimeReportPdf(view: ProjectView): Buffer {
       const p = new PdfPage(W, H);
       pageFrame(p, `Écarts par LT (en ${unit})${rows.length > PER ? ` — ${pi + 1}/${Math.min(MAX, Math.ceil(rows.length / PER))}` : ""}`, view, pages.length + 1);
       const cols = [M, M + 50, M + 320, M + 400, M + 480, M + 560, M + 640, M + 715];
-      ["Code", "Lot de tâches", "Fin PI", "Fin prévue", "Écart", "Marge tot.", "Avanc.", "État"].forEach((h, i) =>
+      ["Code", "Lot de tâches", "Fin PI", "Fin prévue", "Écart", "Marge tôt.", "Avanc.", "État"].forEach((h, i) =>
         p.text(cols[i], 54, h.toUpperCase(), 7, { bold: true, color: MUTED }),
       );
       p.line(M, 59, W - M, 59, GRID);

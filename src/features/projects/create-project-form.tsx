@@ -51,7 +51,7 @@ export function CreateProjectForm() {
             <Input name="sponsorName" placeholder="Commanditaire executif" required className="h-9 text-sm" />
           </label>
           <label className="grid gap-1.5 text-xs font-semibold text-slate-500">
-            Debut cible
+            Début cible
             <Input name="targetStartDate" type="date" required className="h-9 text-sm" />
           </label>
           <label className="grid gap-1.5 text-xs font-semibold text-slate-500">
@@ -78,10 +78,10 @@ export function CreateProjectForm() {
                   : "text-xs text-slate-400"
               }
             >
-              {state.message || "Vous arriverez directement sur le tableau de bord du projet apres sa creation."}
+              {state.message || "Vous arriverez directement sur le tableau de bord du projet après sa création."}
             </div>
             <Button type="submit" disabled={pending} className="shrink-0">
-              {pending ? "Creation en cours..." : "Creer le projet"}
+              {pending ? "Création en cours..." : "Créer le projet"}
             </Button>
           </div>
         </form>

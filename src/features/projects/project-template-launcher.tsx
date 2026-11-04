@@ -16,9 +16,9 @@ export function ProjectTemplateLauncher({ templates }: { templates: ProjectTempl
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Modeles</CardTitle>
+          <CardTitle className="text-base">Modèles</CardTitle>
           <p className="text-xs text-slate-500">
-            Aucun modele encore. Enregistrez un projet comme modele depuis ses parametres.
+            Aucun modèle encore. Enregistrez un projet comme modèle depuis ses paramètres.
           </p>
         </CardHeader>
       </Card>
@@ -28,7 +28,7 @@ export function ProjectTemplateLauncher({ templates }: { templates: ProjectTempl
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Creer depuis un modele</CardTitle>
+        <CardTitle className="text-base">Créer depuis un modèle</CardTitle>
         <p className="text-xs text-slate-500">
           Lance un nouveau projet a partir d'une structure de planning deja capturee.
         </p>
@@ -38,7 +38,7 @@ export function ProjectTemplateLauncher({ templates }: { templates: ProjectTempl
           <form key={template.id} action={action} className="rounded-xl border border-slate-200 bg-white/80 p-3">
             <input type="hidden" name="templateId" value={template.id} />
             <div className="font-semibold text-slate-900">{template.name}</div>
-            <p className="mt-1 text-xs leading-5 text-slate-500">{template.description || "Modele projet Cheetah Time."}</p>
+            <p className="mt-1 text-xs leading-5 text-slate-500">{template.description || "Modèle projet Cheetah Time."}</p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <Input name="projectName" className="h-9 min-w-[220px] flex-1" placeholder={`${template.name} - Nouveau`} />
               <Button type="submit" size="sm" disabled={pending}>
