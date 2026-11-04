@@ -41,6 +41,10 @@ import {
   type CreateProjectStructureInput,
   updateProjectPilotageSettings,
   setProjectB2PDates,
+  auditActor,
+  saveProjectSnapshot,
+  restoreProjectSnapshot,
+  deleteProjectSnapshot,
   createT2PB2P0,
   createT2PScenario,
   updateT2PLines,
@@ -146,6 +150,16 @@ async function requireProjectWriteAccess() {
   return session;
 }
 
+/**
+ * Fixe l'auteur du journal d'audit pour la suite de l'action. Fonction
+ * SYNCHRONE : enterWith s'applique au contexte de l'appelant (l'action), ce
+ * qui n'est pas le cas depuis une fonction async attendue.
+ */
+function bindAuditActor<T extends { name: string }>(session: T): T {
+  auditActor.enterWith(session.name);
+  return session;
+}
+
 async function requireProjectAdminAccess() {
   const session = await requireCurrentSession();
   if (!roleCan(session.role, "project:*")) {
@@ -215,7 +229,7 @@ export async function createProjectAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    const session = await requireProjectWriteAccess();
+    const session = bindAuditActor(await requireProjectWriteAccess());
     const projectId = await createProject({
       workspaceId: session.workspaceId,
       ownerUserId: session.userId,
@@ -245,7 +259,7 @@ export async function createGuidedProjectAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    const session = await requireProjectWriteAccess();
+    const session = bindAuditActor(await requireProjectWriteAccess());
 
     let lots: { name: string; budgetAmount: number }[] = [];
     let b2pDates: string[] = [];
@@ -316,7 +330,7 @@ export async function createGuidedProjectAction(
 
 /** Crée le projet de recette « Cas complexe sportif » (corrigé FGF, données figées). */
 export async function createSportifRecipeAction(): Promise<void> {
-  const session = await requireProjectWriteAccess();
+  const session = bindAuditActor(await requireProjectWriteAccess());
   const projectId = await createProject({
     workspaceId: session.workspaceId,
     ownerUserId: session.userId,
@@ -343,7 +357,7 @@ export async function saveB2PNoteAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     await setProjectB2PNote({
       projectId,
@@ -366,7 +380,7 @@ export async function saveB2PScenarioAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     await setProjectB2PScenario({
       projectId,
@@ -388,7 +402,7 @@ export async function updateProjectMetadataAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     await updateProjectMetadata({
       projectId,
@@ -428,7 +442,7 @@ export async function updateProjectCalendarAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     await runWithCostBridgeWebhook(projectId, { kind: "calendar.update" }, () =>
       updateProjectCalendar({
@@ -465,7 +479,7 @@ export async function updateProjectCalendarAction(
 }
 
 export async function levelProjectResourcesAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await runWithCostBridgeWebhook(projectId, { kind: "leveling.apply" }, () =>
     levelProjectResources(projectId),
@@ -479,7 +493,7 @@ export async function levelProjectResourcesAction(formData: FormData) {
 
 /** Nivellement par allongement : durée ×F, intensité ÷F (charge constante). */
 export async function stretchProjectResourcesAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await runWithCostBridgeWebhook(projectId, { kind: "leveling.apply" }, () =>
     stretchProjectResources(projectId),
@@ -492,13 +506,13 @@ export async function stretchProjectResourcesAction(formData: FormData) {
 }
 
 export async function levelWorkspaceResourcesAction() {
-  const session = await requireProjectWriteAccess();
+  const session = bindAuditActor(await requireProjectWriteAccess());
   await levelWorkspaceResources(session.workspaceId);
   revalidatePath("/projects");
 }
 
 export async function clearProjectLevelingAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await runWithCostBridgeWebhook(projectId, { kind: "leveling.clear" }, () =>
     clearProjectLeveling(projectId),
@@ -515,7 +529,7 @@ export async function duplicateProjectAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const duplicatedProjectId = await duplicateProject({
       projectId,
@@ -563,7 +577,7 @@ export async function setProjectArchiveStateAction(
 
 /** Déclasser / reclasser un projet (bouton direct sur la liste — spec François). */
 export async function setProjectDeclassedAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const declassed = required(formData, "declassed") === "true";
   await setProjectDeclassed(projectId, declassed, optional(formData, "actor") || "Cheetah Time");
@@ -596,7 +610,7 @@ export async function saveTaskAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const taskId = required(formData, "taskId");
     await runWithCostBridgeWebhook(projectId, { kind: "task.update", taskId }, () =>
@@ -659,7 +673,7 @@ export async function saveTaskAction(
 }
 
 export async function createTaskAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const eventHint = { kind: "task.create" as const, taskId: null as string | null };
   await runWithCostBridgeWebhook(projectId, eventHint, async () => {
@@ -682,7 +696,7 @@ export async function moveTaskAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const taskId = required(formData, "taskId");
     await runWithCostBridgeWebhook(projectId, { kind: "task.move", taskId }, () =>
@@ -714,7 +728,7 @@ export async function rescheduleTaskFromGanttAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const taskId = required(formData, "taskId");
     await runWithCostBridgeWebhook(projectId, { kind: "task.reschedule", taskId }, () =>
@@ -744,7 +758,7 @@ export async function rescheduleTaskFromGanttAction(
 }
 
 export async function deleteTaskAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const taskId = required(formData, "taskId");
   await runWithCostBridgeWebhook(projectId, { kind: "task.delete", taskId }, () =>
@@ -762,7 +776,7 @@ export async function saveDependencyAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const successorTaskId = required(formData, "successorTaskId");
     await runWithCostBridgeWebhook(projectId, { kind: "dependency.create", taskId: successorTaskId }, () =>
@@ -793,7 +807,7 @@ export async function saveDependencyAction(
 }
 
 export async function deleteDependencyAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await runWithCostBridgeWebhook(projectId, { kind: "dependency.delete" }, () =>
     deleteDependency(projectId, required(formData, "dependencyId")),
@@ -804,7 +818,7 @@ export async function deleteDependencyAction(formData: FormData) {
 }
 
 export async function captureBaselineAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await runWithCostBridgeWebhook(
     projectId,
@@ -823,7 +837,7 @@ export async function captureBaselineAction(formData: FormData) {
 }
 
 export async function activateBaselineAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const baselineId = required(formData, "baselineId");
   await runWithCostBridgeWebhook(projectId, { kind: "baseline.activate", baselineId }, () =>
@@ -840,7 +854,7 @@ export async function createResourceAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const eventHint = { kind: "resource.create" as const, resourceId: null as string | null };
     await runWithCostBridgeWebhook(projectId, eventHint, async () => {
@@ -887,7 +901,7 @@ export async function createResourceAction(
 }
 
 export async function updateResourceDirectAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const resourceId = required(formData, "resourceId");
   await runWithCostBridgeWebhook(projectId, { kind: "resource.update", resourceId }, () =>
@@ -923,7 +937,7 @@ export async function updateResourceDirectAction(formData: FormData) {
 
 /** Calendrier de disponibilité d'une ressource (intensité par mois) — demande François 23/08. */
 export async function setResourceAvailabilityAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const resourceId = required(formData, "resourceId");
   let availabilityByMonth: Record<string, number> = {};
@@ -941,7 +955,7 @@ export async function setResourceAvailabilityAction(formData: FormData) {
 }
 
 export async function deleteResourceAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const resourceId = required(formData, "resourceId");
   await runWithCostBridgeWebhook(projectId, { kind: "resource.delete", resourceId }, () =>
@@ -958,7 +972,7 @@ export async function saveAssignmentAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const taskId = required(formData, "taskId");
     const resourceId = required(formData, "resourceId");
@@ -989,7 +1003,7 @@ export async function saveAssignmentAction(
 }
 
 export async function saveAssignmentDirectAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const taskId = required(formData, "taskId");
   const resourceId = required(formData, "resourceId");
@@ -1009,7 +1023,7 @@ export async function saveAssignmentDirectAction(formData: FormData) {
 }
 
 export async function deleteAssignmentAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await runWithCostBridgeWebhook(projectId, { kind: "assignment.delete" }, () =>
     deleteAssignment(projectId, required(formData, "assignmentId")),
@@ -1025,7 +1039,7 @@ export async function saveTimesheetEntryAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     await saveTimesheetEntry({
       projectId,
@@ -1058,7 +1072,7 @@ export async function saveTimesheetEntryAction(
 }
 
 export async function deleteTimesheetEntryAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await deleteTimesheetEntry(projectId, required(formData, "entryId"));
 
@@ -1069,7 +1083,7 @@ export async function deleteTimesheetEntryAction(formData: FormData) {
 }
 
 export async function saveTimesheetEntryDirectAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await saveTimesheetEntry({
     projectId,
@@ -1095,7 +1109,7 @@ export async function saveActualCostEntryAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     await saveActualCostEntry({
       projectId,
@@ -1130,7 +1144,7 @@ export async function saveActualCostEntryAction(
 }
 
 export async function saveActualCostEntryDirectAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await saveActualCostEntry({
     projectId,
@@ -1154,7 +1168,7 @@ export async function saveActualCostEntryDirectAction(formData: FormData) {
 }
 
 export async function deleteActualCostEntryAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await deleteActualCostEntry(projectId, required(formData, "entryId"));
 
@@ -1170,7 +1184,7 @@ export async function createRiskAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     await createRisk({
       projectId,
@@ -1200,7 +1214,7 @@ export async function updateRiskAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const riskId = required(formData, "riskId");
     await updateRisk({
@@ -1229,7 +1243,7 @@ export async function updateRiskAction(
 }
 
 export async function deleteRiskAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await deleteRisk(required(formData, "riskId"), projectId);
   revalidatePath(`/projects/${projectId}/risks`);
@@ -1243,7 +1257,7 @@ export async function addTaskCommentAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    const session = await requireProjectWriteAccess();
+    const session = bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const taskId = required(formData, "taskId");
     await addTaskComment({
@@ -1264,7 +1278,7 @@ export async function addTaskCommentAction(
 }
 
 export async function deleteTaskCommentAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const taskId = required(formData, "taskId");
   await deleteTaskComment(required(formData, "commentId"), taskId);
@@ -1279,7 +1293,7 @@ export async function addTaskAttachmentAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    const session = await requireProjectWriteAccess();
+    const session = bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const taskId = required(formData, "taskId");
     const uploadedFile = formData.get("file");
@@ -1319,7 +1333,7 @@ export async function addTaskAttachmentAction(
 }
 
 export async function deleteTaskAttachmentAction(formData: FormData) {
-  const session = await requireProjectWriteAccess();
+  const session = bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const taskId = required(formData, "taskId");
   await deleteTaskAttachment({
@@ -1340,7 +1354,7 @@ export async function saveIssueAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    const session = await requireProjectWriteAccess();
+    const session = bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     await saveIssue({
       id: optional(formData, "issueId"),
@@ -1366,7 +1380,7 @@ export async function saveIssueAction(
 }
 
 export async function deleteIssueAction(formData: FormData) {
-  const session = await requireProjectWriteAccess();
+  const session = bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await deleteIssue({
     projectId,
@@ -1384,7 +1398,7 @@ export async function saveChangeRequestAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    const session = await requireProjectWriteAccess();
+    const session = bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     await saveChangeRequest({
       id: optional(formData, "changeRequestId"),
@@ -1412,7 +1426,7 @@ export async function saveChangeRequestAction(
 }
 
 export async function deleteChangeRequestAction(formData: FormData) {
-  const session = await requireProjectWriteAccess();
+  const session = bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await deleteChangeRequest({
     projectId,
@@ -1455,7 +1469,7 @@ export async function createProjectFromTemplateAction(
 ): Promise<FormState> {
   let projectId = "";
   try {
-    const session = await requireProjectWriteAccess();
+    const session = bindAuditActor(await requireProjectWriteAccess());
     projectId = await createProjectFromTemplate({
       workspaceId: session.workspaceId,
       templateId: required(formData, "templateId"),
@@ -1476,7 +1490,7 @@ export async function createProjectFromBtpTemplateAction(
 ): Promise<FormState> {
   let projectId = "";
   try {
-    const session = await requireProjectWriteAccess();
+    const session = bindAuditActor(await requireProjectWriteAccess());
     projectId = await createProjectFromBtpTemplate({
       workspaceId: session.workspaceId,
       templateId: required(formData, "templateId"),
@@ -1497,7 +1511,7 @@ export async function createProjectFromBtpTemplateAction(
 // --- ACTIVITY ACTIONS ---
 
 export async function recordActivityAction(formData: FormData) {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   await recordActivity({
     projectId: required(formData, "projectId"),
     actorUserId: null,
@@ -1519,7 +1533,7 @@ export async function updatePilotageSettingsAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const coefficientRaw = optional(formData, "pseudoCriticalCoefficient");
     const coefficient = coefficientRaw ? Number(coefficientRaw.replace(",", ".")) : null;
@@ -1541,7 +1555,7 @@ export async function advanceB2PAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const b2pDate = required(formData, "b2pDate");
     const ids = formData.getAll("taskId").map(String);
@@ -1577,7 +1591,7 @@ export async function saveB2PDatesAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const intent = String(formData.get("intent") ?? "save");
     let dates = formData.getAll("date").map(String).filter(Boolean);
@@ -1615,7 +1629,7 @@ function t2pRevalidate(projectId: string) {
 }
 
 export async function createT2PB2P0Action(formData: FormData): Promise<void> {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const table = await createT2PB2P0(projectId);
   t2pRevalidate(projectId);
@@ -1623,7 +1637,7 @@ export async function createT2PB2P0Action(formData: FormData): Promise<void> {
 }
 
 export async function createT2PScenarioAction(formData: FormData): Promise<void> {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const numero = Number(required(formData, "numero"));
   const table = await createT2PScenario(projectId, numero);
@@ -1632,7 +1646,7 @@ export async function createT2PScenarioAction(formData: FormData): Promise<void>
 }
 
 export async function promoteT2PAction(formData: FormData): Promise<void> {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const table = await promoteT2PScenario(projectId, required(formData, "tableId"));
   t2pRevalidate(projectId);
@@ -1640,14 +1654,14 @@ export async function promoteT2PAction(formData: FormData): Promise<void> {
 }
 
 export async function toggleT2PLockAction(formData: FormData): Promise<void> {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await setT2PLocked(projectId, required(formData, "tableId"), formData.get("locked") === "true");
   t2pRevalidate(projectId);
 }
 
 export async function deleteT2PTableAction(formData: FormData): Promise<void> {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   await deleteT2PTable(projectId, required(formData, "tableId"));
   t2pRevalidate(projectId);
@@ -1656,7 +1670,7 @@ export async function deleteT2PTableAction(formData: FormData): Promise<void> {
 
 export async function saveT2PLinesAction(_prev: FormState, formData: FormData): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const tableId = required(formData, "tableId");
     const lots = formData.getAll("lotId").map(String);
@@ -1684,7 +1698,7 @@ export async function saveT2PLinesAction(_prev: FormState, formData: FormData): 
 /* ── Rapports de délai (R2Pi) ── */
 
 export async function createRapportDelaiAction(formData: FormData): Promise<void> {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const rapport = await createRapportDelai(projectId, required(formData, "t2pId"));
   revalidatePath(`/projects/${projectId}/rapports`);
@@ -1693,7 +1707,7 @@ export async function createRapportDelaiAction(formData: FormData): Promise<void
 
 export async function saveRapportDelaiAction(_prev: FormState, formData: FormData): Promise<FormState> {
   try {
-    await requireProjectWriteAccess();
+    bindAuditActor(await requireProjectWriteAccess());
     const projectId = required(formData, "projectId");
     const ids = formData.getAll("sectionId").map(String);
     await saveRapportDelai({
@@ -1711,7 +1725,7 @@ export async function saveRapportDelaiAction(_prev: FormState, formData: FormDat
 }
 
 export async function rapportDelaiCommandAction(formData: FormData): Promise<void> {
-  await requireProjectWriteAccess();
+  bindAuditActor(await requireProjectWriteAccess());
   const projectId = required(formData, "projectId");
   const rapportId = required(formData, "rapportId");
   const command = String(formData.get("command") ?? "");
@@ -1724,4 +1738,20 @@ export async function rapportDelaiCommandAction(formData: FormData): Promise<voi
     redirect(`/projects/${projectId}/rapports`);
   }
   revalidatePath(`/projects/${projectId}/rapports`);
+}
+
+
+/* ── Versions du projet (comme Cheetah Cost : enregistrer, restaurer, supprimer) ── */
+export async function projectSnapshotCommandAction(formData: FormData): Promise<void> {
+  bindAuditActor(await requireProjectWriteAccess());
+  const projectId = required(formData, "projectId");
+  const command = String(formData.get("command") ?? "");
+  if (command === "enregistrer") {
+    await saveProjectSnapshot(projectId, String(formData.get("label") ?? "").trim());
+  } else if (command === "restaurer") {
+    await restoreProjectSnapshot(projectId, required(formData, "snapshotId"));
+  } else if (command === "supprimer") {
+    await deleteProjectSnapshot(projectId, required(formData, "snapshotId"));
+  }
+  revalidatePath(`/projects/${projectId}`, "layout");
 }

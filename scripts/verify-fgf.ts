@@ -303,6 +303,30 @@ async function main() {
         assert(buildRapportDelaiPdf(vr, saved).subarray(0, 5).toString() === "%PDF-", "PDF du rapport");
         assert(buildRapportDelaiPdf(vr, null).subarray(0, 5).toString() === "%PDF-", "PDF du modèle vierge");
         console.log("✓ Rapport de délai R2P1 (pré-rempli, unique par B2P, diffusé et figé, PDF + modèle vierge)");
+        // ── Journal d'audit et versions (comme Cheetah Cost) ──
+        {
+          const h1 = await projectServices.getProjectHistory(pid);
+          const actions = new Set(h1.auditTrail.map((e) => e.action));
+          for (const a of ["project_created", "plan_updated", "b2p_created", "b2p_saved", "b2p_promoted", "b2p_locked", "rapport_created", "rapport_diffused"] as const) {
+            assert(actions.has(a), `journal : événement ${a} attendu`);
+          }
+          assert(h1.auditTrail[0].at >= h1.auditTrail[h1.auditTrail.length - 1].at, "journal trié du plus récent au plus ancien");
+          const before = (await projectServices.getProjectView(pid)).aggregate.project.b2pDates ?? [];
+          const ver = await projectServices.saveProjectSnapshot(pid, "Avant modification des dates");
+          await projectServices.setProjectB2PDates({ projectId: pid, dates: [before[0] ?? "2026-01-05"] });
+          assert(((await projectServices.getProjectView(pid)).aggregate.project.b2pDates ?? []).length === 1, "dates modifiées");
+          await projectServices.restoreProjectSnapshot(pid, ver.id);
+          const restored = (await projectServices.getProjectView(pid)).aggregate.project.b2pDates ?? [];
+          assert(JSON.stringify(restored) === JSON.stringify(before), "restauration : dates d'origine retrouvées");
+          const h2 = await projectServices.getProjectHistory(pid);
+          assert(h2.auditTrail[0].action === "version_restored", "restauration journalisée");
+          assert(h2.snapshots.length === 1 && h2.snapshots[0].sizeKb > 0, "version conservée après restauration");
+          await projectServices.deleteProjectSnapshot(pid, ver.id);
+          assert((await projectServices.getProjectHistory(pid)).snapshots.length === 0, "version supprimée");
+          const light = (await projectServices.getProjectView(pid)).aggregate.project;
+          assert((light.snapshots ?? []).every((x) => x.payload === "") && (light.auditTrail ?? []).length <= 20, "la vue ne transporte pas l'historique lourd");
+          console.log(`✓ Journal d'audit (${h2.auditTrail.length} événements) et versions (enregistrer → modifier → restaurer → supprimer)`);
+        }
         console.log(`✓ Tableaux B2P délai (B2P0 · T2P1-1 requise · T2P1-21 → T2P1-2 retenu · rétrogradation · verrou) — ${tables.length} tableaux`);
       }
       // Ré-import : l'historique des Tableaux B2P est conservé.

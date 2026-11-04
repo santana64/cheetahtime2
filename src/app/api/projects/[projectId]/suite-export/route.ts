@@ -1,5 +1,6 @@
+import { getCurrentSession } from "@/services/auth";
 import { jsonErrorFromUnknown, jsonResponse } from "@/lib/api/route-utils";
-import { buildSuiteExport } from "@/services/projects";
+import { buildSuiteExport, recordProjectExport } from "@/services/projects";
 
 export async function GET(
   _request: Request,
@@ -10,6 +11,7 @@ export async function GET(
     const file = await buildSuiteExport(projectId);
     const download = new URL(_request.url).searchParams.get("download");
     if (download) {
+      await recordProjectExport(projectId, "Export du fichier commun Cheetah Cost", (await getCurrentSession())?.name);
       const slug = String(file.project.nom).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "projet";
       return new Response(JSON.stringify(file, null, 2), {
         headers: {

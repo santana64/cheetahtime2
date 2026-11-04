@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -90,7 +91,9 @@ import type {
   DependencyType,
   ISODate,
   LevelingStrategy,
+  AuditEvent,
   Project,
+  ProjectSnapshot,
   RapportDelai,
   T2PTable,
   ProjectAggregate,
@@ -407,6 +410,31 @@ export interface DuplicateProjectInput {
   projectId: string;
   name?: string;
   duplicatedBy: string;
+}
+
+
+/* ══ Journal d'audit (même modèle que Cheetah Cost : appendAuditEvent) ══ */
+
+/** Auteur des événements de la requête en cours (renseigné par les actions serveur). */
+export const auditActor = new AsyncLocalStorage<string>();
+
+function pushAudit(
+  aggregate: ProjectAggregate,
+  action: AuditEvent["action"],
+  label: string,
+  options: { details?: string; t2pId?: string; taskId?: string } = {},
+) {
+  const event: AuditEvent = {
+    id: `audit_${randomUUID().slice(0, 12)}`,
+    at: nowIso(),
+    actor: auditActor.getStore() ?? "Utilisateur local",
+    action,
+    label,
+    ...(options.details ? { details: options.details.slice(0, 300) } : {}),
+    ...(options.t2pId ? { t2pId: options.t2pId } : {}),
+    ...(options.taskId ? { taskId: options.taskId } : {}),
+  };
+  aggregate.project.auditTrail = [event, ...(aggregate.project.auditTrail ?? [])].slice(0, 500);
 }
 
 function validateProjectInputs(
@@ -3460,8 +3488,16 @@ function buildProjectViewFromAggregate(
     dependencyNetwork,
   );
 
+  // La vue ne transporte ni le contenu des versions (instantanés complets) ni tout
+  // le journal : ils resteraient sinon sérialisés vers chaque page. L'historique
+  // complet se lit avec getProjectHistory().
+  const lightProject = {
+    ...effectiveAggregate.project,
+    auditTrail: (effectiveAggregate.project.auditTrail ?? []).slice(0, 20),
+    snapshots: (effectiveAggregate.project.snapshots ?? []).map((snap) => ({ ...snap, payload: "" })),
+  };
   return {
-    aggregate: effectiveAggregate,
+    aggregate: { ...effectiveAggregate, project: lightProject },
     schedule,
     tasks,
     activeBaseline,
@@ -3578,6 +3614,15 @@ export async function getProjectView(projectId: string, options: { workspaceId?:
     throw notFoundError("Projet introuvable dans cet espace de travail.");
   }
   return view;
+}
+
+/** Journal d'audit complet et versions (sans leur contenu) d'un projet. */
+export async function getProjectHistory(projectId: string, options: { workspaceId?: string } = {}) {
+  const aggregate = await getProjectAggregate(projectId, options);
+  return {
+    auditTrail: aggregate.project.auditTrail ?? [],
+    snapshots: (aggregate.project.snapshots ?? []).map(({ payload, ...rest }) => ({ ...rest, sizeKb: Math.round(payload.length / 1024) })),
+  };
 }
 
 export async function getProjectAggregate(projectId: string, options: { workspaceId?: string } = {}) {
@@ -3959,6 +4004,7 @@ export async function createProject(input: CreateProjectInput) {
       timesheetEntries: [],
       actualCostEntries: [],
     });
+    pushAudit(draft.projects[0], "project_created", "Projet créé", { details: validated.name });
   });
 
   return projectId;
@@ -4098,6 +4144,7 @@ export async function setProjectB2PDates(input: { projectId: string; dates: stri
   const dates = [...new Set(input.dates.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort();
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "plan_updated", "Dates des B2P modifiées", { details: `${dates.length} dates (B2P0 + ${Math.max(0, dates.length - 1)} B2P)` });
     if (dates.length && dates[0] < aggregate.project.targetStartDate) {
       throw validationError("Une date de B2P ne peut pas précéder le début du projet.");
     }
@@ -4173,6 +4220,7 @@ export async function updateProjectPilotageSettings(input: {
   }
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "project_updated", "Paramètres de pilotage modifiés", { details: `Date d'état ${input.statusDate ?? "auto"} · coefficient ${input.pseudoCriticalCoefficient ?? 1.3}` });
     aggregate.project.statusDate = input.statusDate;
     aggregate.project.pseudoCriticalCoefficient = input.pseudoCriticalCoefficient;
     aggregate.project.updatedAt = nowIso();
@@ -4217,6 +4265,7 @@ export async function advanceToB2P(input: {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "b2p_saved", `Saisie de l'avancement au B2P du ${input.b2pDate}`, { details: `${input.rows.length} LT saisis` });
     const unit = aggregate.project.timeUnit ?? "jours";
     const hoursPerDay = aggregate.calendar.hoursPerDay;
     const byId = new Map(aggregate.tasks.map((t) => [t.id, t]));
@@ -4323,6 +4372,7 @@ export async function createT2PB2P0(projectId: string) {
   let created: T2PTable | null = null;
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "b2p_created", "B2P0 démarré");
     const tables = aggregate.project.t2pTables ?? [];
     if (tables.some((t) => t.tableKind === "b2p0")) throw validationError("Le tableau B2P0 existe déjà.");
     const now = nowIso();
@@ -4389,6 +4439,7 @@ export async function createT2PScenario(projectId: string, numero: number) {
   let created: T2PTable | null = null;
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "b2p_created", `Scénario correctif créé au B2P${numero}`);
     const tables = aggregate.project.t2pTables ?? [];
     const base = tables.find((t) => t.numero === numero && t.tableKind === "i-1");
     if (!base || numero <= 0) throw validationError("Démarrez d'abord ce B2P (tableau T2Pi-1) avant d'étudier un scénario.");
@@ -4409,6 +4460,7 @@ export async function updateT2PLines(input: {
 }) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "b2p_saved", "Tableau B2P enregistré");
     const table = (aggregate.project.t2pTables ?? []).find((t) => t.id === input.tableId);
     if (!table) throw notFoundError("Tableau introuvable.");
     assertT2PUnlocked(aggregate.project, table.id);
@@ -4437,6 +4489,7 @@ export async function promoteT2PScenario(projectId: string, tableId: string) {
   let retained: T2PTable | null = null;
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "b2p_promoted", "Scénario correctif retenu (T2Pi-2)");
     const tables = aggregate.project.t2pTables ?? [];
     const chosen = tables.find((t) => t.id === tableId);
     if (!chosen || chosen.tableKind !== "i-2j") throw validationError("Seul un scénario correctif (T2Pi-2j) peut être retenu.");
@@ -4460,6 +4513,7 @@ export async function promoteT2PScenario(projectId: string, tableId: string) {
 export async function setT2PLocked(projectId: string, tableId: string, locked: boolean) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "b2p_locked", locked ? "Tableau B2P verrouillé" : "Tableau B2P déverrouillé");
     const ids = new Set(aggregate.project.lockedT2PIds ?? []);
     if (locked) ids.add(tableId);
     else ids.delete(tableId);
@@ -4472,6 +4526,7 @@ export async function setT2PLocked(projectId: string, tableId: string, locked: b
 export async function deleteT2PTable(projectId: string, tableId: string) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "b2p_deleted", "Tableau B2P supprimé");
     const tables = aggregate.project.t2pTables ?? [];
     const table = tables.find((t) => t.id === tableId);
     if (!table) throw notFoundError("Tableau introuvable.");
@@ -4504,6 +4559,7 @@ export async function createRapportDelai(projectId: string, t2pId: string) {
   };
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "rapport_created", `R2P${table.numero} créé`);
     const existing = aggregate.project.rapportsDelai ?? [];
     if (existing.some((r) => r.numero === table.numero)) {
       throw validationError(`Le rapport R2P${table.numero} existe déjà : ouvrez-le dans l'archive.`);
@@ -4523,6 +4579,7 @@ export async function saveRapportDelai(input: {
 }) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "rapport_updated", "Rapport de délai enregistré");
     const rapport = (aggregate.project.rapportsDelai ?? []).find((r) => r.id === input.rapportId);
     if (!rapport) throw notFoundError("Rapport introuvable.");
     if (rapport.statut === "diffuse") throw validationError("Rapport diffusé : repassez-le en brouillon pour le modifier.");
@@ -4541,6 +4598,7 @@ export async function regenerateRapportDelaiSynthese(projectId: string, rapportI
   const { buildSyntheseDelai } = await import("@/lib/fgf/rapports-delai");
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "rapport_updated", "§3 du rapport régénéré");
     const rapport = (aggregate.project.rapportsDelai ?? []).find((r) => r.id === rapportId);
     if (!rapport) throw notFoundError("Rapport introuvable.");
     if (rapport.statut === "diffuse") throw validationError("Rapport diffusé : repassez-le en brouillon pour le modifier.");
@@ -4554,6 +4612,7 @@ export async function regenerateRapportDelaiSynthese(projectId: string, rapportI
 export async function setRapportDelaiStatut(projectId: string, rapportId: string, diffuse: boolean) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "rapport_diffused", diffuse ? "Rapport de délai diffusé" : "Rapport repassé en brouillon");
     const rapport = (aggregate.project.rapportsDelai ?? []).find((r) => r.id === rapportId);
     if (!rapport) throw notFoundError("Rapport introuvable.");
     rapport.statut = diffuse ? "diffuse" : "brouillon";
@@ -4565,6 +4624,7 @@ export async function setRapportDelaiStatut(projectId: string, rapportId: string
 export async function deleteRapportDelai(projectId: string, rapportId: string) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "rapport_deleted", "Rapport de délai supprimé");
     const rapports = aggregate.project.rapportsDelai ?? [];
     const rapport = rapports.find((r) => r.id === rapportId);
     if (!rapport) throw notFoundError("Rapport introuvable.");
@@ -4573,11 +4633,103 @@ export async function deleteRapportDelai(projectId: string, rapportId: string) {
   });
 }
 
+/* ══ Versions du projet — même modèle que Cheetah Cost (ProjectSnapshot) :
+   instantané complet du CONTENU, restaurable ; le journal et les versions
+   elles-mêmes ne sont pas écrasés par une restauration. ══ */
+const SNAPSHOT_LIMIT = 30;
+
+function snapshotContent(aggregate: ProjectAggregate) {
+  const p = aggregate.project;
+  return {
+    project: {
+      name: p.name,
+      clientName: p.clientName,
+      description: p.description,
+      phase: p.phase ?? null,
+      timeUnit: p.timeUnit ?? null,
+      targetStartDate: p.targetStartDate,
+      targetFinishDate: p.targetFinishDate ?? null,
+      b2pDates: p.b2pDates ?? [],
+      b2pNotes: p.b2pNotes ?? {},
+      b2pScenarios: p.b2pScenarios ?? {},
+      b2pSnapshots: p.b2pSnapshots ?? {},
+      statusDate: p.statusDate ?? null,
+      pseudoCriticalCoefficient: p.pseudoCriticalCoefficient ?? null,
+      t2pTables: p.t2pTables ?? [],
+      lockedT2PIds: p.lockedT2PIds ?? [],
+      rapportsDelai: p.rapportsDelai ?? [],
+    },
+    calendar: aggregate.calendar,
+    tasks: aggregate.tasks,
+    dependencies: aggregate.dependencies,
+    resources: aggregate.resources,
+    assignments: aggregate.assignments,
+    baselines: aggregate.baselines,
+  };
+}
+
+/** Trace un export dans le journal (comme « export_created » de Cheetah Cost). Ne bloque jamais l'export. */
+export async function recordProjectExport(projectId: string, label: string, actor?: string | null) {
+  const write = () =>
+    mutateStore((draft) => {
+      const aggregate = getAggregateOrThrow(draft, projectId);
+      pushAudit(aggregate, "export_created", label);
+    }).catch(() => undefined);
+  await (actor ? auditActor.run(actor, write) : write());
+}
+
+export async function saveProjectSnapshot(projectId: string, label: string) {
+  let snap: ProjectSnapshot | null = null;
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const now = nowIso();
+    snap = {
+      id: `ver_${randomUUID().slice(0, 12)}`,
+      at: now,
+      label: label.slice(0, 120) || `Version du ${new Date().toLocaleDateString("fr-FR")}`,
+      t2pCount: aggregate.project.t2pTables?.length ?? 0,
+      lotsCount: aggregate.tasks.length,
+      payload: JSON.stringify(snapshotContent(aggregate)),
+    };
+    aggregate.project.snapshots = [snap, ...(aggregate.project.snapshots ?? [])].slice(0, SNAPSHOT_LIMIT);
+    pushAudit(aggregate, "version_saved", `Version enregistrée : ${snap.label}`);
+  });
+  return snap!;
+}
+
+export async function restoreProjectSnapshot(projectId: string, snapshotId: string) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const snap = (aggregate.project.snapshots ?? []).find((s) => s.id === snapshotId);
+    if (!snap) throw notFoundError("Version introuvable.");
+    const content = JSON.parse(snap.payload) as ReturnType<typeof snapshotContent>;
+    aggregate.project = { ...aggregate.project, ...content.project, updatedAt: nowIso() };
+    aggregate.calendar = content.calendar;
+    aggregate.tasks = content.tasks;
+    aggregate.dependencies = content.dependencies;
+    aggregate.resources = content.resources;
+    aggregate.assignments = content.assignments;
+    aggregate.baselines = content.baselines;
+    pushAudit(aggregate, "version_restored", `Version restaurée : ${snap.label}`);
+  });
+}
+
+export async function deleteProjectSnapshot(projectId: string, snapshotId: string) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const snap = (aggregate.project.snapshots ?? []).find((s) => s.id === snapshotId);
+    if (!snap) throw notFoundError("Version introuvable.");
+    aggregate.project.snapshots = (aggregate.project.snapshots ?? []).filter((s) => s.id !== snapshotId);
+    pushAudit(aggregate, "version_deleted", `Version supprimée : ${snap.label}`);
+  });
+}
+
 export async function updateProjectMetadata(input: UpdateProjectInput) {
   const validated = validateProjectMetadataInput(input);
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "project_updated", "Informations du projet modifiées", { details: input.name });
     aggregate.project = {
       ...aggregate.project,
       name: validated.name,
@@ -4606,6 +4758,7 @@ export async function setProjectArchived(
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "project_updated", "Archivage du projet modifié");
     aggregate.project.archivedAt = archived ? nowIso() : null;
     aggregate.project.archivedBy = archived ? archivedBy : null;
     aggregate.project.updatedAt = nowIso();
@@ -4622,6 +4775,7 @@ export async function setProjectDeclassed(
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "project_updated", "Déclassement du projet modifié");
     aggregate.project.declassedAt = declassed ? nowIso() : null;
     aggregate.project.declassedBy = declassed ? declassedBy : null;
     aggregate.project.updatedAt = nowIso();
@@ -4999,6 +5153,7 @@ export async function saveTask(input: SaveTaskInput) {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "lots_updated", `LT modifié : ${input.name}`);
     const task = aggregate.tasks.find((entry) => entry.id === input.taskId);
     if (!task) {
       throw notFoundError("LT introuvable.");
@@ -5171,6 +5326,7 @@ export async function createTask(input: CreateTaskInput) {
   const validated = validateCreateTaskInput(input);
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "lots_updated", "LT ajouté", { details: input.name });
     assertParentCanAcceptChildren(
       aggregate.tasks,
       aggregate.dependencies,
@@ -5235,6 +5391,7 @@ export async function moveTask(input: MoveTaskInput) {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "lots_updated", "LT déplacé dans la structure");
     const task = aggregate.tasks.find((entry) => entry.id === validated.taskId);
     if (!task) {
       throw notFoundError("LT introuvable.");
@@ -5333,6 +5490,7 @@ export async function saveDependency(input: SaveDependencyInput) {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "lots_updated", "Lien entre LT enregistré");
     const predecessorRecord = findTaskInStore(
       draft,
       validated.predecessorProjectId,
@@ -5430,6 +5588,7 @@ export async function createResource(input: CreateResourceInput) {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "lots_updated", "Ressource ajoutée");
     const validated = validateResourceInput(input, getNextResourceColor(aggregate));
     aggregate.resources.push({
       id: resourceId,
@@ -5455,6 +5614,7 @@ export async function createResource(input: CreateResourceInput) {
 export async function updateResource(input: UpdateResourceInput) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "lots_updated", "Ressource modifiée");
     const resource = aggregate.resources.find((entry) => entry.id === input.resourceId);
 
     if (!resource) {
@@ -5515,6 +5675,7 @@ export async function saveAssignment(input: SaveAssignmentInput) {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "lots_updated", "Affectation de ressource enregistrée");
     const task = aggregate.tasks.find((entry) => entry.id === validated.taskId);
     const resource = aggregate.resources.find(
       (entry) => entry.id === validated.resourceId,
@@ -5727,6 +5888,7 @@ export async function deleteActualCostEntry(projectId: string, entryId: string) 
 export async function deleteTask(projectId: string, taskId: string) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "lots_updated", "LT supprimé");
     const task = aggregate.tasks.find((entry) => entry.id === taskId);
 
     if (!task) {
@@ -5787,6 +5949,7 @@ export async function deleteDependency(projectId: string, dependencyId: string) 
     ownerAggregate.dependencies = ownerAggregate.dependencies.filter(
       (dependency) => dependency.id !== dependencyId,
     );
+    pushAudit(ownerAggregate, "lots_updated", "Lien entre LT supprimé");
     ownerAggregate.project.updatedAt = nowIso();
   });
 }
@@ -5794,6 +5957,7 @@ export async function deleteDependency(projectId: string, dependencyId: string) 
 export async function deleteResource(projectId: string, resourceId: string) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "lots_updated", "Ressource supprimée");
     const resourceCount = aggregate.resources.length;
     const affectedTaskIds = aggregate.assignments
       .filter((assignment) => assignment.resourceId === resourceId)
@@ -5833,6 +5997,7 @@ export async function deleteResource(projectId: string, resourceId: string) {
 export async function deleteAssignment(projectId: string, assignmentId: string) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "lots_updated", "Affectation de ressource supprimée");
     const assignment = aggregate.assignments.find((entry) => entry.id === assignmentId);
 
     if (!assignment) {
@@ -5890,6 +6055,7 @@ export async function captureBaseline(projectId: string, name: string, capturedB
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "plan_updated", `Planning figé : ${name}`);
     const baselineId = randomUUID().slice(0, 8);
 
     for (const baseline of aggregate.baselines) {
@@ -5914,6 +6080,7 @@ export async function captureBaseline(projectId: string, name: string, capturedB
 export async function setActiveBaseline(projectId: string, baselineId: string) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "plan_updated", "Planning Initial (PI) désigné");
     const baseline = aggregate.baselines.find((entry) => entry.id === baselineId);
 
     if (!baseline) {
@@ -5932,6 +6099,7 @@ export async function levelProjectResources(projectId: string) {
   let result = { stabilized: true, remainingOverloads: 0, links: 0 };
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "lots_updated", "Nivellement par les charges");
     const plan = calculateLevelingPlan(aggregate);
 
     aggregate.dependencies = [
@@ -5960,6 +6128,7 @@ export async function stretchProjectResources(projectId: string) {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "lots_updated", "Nivellement par allongement");
     const schedule = buildSchedule(aggregate);
     const summaries = buildResourceSummaries(aggregate, schedule.tasksById);
 
@@ -6154,6 +6323,7 @@ export async function levelWorkspaceResources(workspaceId: string) {
 export async function clearProjectLeveling(projectId: string) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "lots_updated", "Nivellement annulé");
 
     for (const task of aggregate.tasks) {
       task.levelingDelayDays = 0;
@@ -6169,6 +6339,7 @@ export async function updateProjectCalendar(input: UpdateProjectCalendarInput) {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "project_updated", "Calendrier du projet modifié");
     aggregate.calendar = {
       ...aggregate.calendar,
       name: validated.name,

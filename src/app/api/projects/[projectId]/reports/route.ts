@@ -1,3 +1,4 @@
+import { getCurrentSession } from "@/services/auth";
 import { notFound } from "next/navigation";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -10,7 +11,7 @@ import {
   buildTasksCsv,
 } from "@/services/reports";
 import { buildTimeReportPdf } from "@/services/time-report";
-import { exportProjectData, getProjectView } from "@/services/projects";
+import { exportProjectData, getProjectView, recordProjectExport } from "@/services/projects";
 
 export async function GET(
   request: NextRequest,
@@ -39,6 +40,7 @@ export async function GET(
   }
 
   if (format === "xls" || format === "xlsx" || format === "excel" || format === "excel-html") {
+    await recordProjectExport(projectId, "Export Excel", (await getCurrentSession())?.name);
     return new Response(new Uint8Array(buildProjectXlsx(view)), {
       headers: {
         "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -49,6 +51,7 @@ export async function GET(
 
   // Rapport Périodique de Pilotage du Temps (commission / marché public).
   if (format === "pdf" || format === "soutenance" || format === "soutenance-pdf") {
+    await recordProjectExport(projectId, "Export PDF — Rapport Périodique de Pilotage du Temps", (await getCurrentSession())?.name);
     return new Response(new Uint8Array(buildTimeReportPdf(view)), {
       headers: {
         "content-type": "application/pdf",

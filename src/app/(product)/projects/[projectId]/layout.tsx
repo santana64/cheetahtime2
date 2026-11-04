@@ -42,7 +42,7 @@ export default async function ProjectLayout({
 
   const banner = computeDelayBanner(view);
   const project = view.aggregate.project;
-  const exports = [
+  const exports: { label: string; href: string; internal?: boolean }[] = [
     { label: "Rapport PDF (commission)", href: `/api/projects/${project.id}/reports?format=pdf` },
     { label: "Classeur Excel (.xlsx)", href: `/api/projects/${project.id}/reports?format=excel` },
     { label: "Tableau CSV", href: `/api/projects/${project.id}/reports?format=csv` },
@@ -50,6 +50,7 @@ export default async function ProjectLayout({
     { label: "MS Project (.xml — à ouvrir dans MS Project)", href: `/api/projects/${project.id}/export?format=mspdi` },
     { label: "Fichier commun Cheetah Cost (.cheetahcost.json)", href: `/api/projects/${project.id}/suite-export?download=1` },
     { label: "Sauvegarde du projet (JSON)", href: `/api/projects/${project.id}/export` },
+    { label: "Historique du projet (journal et versions)", href: `/projects/${project.id}/historique`, internal: true },
   ];
 
   return (
@@ -97,11 +98,17 @@ export default async function ProjectLayout({
               <details className="relative">
                 <summary className="toolbar-btn list-none [&::-webkit-details-marker]:hidden">Fichier ▾</summary>
                 <div className="absolute right-0 z-50 mt-1 w-60 rounded-xl border border-black/[0.08] bg-white p-1 shadow-lg">
-                  {exports.map(({ label, href }) => (
-                    <a key={label} href={href} download className="block rounded-lg px-3 py-2 text-[12.5px] font-semibold text-slate-700 hover:bg-[#56a45b]/10">
-                      {label}
-                    </a>
-                  ))}
+                  {exports.map(({ label, href, internal }) =>
+                    internal ? (
+                      <Link key={label} href={href} className="block rounded-lg border-t border-black/[0.06] px-3 py-2 text-[12.5px] font-semibold text-[#1a4a20] hover:bg-[#56a45b]/10">
+                        {label}
+                      </Link>
+                    ) : (
+                      <a key={label} href={href} download className="block rounded-lg px-3 py-2 text-[12.5px] font-semibold text-slate-700 hover:bg-[#56a45b]/10">
+                        {label}
+                      </a>
+                    ),
+                  )}
                 </div>
               </details>
             </div>

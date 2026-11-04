@@ -319,6 +319,8 @@ model Project {
   b2pSnapshots    Json?
   t2pTables       Json?
   rapportsDelai   Json?
+  auditTrail      Json?
+  projectSnapshots Json?
   lockedT2PIds    String[]        @default([])
   statusDate      DateTime?       @db.Date
   pseudoCriticalCoefficient Decimal? @db.Decimal(4, 2)

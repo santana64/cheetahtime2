@@ -159,6 +159,10 @@ export interface Project {
   lockedT2PIds?: string[];
   /** Rapports de délai R2Pi (comme les rapports de coût de Cheetah Cost). */
   rapportsDelai?: RapportDelai[];
+  /** Journal d'audit (500 derniers événements), comme auditTrail de Cheetah Cost. */
+  auditTrail?: AuditEvent[];
+  /** Versions enregistrées du projet (30 au plus), comme snapshots de Cheetah Cost. */
+  snapshots?: ProjectSnapshot[];
   /**
    * Instantanés « Prévision avant pilotage » par date de B2P (CdC p. 12) :
    * FP, écart (unité projet), avancement et statut d'action de pilotage.
@@ -245,6 +249,49 @@ export interface RapportDelai {
   createdAt: string;
   updatedAt: string;
   diffuseLe?: string;
+}
+
+/* ── Journal d'audit et versions du projet — même modèle que Cheetah Cost
+   (AuditEvent, ProjectSnapshot), stockés DANS le projet. ── */
+export type AuditAction =
+  | "project_created"
+  | "project_updated"
+  | "lots_updated"
+  | "plan_updated"
+  | "b2p_created"
+  | "b2p_deleted"
+  | "b2p_saved"
+  | "b2p_promoted"
+  | "b2p_locked"
+  | "b2p_unlocked"
+  | "export_created"
+  | "rapport_created"
+  | "rapport_updated"
+  | "rapport_diffused"
+  | "rapport_deleted"
+  | "version_saved"
+  | "version_restored"
+  | "version_deleted";
+
+export interface AuditEvent {
+  id: string;
+  at: string;
+  actor: string;
+  action: AuditAction;
+  label: string;
+  details?: string;
+  t2pId?: string;
+  taskId?: string;
+}
+
+export interface ProjectSnapshot {
+  id: string;
+  at: string;
+  label: string;
+  t2pCount: number;
+  lotsCount: number;
+  /** Contenu complet du projet (JSON), restaurable. */
+  payload: string;
 }
 
 export interface Task {
