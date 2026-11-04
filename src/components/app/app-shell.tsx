@@ -94,7 +94,7 @@ export function AppShell({
             Cheetah<span style={{ color: "#f4a321" }}>Time</span>
           </span>
           {BRAND_MENU.map((item) => (
-            <Link key={item.label} href={item.href} className="whitespace-nowrap rounded-md px-2 py-1 text-[12px] font-semibold text-white/75 hover:bg-white/10">
+            <Link prefetch={false} key={item.label} href={item.href} className="whitespace-nowrap rounded-md px-2 py-1 text-[12px] font-semibold text-white/75 hover:bg-white/10">
               {item.label}
             </Link>
           ))}

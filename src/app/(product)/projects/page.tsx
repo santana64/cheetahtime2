@@ -39,18 +39,18 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
         actions={
           <>
             <Button asChild>
-              <Link href="/projects/new">
+              <Link prefetch={false} href="/projects/new">
                 <Plus className="size-4" aria-hidden="true" />
                 Nouveau projet
               </Link>
             </Button>
             {showAll ? (
               <Button asChild variant="outline">
-                <Link href="/projects">Projets en cours</Link>
+                <Link prefetch={false} href="/projects">Projets en cours</Link>
               </Button>
             ) : (
               <Button asChild variant="outline">
-                <Link href="/projects?vue=tous">Tous les projets</Link>
+                <Link prefetch={false} href="/projects?vue=tous">Tous les projets</Link>
               </Button>
             )}
             <form action={levelWorkspaceResourcesAction}>
@@ -82,7 +82,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
         ) : (
           <div className="ct-card p-6 text-[13px] text-slate-600">
             Aucun projet en cours.{" "}
-            <Link href="/projects/new" className="font-bold text-[#3f8f48] underline">Créer un projet</Link>
+            <Link prefetch={false} href="/projects/new" className="font-bold text-[#3f8f48] underline">Créer un projet</Link>
           </div>
         )}
       </section>
@@ -117,7 +117,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
                     <span className="ct-num text-[11px] text-slate-500">{view.aggregate.project.code}</span>
                     <span className="font-bold text-slate-900">{view.aggregate.project.name}</span>
                     <span className="text-slate-500">Fin prévue {formatDateLabel(view.schedule.projectFinishDate)}</span>
-                    <Link href={`/projects/${view.aggregate.project.id}/dashboard`} className="ml-auto font-semibold text-[#3f8f48] hover:underline">
+                    <Link prefetch={false} href={`/projects/${view.aggregate.project.id}/dashboard`} className="ml-auto font-semibold text-[#3f8f48] hover:underline">
                       Consulter
                     </Link>
                   </div>

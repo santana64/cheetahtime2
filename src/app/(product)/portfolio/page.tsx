@@ -89,7 +89,7 @@ export default async function PmoDashboardPage() {
                 return (
                   <tr key={p.id} className="border-t border-black/[0.05] hover:bg-[#56a45b]/[0.04]">
                     <td className="px-4 py-2.5">
-                      <Link href={`/projects/${p.id}/dashboard`} className="font-bold text-slate-900 hover:underline">
+                      <Link prefetch={false} href={`/projects/${p.id}/dashboard`} className="font-bold text-slate-900 hover:underline">
                         {p.name}
                       </Link>
                       <div className="text-[11px] text-slate-500">{p.clientName}</div>
@@ -114,7 +114,7 @@ export default async function PmoDashboardPage() {
                     </td>
                     <td className="px-3 py-2.5">
                       {nextB2P ? (
-                        <Link href={`/projects/${p.id}/b2p`} className="font-semibold text-[#3f8f48] hover:underline">
+                        <Link prefetch={false} href={`/projects/${p.id}/b2p`} className="font-semibold text-[#3f8f48] hover:underline">
                           B2P{nextIndex} · {formatDateLabel(nextB2P)}
                         </Link>
                       ) : (

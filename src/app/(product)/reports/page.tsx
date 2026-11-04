@@ -76,7 +76,7 @@ export default async function ReportsPage() {
                   </a>
                 </Button>
                 <Button asChild variant="outline" size="sm">
-                  <Link href={`/projects/${view.aggregate.project.id}/dashboard`}>
+                  <Link prefetch={false} href={`/projects/${view.aggregate.project.id}/dashboard`}>
                     Ouvrir
                   </Link>
                 </Button>

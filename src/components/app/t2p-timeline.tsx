@@ -55,7 +55,7 @@ export function T2PTimeline({ view, activeId }: { view: ProjectView; activeId?: 
         const unit = t2pUnitLabel(table.unit);
         const active = table.id === activeId;
         return (
-          <Link
+          <Link prefetch={false}
             key={table.id}
             href={`/projects/${project.id}/b2p/${table.id}`}
             className="group relative block overflow-hidden rounded-2xl bg-white transition-shadow hover:shadow-[0_6px_24px_rgba(0,0,0,0.09)]"

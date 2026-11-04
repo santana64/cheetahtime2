@@ -220,7 +220,7 @@ export function ProjectDashboard({ view }: { view: ProjectView }) {
                 <span className="text-right font-semibold text-slate-800">{v}</span>
               </div>
             ))}
-            <Link
+            <Link prefetch={false}
               href={`/projects/${view.aggregate.project.id}/settings`}
               className="mt-2 inline-flex text-[12px] font-bold text-[#3f8f48] underline-offset-2 hover:underline"
             >

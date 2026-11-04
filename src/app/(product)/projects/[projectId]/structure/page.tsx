@@ -34,7 +34,7 @@ export default async function ProjectStructurePage({ params }: { params: Promise
             {rows.length} lot{rows.length !== 1 ? "s" : ""} de tâches · {unit}
           </p>
         </div>
-        <Link href={`/projects/${projectId}/planning`} className="toolbar-btn">
+        <Link prefetch={false} href={`/projects/${projectId}/planning`} className="toolbar-btn">
           Modifier les LT
         </Link>
       </div>

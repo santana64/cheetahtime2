@@ -2561,19 +2561,19 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                 Liens de vue
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Link
+                <Link prefetch={false}
                   href={`/projects/${view.aggregate.project.id}/dashboard`}
                   className="rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white"
                 >
                   Tableau de bord
                 </Link>
-                <Link
+                <Link prefetch={false}
                   href={`/projects/${view.aggregate.project.id}/resources`}
                   className="rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700"
                 >
                   Ressources
                 </Link>
-                <Link
+                <Link prefetch={false}
                   href={`/projects/${view.aggregate.project.id}/baselines`}
                   className="rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700"
                 >

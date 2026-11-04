@@ -36,7 +36,7 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
       {tabs.map((tab) => {
         const isActive = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
         return (
-          <Link
+          <Link prefetch={false}
             key={tab.href}
             href={tab.href}
             aria-current={isActive ? "page" : undefined}

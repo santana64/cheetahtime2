@@ -46,7 +46,7 @@ export default function HomePage() {
 
         <div className="mt-10 grid w-full max-w-5xl gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {CARDS.map(({ label, desc, href, icon: Icon, primary }) => (
-            <Link
+            <Link prefetch={false}
               key={label}
               href={href}
               className="group elite-lift rounded-2xl p-5 transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#56a45b]"

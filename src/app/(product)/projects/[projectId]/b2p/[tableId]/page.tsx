@@ -47,7 +47,7 @@ export default async function T2PTablePage({ params }: { params: Promise<{ proje
       <section className="ct-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <Link href={`/projects/${projectId}/b2p`} className="text-[11px] font-semibold text-slate-500 hover:text-slate-800">
+            <Link prefetch={false} href={`/projects/${projectId}/b2p`} className="text-[11px] font-semibold text-slate-500 hover:text-slate-800">
               ← Tableaux B2P
             </Link>
             <h1 className="ct-title mt-1 text-[22px]">

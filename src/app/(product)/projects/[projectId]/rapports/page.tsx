@@ -87,7 +87,7 @@ export default async function RapportsDelaiPage({
           <ul className="mt-2 space-y-1.5">
             {archive.map((rp) => (
               <li key={rp.id}>
-                <Link
+                <Link prefetch={false}
                   href={`/projects/${projectId}/rapports?r=${rp.id}`}
                   className={`flex items-center justify-between rounded-lg px-3 py-2 text-[12.5px] ${rp.id === selected?.id ? "bg-[#56a45b]/10 font-bold text-[#1a4a20]" : "hover:bg-slate-50"}`}
                 >
@@ -100,7 +100,7 @@ export default async function RapportsDelaiPage({
           </ul>
         </section>
 
-        <Link href={`/projects/${projectId}/analytics`} className="block text-[12px] font-semibold text-[#3f8f48] hover:underline">
+        <Link prefetch={false} href={`/projects/${projectId}/analytics`} className="block text-[12px] font-semibold text-[#3f8f48] hover:underline">
           Analyse détaillée des délais (indicateurs, Monte Carlo) →
         </Link>
       </aside>

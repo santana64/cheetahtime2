@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 export function ProjectImportPanel() {
+  const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
@@ -54,7 +56,7 @@ export function ProjectImportPanel() {
                   setWarnings(payload.warnings);
                 }
 
-                window.location.href = `/projects/${payload.projectId}/dashboard`;
+                router.push(`/projects/${payload.projectId}/dashboard`);
               } catch (error) {
                 setMessage(
                   error instanceof Error

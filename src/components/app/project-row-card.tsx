@@ -26,7 +26,7 @@ export function ProjectRowCard({
               {p.code} · {p.phase ?? "—"} · {p.clientName}
             </div>
             <h3 className="mt-0.5 truncate text-[15px] font-black text-[#0d1f10]" title={p.name}>
-              <Link href={`/projects/${p.id}/dashboard`} className="hover:underline">
+              <Link prefetch={false} href={`/projects/${p.id}/dashboard`} className="hover:underline">
                 {p.name}
               </Link>
             </h3>
@@ -56,9 +56,9 @@ export function ProjectRowCard({
           ))}
         </dl>
         <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-black/[0.05] pt-3">
-          <Link href={`/projects/${p.id}/planning`} className="toolbar-btn toolbar-btn-primary">Planning</Link>
-          <Link href={`/projects/${p.id}/b2p`} className="toolbar-btn">Tableaux B2P</Link>
-          <Link href={`/projects/${p.id}/dashboard`} className="toolbar-btn">Alerte</Link>
+          <Link prefetch={false} href={`/projects/${p.id}/planning`} className="toolbar-btn toolbar-btn-primary">Planning</Link>
+          <Link prefetch={false} href={`/projects/${p.id}/b2p`} className="toolbar-btn">Tableaux B2P</Link>
+          <Link prefetch={false} href={`/projects/${p.id}/dashboard`} className="toolbar-btn">Alerte</Link>
           {children}
         </div>
       </div>

@@ -64,7 +64,7 @@ export function BrandSidebar({
         }}
       />
       <div className="relative min-h-0">
-        <Link href="/" className="flex items-center gap-2.5 px-1.5" aria-label="Cheetah Time — accueil">
+        <Link prefetch={false} href="/" className="flex items-center gap-2.5 px-1.5" aria-label="Cheetah Time — accueil">
           <Image src="/cheetahsoft-logo.jpg" alt="" width={34} height={34} style={{ borderRadius: "50%" }} priority />
           <div className="leading-tight">
             <div className="text-[15px] font-black text-white">
@@ -80,7 +80,7 @@ export function BrandSidebar({
           {BRAND_MENU.map(({ label, href, icon: Icon }) => {
             const active = isActive(pathname, href, search);
             return (
-              <Link
+              <Link prefetch={false}
                 key={label}
                 href={href}
                 aria-current={active ? "page" : undefined}
@@ -121,7 +121,7 @@ export function BrandSidebar({
 
       <div className="relative space-y-3">
         {footer}
-        <Link
+        <Link prefetch={false}
           href="/backup"
           className="flex items-center gap-2 rounded-lg px-1.5 py-1 text-[11px] text-white/55 transition-colors hover:text-white/80"
           title="Enregistrement automatique sur ce poste. Cliquez pour gérer les sauvegardes."

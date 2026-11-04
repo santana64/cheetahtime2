@@ -40,7 +40,7 @@ export default async function ProjectB2PPage({
               Ouvrez l&apos;onglet <strong>Planning</strong>, enregistrez une variante (P01 → P99), puis{" "}
               <strong>« Désignez-la comme PI »</strong>. La date de fin initiale et les B2P seront alors datés.
             </p>
-            <Link
+            <Link prefetch={false}
               href={`/projects/${projectId}/planning`}
               className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold text-white"
               style={{ background: "#56a45b" }}
@@ -148,7 +148,7 @@ export default async function ProjectB2PPage({
         <h2 className="ct-title mt-1 text-[17px]">Rapport Périodique de Pilotage du Temps</h2>
         <p className="mt-1.5 max-w-3xl text-[12.5px] leading-5 text-slate-600">
           Double planning (PàD en noir, réalisé en rouge, reste à faire en vert — onglet{" "}
-          <Link href={`/projects/${projectId}/planning`} className="font-semibold text-[#3f8f48] underline">Planning</Link>
+          <Link prefetch={false} href={`/projects/${projectId}/planning`} className="font-semibold text-[#3f8f48] underline">Planning</Link>
           ) et diagrammes Temps/Temps et Jalons-Jalons ci-dessous. Le rapport PDF reprend ces éléments.
         </p>
       </section>

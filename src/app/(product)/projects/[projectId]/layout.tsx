@@ -60,7 +60,7 @@ export default async function ProjectLayout({
         <div className="h-[2px] w-full" style={{ background: "linear-gradient(90deg, #56a45b, #f4a321)" }} />
         <div className="flex flex-col gap-3 px-4 pt-3 sm:px-5">
           <div className="flex flex-wrap items-center gap-2">
-            <Link
+            <Link prefetch={false}
               href="/projects"
               aria-label="Retour aux projets"
               className="flex size-7 flex-shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
@@ -92,7 +92,7 @@ export default async function ProjectLayout({
                 Responsable : <strong className="text-slate-700">{project.ownerName}</strong>
               </span>
               {/* Comme Cheetah Cost : « Nouveau B2P » en action principale, puis « Fichier ». */}
-              <Link href={`/projects/${project.id}/b2p#saisie-b2p`} className="toolbar-btn toolbar-btn-primary">
+              <Link prefetch={false} href={`/projects/${project.id}/b2p#saisie-b2p`} className="toolbar-btn toolbar-btn-primary">
                 Nouveau B2P
               </Link>
               <details className="relative">
@@ -100,7 +100,7 @@ export default async function ProjectLayout({
                 <div className="absolute right-0 z-50 mt-1 w-60 rounded-xl border border-black/[0.08] bg-white p-1 shadow-lg">
                   {exports.map(({ label, href, internal }) =>
                     internal ? (
-                      <Link key={label} href={href} className="block rounded-lg border-t border-black/[0.06] px-3 py-2 text-[12.5px] font-semibold text-[#1a4a20] hover:bg-[#56a45b]/10">
+                      <Link prefetch={false} key={label} href={href} className="block rounded-lg border-t border-black/[0.06] px-3 py-2 text-[12.5px] font-semibold text-[#1a4a20] hover:bg-[#56a45b]/10">
                         {label}
                       </Link>
                     ) : (
