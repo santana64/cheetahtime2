@@ -4,10 +4,17 @@ import { $Enums, Prisma } from "@/generated/prisma/client";
 import { parseIsoDate, formatIsoDate } from "@/lib/planning/date-utils";
 import { buildSchedule } from "@/lib/planning/schedule-engine";
 import { getPrismaClient } from "@/lib/prisma";
+
+/** Champ JSON optionnel : `Prisma.DbNull` efface la colonne, sinon la valeur sérialisable. */
+function jsonOrNull(value: unknown): Prisma.InputJsonValue | typeof Prisma.DbNull {
+  if (value == null) return Prisma.DbNull;
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
 import type {
   AppDataStore,
   Baseline,
   Dependency,
+  Project,
   ProjectAggregate,
   StoreMetadata,
   Task,
@@ -182,6 +189,16 @@ function mapProjectAggregate(row: PrismaProjectAggregate): ProjectAggregate {
       levelingMaxDelayDays: row.levelingMaxDelayDays,
       archivedAt: toIsoTimestamp(row.archivedAt),
       archivedBy: row.archivedBy,
+      phase: (row.phase as Project["phase"]) ?? null,
+      timeUnit: (row.timeUnit as Project["timeUnit"]) ?? null,
+      b2pDates: [...(row.b2pDates ?? [])],
+      b2pNotes: (row.b2pNotes as Project["b2pNotes"]) ?? undefined,
+      b2pScenarios: (row.b2pScenarios as Project["b2pScenarios"]) ?? undefined,
+      b2pSnapshots: (row.b2pSnapshots as Project["b2pSnapshots"]) ?? undefined,
+      statusDate: toIsoDate(row.statusDate),
+      pseudoCriticalCoefficient: toDecimalNumber(row.pseudoCriticalCoefficient),
+      declassedAt: toIsoTimestamp(row.declassedAt),
+      declassedBy: row.declassedBy,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     },
@@ -234,6 +251,9 @@ function mapProjectAggregate(row: PrismaProjectAggregate): ProjectAggregate {
       actualFinishDate: toIsoDate(task.actualFinishDate),
       actualWorkHours: toDecimalNumber(task.actualWorkHours) ?? 0,
       remainingWorkHours: toDecimalNumber(task.remainingWorkHours) ?? 0,
+      code: task.code,
+      budgetAmount: toDecimalNumber(task.budgetAmount),
+      durationUnits: toDecimalNumber(task.durationUnits),
     })),
     dependencies: row.dependencies.map((dependency) => ({
       id: dependency.id,
@@ -244,6 +264,8 @@ function mapProjectAggregate(row: PrismaProjectAggregate): ProjectAggregate {
       successorTaskId: dependency.successorTaskId,
       type: dependency.type,
       lagDays: dependency.lagDays,
+      lagUnits: toDecimalNumber(dependency.lagUnits),
+      kind: dependency.kind === "RESOURCE" ? "RESOURCE" : "LOGIC",
       label: dependency.label ?? undefined,
       createdAt: dependency.createdAt.toISOString(),
     })),
@@ -266,6 +288,8 @@ function mapProjectAggregate(row: PrismaProjectAggregate): ProjectAggregate {
       })),
       costRate: toDecimalNumber(resource.costRate),
       color: resource.color,
+      code: resource.code,
+      availabilityByMonth: (resource.availabilityByMonth as Record<string, number> | null) ?? undefined,
     })),
     assignments: row.assignments.map((assignment) => ({
       id: assignment.id,
@@ -433,6 +457,16 @@ async function syncProjectAggregate(
         ? new Date(aggregate.project.archivedAt)
         : null,
       archivedBy: aggregate.project.archivedBy,
+      phase: aggregate.project.phase ?? null,
+      timeUnit: aggregate.project.timeUnit ?? null,
+      b2pDates: [...(aggregate.project.b2pDates ?? [])],
+      b2pNotes: jsonOrNull(aggregate.project.b2pNotes),
+      b2pScenarios: jsonOrNull(aggregate.project.b2pScenarios),
+      b2pSnapshots: jsonOrNull(aggregate.project.b2pSnapshots),
+      statusDate: toDateOnly(aggregate.project.statusDate),
+      pseudoCriticalCoefficient: aggregate.project.pseudoCriticalCoefficient ?? null,
+      declassedAt: aggregate.project.declassedAt ? new Date(aggregate.project.declassedAt) : null,
+      declassedBy: aggregate.project.declassedBy ?? null,
       createdAt: new Date(aggregate.project.createdAt),
       updatedAt: new Date(aggregate.project.updatedAt),
     },
@@ -463,6 +497,16 @@ async function syncProjectAggregate(
         ? new Date(aggregate.project.archivedAt)
         : null,
       archivedBy: aggregate.project.archivedBy,
+      phase: aggregate.project.phase ?? null,
+      timeUnit: aggregate.project.timeUnit ?? null,
+      b2pDates: [...(aggregate.project.b2pDates ?? [])],
+      b2pNotes: jsonOrNull(aggregate.project.b2pNotes),
+      b2pScenarios: jsonOrNull(aggregate.project.b2pScenarios),
+      b2pSnapshots: jsonOrNull(aggregate.project.b2pSnapshots),
+      statusDate: toDateOnly(aggregate.project.statusDate),
+      pseudoCriticalCoefficient: aggregate.project.pseudoCriticalCoefficient ?? null,
+      declassedAt: aggregate.project.declassedAt ? new Date(aggregate.project.declassedAt) : null,
+      declassedBy: aggregate.project.declassedBy ?? null,
     },
   });
 
@@ -555,6 +599,9 @@ async function syncProjectAggregate(
         totalSlackDays: scheduled?.totalSlackDays ?? null,
         freeSlackDays: scheduled?.freeSlackDays ?? null,
         isCritical: scheduled?.isCritical ?? false,
+        code: task.code ?? null,
+        budgetAmount: task.budgetAmount ?? null,
+        durationUnits: task.durationUnits ?? null,
         calendarExceptions: task.calendarExceptions.length
           ? {
               create: task.calendarExceptions.map((exception) => ({
@@ -580,6 +627,8 @@ async function syncProjectAggregate(
         successorTaskId: dependency.successorTaskId,
         type: dependency.type,
         lagDays: dependency.lagDays,
+        lagUnits: dependency.lagUnits ?? null,
+        kind: dependency.kind ?? "LOGIC",
         label: dependency.label ?? null,
         createdAt: new Date(dependency.createdAt),
       })),
@@ -601,6 +650,8 @@ async function syncProjectAggregate(
         calendarHoursPerDay: resource.calendarHoursPerDay ?? null,
         costRate: resource.costRate ?? null,
         color: resource.color,
+        code: resource.code ?? null,
+        availabilityByMonth: jsonOrNull(resource.availabilityByMonth),
         calendarExceptions: resource.calendarExceptions.length
           ? {
               create: resource.calendarExceptions.map((exception) => ({
