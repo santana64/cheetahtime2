@@ -91,6 +91,7 @@ import type {
   ISODate,
   LevelingStrategy,
   Project,
+  RapportDelai,
   T2PTable,
   ProjectAggregate,
   ProjectMetrics,
@@ -4478,6 +4479,97 @@ export async function deleteT2PTable(projectId: string, tableId: string) {
     assertT2PUnlocked(aggregate.project, tableId);
     aggregate.project.t2pTables = tables.filter((t) => t.id !== tableId);
     aggregate.project.updatedAt = nowIso();
+  });
+}
+
+/* ══ Rapports de délai (R2Pi) — même cycle de vie que les rapports de coût de Cheetah Cost ══ */
+
+/** « Rédiger le R2Pi » : un rapport par B2P, pré-rempli depuis son tableau représentatif. */
+export async function createRapportDelai(projectId: string, t2pId: string) {
+  const view = await getProjectView(projectId);
+  const table = (view.aggregate.project.t2pTables ?? []).find((t) => t.id === t2pId);
+  if (!table) throw notFoundError("Tableau B2P introuvable.");
+  const { buildDefaultSectionsDelai } = await import("@/lib/fgf/rapports-delai");
+  const now = nowIso();
+  const rapport: RapportDelai = {
+    id: `r2p_${randomUUID().slice(0, 12)}`,
+    t2pId,
+    numero: table.numero,
+    reference: "",
+    auteur: "",
+    statut: "brouillon",
+    sections: buildDefaultSectionsDelai(view, table),
+    createdAt: now,
+    updatedAt: now,
+  };
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const existing = aggregate.project.rapportsDelai ?? [];
+    if (existing.some((r) => r.numero === table.numero)) {
+      throw validationError(`Le rapport R2P${table.numero} existe déjà : ouvrez-le dans l'archive.`);
+    }
+    aggregate.project.rapportsDelai = [...existing, rapport];
+    aggregate.project.updatedAt = now;
+  });
+  return rapport;
+}
+
+export async function saveRapportDelai(input: {
+  projectId: string;
+  rapportId: string;
+  reference: string;
+  auteur: string;
+  sections: { id: string; contenu: string }[];
+}) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, input.projectId);
+    const rapport = (aggregate.project.rapportsDelai ?? []).find((r) => r.id === input.rapportId);
+    if (!rapport) throw notFoundError("Rapport introuvable.");
+    if (rapport.statut === "diffuse") throw validationError("Rapport diffusé : repassez-le en brouillon pour le modifier.");
+    const byId = new Map(input.sections.map((sec) => [sec.id, sec.contenu]));
+    rapport.reference = input.reference.slice(0, 120);
+    rapport.auteur = input.auteur.slice(0, 120);
+    rapport.sections = rapport.sections.map((sec) => (byId.has(sec.id) ? { ...sec, contenu: String(byId.get(sec.id)).slice(0, 20_000) } : sec));
+    rapport.updatedAt = nowIso();
+    aggregate.project.updatedAt = rapport.updatedAt;
+  });
+}
+
+/** §3 auto : régénère la synthèse depuis le tableau (les autres sections sont conservées). */
+export async function regenerateRapportDelaiSynthese(projectId: string, rapportId: string) {
+  const view = await getProjectView(projectId);
+  const { buildSyntheseDelai } = await import("@/lib/fgf/rapports-delai");
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const rapport = (aggregate.project.rapportsDelai ?? []).find((r) => r.id === rapportId);
+    if (!rapport) throw notFoundError("Rapport introuvable.");
+    if (rapport.statut === "diffuse") throw validationError("Rapport diffusé : repassez-le en brouillon pour le modifier.");
+    const table = (view.aggregate.project.t2pTables ?? []).find((t) => t.id === rapport.t2pId);
+    if (!table) throw notFoundError("Le tableau B2P de ce rapport n'existe plus.");
+    rapport.sections = rapport.sections.map((sec) => (sec.auto ? { ...sec, contenu: buildSyntheseDelai(view, table) } : sec));
+    rapport.updatedAt = nowIso();
+  });
+}
+
+export async function setRapportDelaiStatut(projectId: string, rapportId: string, diffuse: boolean) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const rapport = (aggregate.project.rapportsDelai ?? []).find((r) => r.id === rapportId);
+    if (!rapport) throw notFoundError("Rapport introuvable.");
+    rapport.statut = diffuse ? "diffuse" : "brouillon";
+    rapport.diffuseLe = diffuse ? nowIso() : undefined;
+    rapport.updatedAt = nowIso();
+  });
+}
+
+export async function deleteRapportDelai(projectId: string, rapportId: string) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const rapports = aggregate.project.rapportsDelai ?? [];
+    const rapport = rapports.find((r) => r.id === rapportId);
+    if (!rapport) throw notFoundError("Rapport introuvable.");
+    if (rapport.statut === "diffuse") throw validationError("Un rapport diffusé ne se supprime pas : repassez-le d'abord en brouillon.");
+    aggregate.project.rapportsDelai = rapports.filter((r) => r.id !== rapportId);
   });
 }
 

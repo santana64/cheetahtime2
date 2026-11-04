@@ -43,7 +43,7 @@ function frShort(iso: string) {
   return parseIsoDate(iso).toLocaleDateString("fr-FR", { month: "short", year: "2-digit", timeZone: "UTC" });
 }
 
-function pageFrame(page: PdfPage, title: string, view: ProjectView, pageNo: number) {
+export function pageFrame(page: PdfPage, title: string, view: ProjectView, pageNo: number) {
   page.rect(0, 0, W, 4, GREEN);
   page.rect(W * 0.7, 0, W * 0.3, 4, "#f4a321");
   page.text(M, 26, title, 13, { bold: true, color: GREEN_DEEP });
@@ -61,19 +61,34 @@ function taskCode(t: ScheduledTask) {
   return t.code || t.wbsCode;
 }
 
+export type TimeReportPart = "synthese" | "planning" | "tempsTemps" | "ecarts";
+
 export function buildTimeReportPdf(view: ProjectView): Buffer {
+  return buildPdf(buildTimeReportPages(view), {
+    title: `Rapport Périodique de Pilotage du Temps — ${view.aggregate.project.name}`,
+  });
+}
+
+/** Pages du rapport, réutilisables en annexe (rapport R2Pi). */
+export function buildTimeReportPages(
+  view: ProjectView,
+  parts: TimeReportPart[] = ["synthese", "planning", "tempsTemps", "ecarts"],
+  pageOffset = 0,
+): PdfPage[] {
   const project = view.aggregate.project;
   const banner = computeDelayBanner(view);
   const unit = project.timeUnit ?? "jours";
   const unitLabel = timeUnitShortLabel(unit);
   const toUnit = (days: number) => fromWorkingDays(days, unit, view.aggregate.calendar.hoursPerDay);
   const pages: PdfPage[] = [];
+  const has = (part: TimeReportPart) => parts.includes(part);
+  const pageNo = () => pageOffset + pages.length + 1;
   const statusDate = banner.dateActuelle;
 
   // ── 1. Synthèse ───────────────────────────────────────────────────────────
-  {
+  if (has("synthese")) {
     const p = new PdfPage(W, H);
-    pageFrame(p, "Rapport Périodique de Pilotage du Temps", view, 1);
+    pageFrame(p, "Rapport Périodique de Pilotage du Temps", view, pageNo());
     p.text(M, 62, project.name, 20, { bold: true, color: INK, maxWidth: W - 2 * M });
     p.text(M, 80, `${project.clientName} · Phase : ${project.phase ?? "—"} · Responsable : ${project.ownerName}`, 10, { color: MUTED, maxWidth: W - 2 * M });
     p.text(M, 95, `Date d'état : ${fr(statusDate)} · Édité le ${new Date().toLocaleDateString("fr-FR")}`, 9, { color: MUTED });
@@ -143,7 +158,7 @@ export function buildTimeReportPdf(view: ProjectView): Buffer {
   }
 
   // ── 2. Double planning (PàD | réalisé + reste prévu) ─────────────────────
-  {
+  if (has("planning")) {
     const tasks = view.tasks.filter((t) => t.scheduledStartDate && t.scheduledFinishDate);
     const ROWS = 26;
     const MAX_PAGES = 12;
@@ -164,7 +179,7 @@ export function buildTimeReportPdf(view: ProjectView): Buffer {
     for (let i = 0; i < tasks.length && chunks.length < MAX_PAGES; i += ROWS) chunks.push(tasks.slice(i, i + ROWS));
     chunks.forEach((chunk, ci) => {
       const p = new PdfPage(W, H);
-      pageFrame(p, `Double planning — PàD | réalisé + reste prévu${chunks.length > 1 ? ` (${ci + 1}/${chunks.length})` : ""}`, view, pages.length + 1);
+      pageFrame(p, `Double planning — PàD | réalisé + reste prévu${chunks.length > 1 ? ` (${ci + 1}/${chunks.length})` : ""}`, view, pageNo());
       // Légende
       const lx = M;
       p.rect(lx, 44, 18, 3, "#111827");
@@ -241,9 +256,9 @@ export function buildTimeReportPdf(view: ProjectView): Buffer {
   }
 
   // ── 3. Temps/Temps + Jalons-Jalons ───────────────────────────────────────
-  {
+  if (has("tempsTemps")) {
     const p = new PdfPage(W, H);
-    pageFrame(p, "Diagramme Temps/Temps des jalons — et tableau Jalons-Jalons", view, pages.length + 1);
+    pageFrame(p, "Diagramme Temps/Temps des jalons — et tableau Jalons-Jalons", view, pageNo());
     const milestones = view.tasks.filter((t) => t.type === "MILESTONE").slice(0, 8);
     const baselines = [...view.aggregate.baselines].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
     const measures = baselines.map((b, i) => ({
@@ -305,13 +320,13 @@ export function buildTimeReportPdf(view: ProjectView): Buffer {
   }
 
   // ── 4. Écarts par LT ────────────────────────────────────────────────────
-  {
+  if (has("ecarts")) {
     const rows = view.tasks.filter((t) => !t.isSummary);
     const PER = 30;
     const MAX = 8;
     for (let pi = 0; pi * PER < rows.length && pi < MAX; pi++) {
       const p = new PdfPage(W, H);
-      pageFrame(p, `Écarts par LT (en ${unit})${rows.length > PER ? ` — ${pi + 1}/${Math.min(MAX, Math.ceil(rows.length / PER))}` : ""}`, view, pages.length + 1);
+      pageFrame(p, `Écarts par LT (en ${unit})${rows.length > PER ? ` — ${pi + 1}/${Math.min(MAX, Math.ceil(rows.length / PER))}` : ""}`, view, pageNo());
       const cols = [M, M + 50, M + 320, M + 400, M + 480, M + 560, M + 640, M + 715];
       ["Code", "Lot de tâches", "Fin PI", "Fin prévue", "Écart", "Marge tôt.", "Avanc.", "État"].forEach((h, i) =>
         p.text(cols[i], 54, h.toUpperCase(), 7, { bold: true, color: MUTED }),
@@ -346,5 +361,5 @@ export function buildTimeReportPdf(view: ProjectView): Buffer {
     }
   }
 
-  return buildPdf(pages, { title: `Rapport Périodique de Pilotage du Temps — ${project.name}` });
+  return pages;
 }

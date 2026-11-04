@@ -19,7 +19,7 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
     { href: `/projects/${projectId}/dashboard`, label: "Alerte" },
     { href: `/projects/${projectId}/dates-b2p`, label: "Dates des B2P" },
     { href: `/projects/${projectId}/structure`, label: "Structure" },
-    { href: `/projects/${projectId}/analytics`, label: "Rapports de délais" },
+    { href: `/projects/${projectId}/rapports`, label: "Rapports de délais" },
     { href: `/projects/${projectId}/planning`, label: "Planning" },
     { href: `/projects/${projectId}/resources`, label: "Ressources" },
     { href: `/projects/${projectId}/network`, label: "Potentiel-tâches" },
@@ -34,7 +34,7 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
   return (
     <nav className="-mb-px flex items-center overflow-x-auto" aria-label="Onglets du projet">
       {tabs.map((tab) => {
-        const isActive = pathname === tab.href;
+        const isActive = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
         return (
           <Link
             key={tab.href}

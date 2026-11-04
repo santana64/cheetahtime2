@@ -47,6 +47,11 @@ import {
   promoteT2PScenario,
   setT2PLocked,
   deleteT2PTable,
+  createRapportDelai,
+  saveRapportDelai,
+  regenerateRapportDelaiSynthese,
+  setRapportDelaiStatut,
+  deleteRapportDelai,
   advanceToB2P,
   type B2PAdvanceRowInput,
 } from "@/services/projects";
@@ -1673,4 +1678,50 @@ export async function saveT2PLinesAction(_prev: FormState, formData: FormData): 
   } catch (error) {
     return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer le tableau.") };
   }
+}
+
+
+/* ── Rapports de délai (R2Pi) ── */
+
+export async function createRapportDelaiAction(formData: FormData): Promise<void> {
+  await requireProjectWriteAccess();
+  const projectId = required(formData, "projectId");
+  const rapport = await createRapportDelai(projectId, required(formData, "t2pId"));
+  revalidatePath(`/projects/${projectId}/rapports`);
+  redirect(`/projects/${projectId}/rapports?r=${rapport.id}`);
+}
+
+export async function saveRapportDelaiAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  try {
+    await requireProjectWriteAccess();
+    const projectId = required(formData, "projectId");
+    const ids = formData.getAll("sectionId").map(String);
+    await saveRapportDelai({
+      projectId,
+      rapportId: required(formData, "rapportId"),
+      reference: String(formData.get("reference") ?? ""),
+      auteur: String(formData.get("auteur") ?? ""),
+      sections: ids.map((id) => ({ id, contenu: String(formData.get(`section:${id}`) ?? "") })),
+    });
+    revalidatePath(`/projects/${projectId}/rapports`);
+    return { status: "success", message: "Rapport enregistré." };
+  } catch (error) {
+    return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer le rapport.") };
+  }
+}
+
+export async function rapportDelaiCommandAction(formData: FormData): Promise<void> {
+  await requireProjectWriteAccess();
+  const projectId = required(formData, "projectId");
+  const rapportId = required(formData, "rapportId");
+  const command = String(formData.get("command") ?? "");
+  if (command === "diffuser") await setRapportDelaiStatut(projectId, rapportId, true);
+  else if (command === "brouillon") await setRapportDelaiStatut(projectId, rapportId, false);
+  else if (command === "regenerer") await regenerateRapportDelaiSynthese(projectId, rapportId);
+  else if (command === "supprimer") {
+    await deleteRapportDelai(projectId, rapportId);
+    revalidatePath(`/projects/${projectId}/rapports`);
+    redirect(`/projects/${projectId}/rapports`);
+  }
+  revalidatePath(`/projects/${projectId}/rapports`);
 }

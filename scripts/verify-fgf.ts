@@ -280,6 +280,29 @@ async function main() {
         try { await projectServices.deleteT2PTable(pid, i1.id); } catch { refused = true; }
         assert(refused, "un tableau verrouillé ne se supprime pas");
         await projectServices.setT2PLocked(pid, i1.id, false);
+        // ── Rapports de délai R2Pi (comme les rapports de coût de Cost) ──
+        const rl = await loadModule<typeof import("../src/lib/fgf/rapports-delai")>("../src/lib/fgf/rapports-delai.ts");
+        const reps = rl.getRepresentativeTables(tables);
+        const rep1 = reps.find((t) => t.numero === 1)!;
+        assert(rep1.tableKind === "i-2", "le rapport du B2P1 se rattache au T2P1-2 retenu");
+        const rapport = await projectServices.createRapportDelai(pid, rep1.id);
+        assert(rapport.sections.length === 5 && rapport.sections[2].auto, "R2P : 5 sections, §3 pré-rempli");
+        assert(/Fin Prévisionnelle \(FP\)/.test(rapport.sections[2].contenu), "§3 contient la FP");
+        let dup = false;
+        try { await projectServices.createRapportDelai(pid, rep1.id); } catch { dup = true; }
+        assert(dup, "un seul R2P par B2P");
+        await projectServices.saveRapportDelai({ projectId: pid, rapportId: rapport.id, reference: "R2P-01", auteur: "Recette", sections: [{ id: rapport.sections[1].id, contenu: "Retard du lot Travaux." }] });
+        await projectServices.setRapportDelaiStatut(pid, rapport.id, true);
+        let blocked = false;
+        try { await projectServices.saveRapportDelai({ projectId: pid, rapportId: rapport.id, reference: "x", auteur: "x", sections: [] }); } catch { blocked = true; }
+        assert(blocked, "un rapport diffusé ne se modifie pas");
+        const { buildRapportDelaiPdf } = await loadModule<typeof import("../src/services/rapport-delai-pdf")>("../src/services/rapport-delai-pdf.ts");
+        const vr = await projectServices.getProjectView(pid);
+        const saved = vr.aggregate.project.rapportsDelai!.find((x) => x.id === rapport.id)!;
+        assert(saved.reference === "R2P-01" && saved.statut === "diffuse", "rapport enregistré puis diffusé");
+        assert(buildRapportDelaiPdf(vr, saved).subarray(0, 5).toString() === "%PDF-", "PDF du rapport");
+        assert(buildRapportDelaiPdf(vr, null).subarray(0, 5).toString() === "%PDF-", "PDF du modèle vierge");
+        console.log("✓ Rapport de délai R2P1 (pré-rempli, unique par B2P, diffusé et figé, PDF + modèle vierge)");
         console.log(`✓ Tableaux B2P délai (B2P0 · T2P1-1 requise · T2P1-21 → T2P1-2 retenu · rétrogradation · verrou) — ${tables.length} tableaux`);
       }
       // Ré-import : l'historique des Tableaux B2P est conservé.

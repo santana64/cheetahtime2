@@ -157,6 +157,8 @@ export interface Project {
   t2pTables?: T2PTable[];
   /** Tableaux verrouillés (comme lockedBilanIds de Cheetah Cost). */
   lockedT2PIds?: string[];
+  /** Rapports de délai R2Pi (comme les rapports de coût de Cheetah Cost). */
+  rapportsDelai?: RapportDelai[];
   /**
    * Instantanés « Prévision avant pilotage » par date de B2P (CdC p. 12) :
    * FP, écart (unité projet), avancement et statut d'action de pilotage.
@@ -217,6 +219,32 @@ export interface T2PTable {
   updatedAt: string;
   unit: TimeUnit;
   lignes: T2PLine[];
+}
+
+/* ── Rapports de délai (R2Pi, partie délai) — même structure que les rapports
+   de coût de Cheetah Cost (RapportCout). ── */
+export type RapportDelaiStatut = "brouillon" | "diffuse";
+
+export interface RapportDelaiSection {
+  id: string;
+  titre: string;
+  contenu: string;
+  /** Section pré-remplie depuis le tableau B2P (régénérable). */
+  auto?: boolean;
+}
+
+export interface RapportDelai {
+  id: string;
+  /** Tableau T2P auquel le rapport se rattache. */
+  t2pId: string;
+  numero: number;
+  reference?: string;
+  auteur?: string;
+  statut: RapportDelaiStatut;
+  sections: RapportDelaiSection[];
+  createdAt: string;
+  updatedAt: string;
+  diffuseLe?: string;
 }
 
 export interface Task {
