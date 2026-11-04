@@ -3979,6 +3979,34 @@ export async function importSuiteProject(text: string, importedBy = "Import suit
     b2pDates: data.b2pDates,
     lots: data.lots,
   });
+  // Fichier 1.1.0 venant de Cheetah Time : on reprend l'unité de temps, la date
+  // d'état et l'historique des prévisions avant pilotage (Tableaux B2P).
+  const delai = data.lentilleDelai;
+  if (delai) {
+    const units = ["heures", "jours", "semaines", "mois"] as const;
+    await mutateStore((draft) => {
+      const aggregate = getAggregateOrThrow(draft, projectId);
+      if ((units as readonly string[]).includes(delai.uniteTemps)) {
+        aggregate.project.timeUnit = delai.uniteTemps as (typeof units)[number];
+      }
+      aggregate.project.statusDate = delai.dateEtat;
+      aggregate.project.b2pSnapshots = Object.fromEntries(
+        delai.parB2P.map((s) => [
+          s.date,
+          {
+            date: s.date,
+            capturedAt: nowIso(),
+            finADate: s.finADate,
+            finPrevisionnelle: s.finPrevisionnelle,
+            ecart: s.ecart,
+            unit: delai.uniteTemps,
+            avancement: s.avancement,
+            actionRequise: s.actionPilotageRequise,
+          },
+        ]),
+      );
+    });
+  }
   return { projectId };
 }
 
@@ -3994,7 +4022,57 @@ export async function buildSuiteExport(projectId: string) {
     p.b2pDates && p.b2pDates.length
       ? p.b2pDates
       : buildRecommendedB2PDates({ dateDebut: p.targetStartDate, dateFin });
+
+  // ── Lentille délai : le retard mesuré à chaque B2P, pour Cheetah Cost ──
+  const { computeDelayBanner } = await import("@/lib/fgf/delay-banner");
+  const { buildB2PPlanningReview } = await import("@/lib/fgf/b2p-review");
+  const banner = computeDelayBanner(view);
+  const unit = p.timeUnit ?? "jours";
+  const round2 = (v: number) => Math.round(v * 100) / 100;
+  const review = buildB2PPlanningReview(view);
+  const reviewByName = new Map(review.lots.map((l) => [l.name, l]));
+  const parB2P = Object.values(p.b2pSnapshots ?? {})
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((snap) => {
+      const index = b2pDates.indexOf(snap.date);
+      return {
+        date: snap.date,
+        indexB2P: index >= 0 ? index : null,
+        finADate: snap.finADate,
+        finPrevisionnelle: snap.finPrevisionnelle,
+        ecart: snap.ecart,
+        avancement: snap.avancement,
+        actionPilotageRequise: snap.actionRequise,
+      };
+    });
+  const lentilleDelai = {
+    module: "CheetahTime" as const,
+    uniteTemps: unit,
+    dateEtat: view.schedule.statusDate ?? null,
+    finInitiale: banner.finInitiale,
+    finADate: banner.finADate,
+    finPrevisionnelle: banner.finPrevisionnelle,
+    ecart: banner.ecart,
+    ecartJours: banner.ecartJours,
+    avancement: banner.avancement,
+    actionPilotageRequise: banner.hasPI && banner.actionRequise,
+    piFige: banner.hasPI,
+    parB2P,
+    lots: lots.map((lot, i) => {
+      const row = reviewByName.get(lot.name);
+      const days = row?.glissementJours ?? 0;
+      return {
+        code: `LT${String(i + 1).padStart(2, "0")}`,
+        libelle: lot.name,
+        finPrevue: row?.finPrevue ?? null,
+        glissement: round2(fromWorkingDays(days, unit, view.aggregate.calendar.hoursPerDay)),
+        glissementJours: days,
+        avancement: Math.round(row?.avancement ?? 0),
+      };
+    }),
+  };
   return buildSuiteProjectFile({
+    lentilleDelai,
     id: p.id,
     code: p.code,
     name: p.name,

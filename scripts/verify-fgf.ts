@@ -207,6 +207,39 @@ async function main() {
       (view3.aggregate.project.b2pDates?.length ?? 0) === dates.length,
       "ré-import : mêmes dates B2P",
     );
+    // ── 6 bis. Lentille délai dans le fichier commun (schéma 1.1.0) ──
+    {
+      assert(file.schemaVersion === "1.1.0", `schéma 1.1.0 attendu, obtenu ${file.schemaVersion}`);
+      const delai0 = (file.project as { lentilleDelai?: { lots: unknown[]; uniteTemps: string } }).lentilleDelai;
+      assert(delai0 && delai0.lots.length === 3, "bloc lentilleDelai avec 3 lots attendu");
+      // Figer le PI puis saisir un B2P : le retard doit apparaître dans le fichier.
+      await projectServices.captureBaseline(pid, "PI recette", "Recette");
+      const leaf = (await projectServices.getProjectView(pid)).tasks.find((t) => !t.isSummary && t.type !== "MILESTONE");
+      assert(leaf, "un LT feuille attendu");
+      const b2pDate = dates[1];
+      const snap = await projectServices.advanceToB2P({
+        projectId: pid,
+        b2pDate,
+        rows: [{ taskId: leaf.id, etat: "STARTED", actualStartDate: dates[0], forecastFinishDate: "2030-01-31" }],
+      });
+      assert(snap.actionRequise && (snap.ecart ?? 0) > 0, `retard attendu au B2P, obtenu écart ${snap.ecart}`);
+      const file2 = await projectServices.buildSuiteExport(pid);
+      const d2 = (file2.project as { lentilleDelai?: { parB2P: { date: string; ecart: number | null; actionPilotageRequise: boolean }[]; ecart: number | null; dateEtat: string | null } }).lentilleDelai!;
+      const entry = d2.parB2P.find((x) => x.date === b2pDate);
+      assert(entry && entry.actionPilotageRequise && entry.ecart === snap.ecart, "le B2P et son retard figurent dans le fichier commun");
+      assert(d2.dateEtat === b2pDate, `date d'état exportée attendue ${b2pDate}, obtenu ${d2.dateEtat}`);
+      // Ré-import : l'historique des Tableaux B2P est conservé.
+      const re2 = await projectServices.importSuiteProject(JSON.stringify(file2));
+      const v4 = await projectServices.getProjectView(re2.projectId);
+      assert(v4.aggregate.project.b2pSnapshots?.[b2pDate]?.ecart === snap.ecart, "ré-import : retard du B2P conservé");
+      assert(v4.aggregate.project.statusDate === b2pDate, "ré-import : date d'état conservée");
+      // Un fichier 1.0.0 (sans bloc délai) reste lisible.
+      const legacy = JSON.parse(JSON.stringify(file2));
+      delete legacy.project.lentilleDelai;
+      legacy.schemaVersion = "1.0.0";
+      await projectServices.importSuiteProject(JSON.stringify(legacy));
+      console.log(`✓ Lentille délai partagée (B2P ${b2pDate} : écart ${snap.ecart} ${delai0.uniteTemps}, action requise · ré-import OK · fichier 1.0.0 toujours lisible)`);
+    }
     console.log(
       `✓ Interop suite (export .cheetahcost.json → ré-import : ${lots3.length} lots, ${view3.aggregate.project.b2pDates?.length} dates B2P, phase conservée)`,
     );

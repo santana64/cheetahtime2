@@ -48,6 +48,7 @@ export default async function ProjectLayout({
     { label: "Tableau CSV", href: `/api/projects/${project.id}/reports?format=csv` },
     { label: "Gantt (image SVG)", href: `/api/projects/${project.id}/reports?format=gantt-svg` },
     { label: "MS Project (.xml — à ouvrir dans MS Project)", href: `/api/projects/${project.id}/export?format=mspdi` },
+    { label: "Fichier commun Cheetah Cost (.cheetahcost.json)", href: `/api/projects/${project.id}/suite-export?download=1` },
     { label: "Sauvegarde du projet (JSON)", href: `/api/projects/${project.id}/export` },
   ];
 
