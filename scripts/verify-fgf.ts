@@ -250,6 +250,38 @@ async function main() {
       const entry = d2.parB2P.find((x) => x.date === b2pDate);
       assert(entry && entry.actionPilotageRequise && entry.ecart === snap.ecart, "le B2P et son retard figurent dans le fichier commun");
       assert(d2.dateEtat === b2pDate, `date d'état exportée attendue ${b2pDate}, obtenu ${d2.dateEtat}`);
+      // ── Tableaux B2P (T2P) : même cycle de vie que Cheetah Cost ──
+      {
+        const t2p = await loadModule<typeof import("../src/lib/fgf/t2p")>("../src/lib/fgf/t2p.ts");
+        let tables = (await projectServices.getProjectView(pid)).aggregate.project.t2pTables ?? [];
+        assert(tables.some((t) => t.tableKind === "b2p0"), "T2P : B2P0 créé avec le PI");
+        const i1 = tables.find((t) => t.tableKind === "i-1" && t.date === b2pDate);
+        assert(i1 && t2p.getT2PLabel(i1) === "T2P1-1", "T2P : démarrer le B2P1 crée T2P1-1");
+        const calendar = (await projectServices.getProjectView(pid)).aggregate.calendar;
+        assert(t2p.getT2PStatus(i1, t2p.aggregateT2P(i1, calendar)).label === "Action de pilotage requise", "T2P1-1 en retard → action requise");
+        const sc = await projectServices.createT2PScenario(pid, 1);
+        assert(t2p.getT2PLabel(sc) === "T2P1-21", `scénario : T2P1-21 attendu, obtenu ${t2p.getT2PLabel(sc)}`);
+        // Le scénario ramène toutes les fins à la Fin à Date → écart nul.
+        await projectServices.updateT2PLines({ projectId: pid, tableId: sc.id, lines: sc.lignes.map((l) => ({ lotId: l.lotId, finPrevue: l.finADate, resteAFaire: 0, commentaire: "Renfort d'équipe" })) });
+        tables = (await projectServices.getProjectView(pid)).aggregate.project.t2pTables ?? [];
+        const sc2 = tables.find((t) => t.id === sc.id)!;
+        assert(t2p.aggregateT2P(sc2, calendar).ecart <= 0, "scénario corrigé : écart ≤ 0");
+        assert(t2p.getT2PEcartReference(tables, sc2)?.id === i1.id, "écart précédent d'un T2Pi-2j = T2Pi-1 du même B2P");
+        const kept = await projectServices.promoteT2PScenario(pid, sc.id);
+        tables = (await projectServices.getProjectView(pid)).aggregate.project.t2pTables ?? [];
+        assert(t2p.getT2PLabel(kept) === "T2P1-2" && tables.some((t) => t.id === sc.id), "retenir i-2 duplique le scénario et le conserve");
+        const sc3 = await projectServices.createT2PScenario(pid, 1);
+        await projectServices.promoteT2PScenario(pid, sc3.id);
+        tables = (await projectServices.getProjectView(pid)).aggregate.project.t2pTables ?? [];
+        assert(tables.filter((t) => t.numero === 1 && t.tableKind === "i-2").length === 1, "un seul T2P1-2 retenu");
+        assert(tables.find((t) => t.id === kept.id)?.tableKind === "i-2j", "l'ancien T2P1-2 redescend en scénario");
+        await projectServices.setT2PLocked(pid, i1.id, true);
+        let refused = false;
+        try { await projectServices.deleteT2PTable(pid, i1.id); } catch { refused = true; }
+        assert(refused, "un tableau verrouillé ne se supprime pas");
+        await projectServices.setT2PLocked(pid, i1.id, false);
+        console.log(`✓ Tableaux B2P délai (B2P0 · T2P1-1 requise · T2P1-21 → T2P1-2 retenu · rétrogradation · verrou) — ${tables.length} tableaux`);
+      }
       // Ré-import : l'historique des Tableaux B2P est conservé.
       const re2 = await projectServices.importSuiteProject(JSON.stringify(file2));
       const v4 = await projectServices.getProjectView(re2.projectId);

@@ -162,7 +162,7 @@ export function B2PAdvanceForm({
                         <div className="flex items-center gap-1">
                           <input
                             type="number"
-                            step="0.25"
+                            step="any"
                             min="0"
                             name={`duree:${r.id}`}
                             placeholder={String(r.durationUnits)}

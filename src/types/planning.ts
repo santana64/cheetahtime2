@@ -153,6 +153,10 @@ export interface Project {
   statusDate?: ISODate | null;
   /** Coefficient du chemin pseudo-critique (CdC p. 4, « au choix du planificateur »). Défaut 1,3. */
   pseudoCriticalCoefficient?: number | null;
+  /** Tableaux de Pilotage du Temps (B2P0, T2Pi-1, T2Pi-2j, T2Pi-2) — comme les bilans de Cheetah Cost. */
+  t2pTables?: T2PTable[];
+  /** Tableaux verrouillés (comme lockedBilanIds de Cheetah Cost). */
+  lockedT2PIds?: string[];
   /**
    * Instantanés « Prévision avant pilotage » par date de B2P (CdC p. 12) :
    * FP, écart (unité projet), avancement et statut d'action de pilotage.
@@ -179,6 +183,40 @@ export interface Project {
   declassedBy?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/* ── Tableaux de Pilotage du Temps (T2P) — transposition délai des tableaux B2P
+   de Cheetah Cost (même modèle : B2P0, T2Pi-1, T2Pi-2j, T2Pi-2). ── */
+export type T2PTableKind = "b2p0" | "i-1" | "i-2j" | "i-2";
+
+export interface T2PLine {
+  lotId: string;
+  code: string;
+  libelle: string;
+  /** Fin Initiale du lot (Planning Initial). */
+  finInitiale: ISODate | null;
+  /** Fin à Date du lot (planning de référence en vigueur). */
+  finADate: ISODate | null;
+  /** Avancement physique 0–100. */
+  avancement: number;
+  /** Reste à faire, dans l'unité du projet (à partir de la date d'état). */
+  resteAFaire: number;
+  /** Fin prévisionnelle du lot. Saisissable dans un scénario correctif. */
+  finPrevue: ISODate | null;
+  commentaire?: string;
+}
+
+export interface T2PTable {
+  id: string;
+  numero: number;
+  tableKind: T2PTableKind;
+  scenarioIndex?: number;
+  /** Date de déclenchement du B2P. */
+  date: ISODate;
+  createdAt: string;
+  updatedAt: string;
+  unit: TimeUnit;
+  lignes: T2PLine[];
 }
 
 export interface Task {

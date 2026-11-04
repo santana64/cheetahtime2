@@ -6,6 +6,8 @@ ALTER TABLE "Project"
   ADD COLUMN "b2pNotes" JSONB,
   ADD COLUMN "b2pScenarios" JSONB,
   ADD COLUMN "b2pSnapshots" JSONB,
+  ADD COLUMN "t2pTables" JSONB,
+  ADD COLUMN "lockedT2PIds" TEXT[] DEFAULT ARRAY[]::TEXT[],
   ADD COLUMN "statusDate" DATE,
   ADD COLUMN "pseudoCriticalCoefficient" DECIMAL(4,2),
   ADD COLUMN "declassedAt" TIMESTAMP(3),

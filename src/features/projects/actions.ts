@@ -41,6 +41,12 @@ import {
   type CreateProjectStructureInput,
   updateProjectPilotageSettings,
   setProjectB2PDates,
+  createT2PB2P0,
+  createT2PScenario,
+  updateT2PLines,
+  promoteT2PScenario,
+  setT2PLocked,
+  deleteT2PTable,
   advanceToB2P,
   type B2PAdvanceRowInput,
 } from "@/services/projects";
@@ -1593,5 +1599,78 @@ export async function saveB2PDatesAction(
     };
   } catch (error) {
     return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer les dates des B2P.") };
+  }
+}
+
+
+/* ── Tableaux de Pilotage du Temps (T2P) — mêmes actions que Cheetah Cost ── */
+
+function t2pRevalidate(projectId: string) {
+  revalidatePath(`/projects/${projectId}`, "layout");
+}
+
+export async function createT2PB2P0Action(formData: FormData): Promise<void> {
+  await requireProjectWriteAccess();
+  const projectId = required(formData, "projectId");
+  const table = await createT2PB2P0(projectId);
+  t2pRevalidate(projectId);
+  redirect(`/projects/${projectId}/b2p/${table.id}`);
+}
+
+export async function createT2PScenarioAction(formData: FormData): Promise<void> {
+  await requireProjectWriteAccess();
+  const projectId = required(formData, "projectId");
+  const numero = Number(required(formData, "numero"));
+  const table = await createT2PScenario(projectId, numero);
+  t2pRevalidate(projectId);
+  redirect(`/projects/${projectId}/b2p/${table.id}`);
+}
+
+export async function promoteT2PAction(formData: FormData): Promise<void> {
+  await requireProjectWriteAccess();
+  const projectId = required(formData, "projectId");
+  const table = await promoteT2PScenario(projectId, required(formData, "tableId"));
+  t2pRevalidate(projectId);
+  redirect(`/projects/${projectId}/b2p/${table.id}`);
+}
+
+export async function toggleT2PLockAction(formData: FormData): Promise<void> {
+  await requireProjectWriteAccess();
+  const projectId = required(formData, "projectId");
+  await setT2PLocked(projectId, required(formData, "tableId"), formData.get("locked") === "true");
+  t2pRevalidate(projectId);
+}
+
+export async function deleteT2PTableAction(formData: FormData): Promise<void> {
+  await requireProjectWriteAccess();
+  const projectId = required(formData, "projectId");
+  await deleteT2PTable(projectId, required(formData, "tableId"));
+  t2pRevalidate(projectId);
+  redirect(`/projects/${projectId}/b2p`);
+}
+
+export async function saveT2PLinesAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  try {
+    await requireProjectWriteAccess();
+    const projectId = required(formData, "projectId");
+    const tableId = required(formData, "tableId");
+    const lots = formData.getAll("lotId").map(String);
+    await updateT2PLines({
+      projectId,
+      tableId,
+      lines: lots.map((lotId) => {
+        const raf = optional(formData, `raf:${lotId}`);
+        return {
+          lotId,
+          finPrevue: optional(formData, `fp:${lotId}`),
+          resteAFaire: raf ? Number(raf.replace(",", ".")) : null,
+          commentaire: String(formData.get(`obs:${lotId}`) ?? ""),
+        };
+      }),
+    });
+    t2pRevalidate(projectId);
+    return { status: "success", message: "Tableau enregistré." };
+  } catch (error) {
+    return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer le tableau.") };
   }
 }

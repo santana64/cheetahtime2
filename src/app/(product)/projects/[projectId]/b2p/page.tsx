@@ -6,9 +6,13 @@ import { MilestoneTrend } from "@/components/app/milestone-trend";
 import { getB2PCadenceRule, getProjectB2PDates } from "@/lib/fgf/b2p";
 import { buildB2PPlanningReview } from "@/lib/fgf/b2p-review";
 import { getProjectView } from "@/services/projects";
-import { B2PTables } from "@/components/app/b2p-tables";
+import { T2PTimeline } from "@/components/app/t2p-timeline";
+import { Button } from "@/components/ui/button";
+import { createT2PB2P0Action } from "@/features/projects/actions";
+import { sortT2PTables } from "@/lib/fgf/t2p";
+import { formatDateLabel } from "@/lib/format/formatters";
 import { B2PAdvanceForm, type B2PAdvanceTaskRow } from "@/features/projects/b2p-advance-form";
-import { computeDelayBanner } from "@/lib/fgf/delay-banner";
+import { computeDelayBanner, formatGap } from "@/lib/fgf/delay-banner";
 import { fromWorkingDays, timeUnitShortLabel } from "@/lib/planning/time-unit";
 
 export default async function ProjectB2PPage({
@@ -68,7 +72,8 @@ export default async function ProjectB2PPage({
 
   const banner = computeDelayBanner(view);
   const unitLabel = timeUnitShortLabel(project.timeUnit ?? "jours");
-  const snapshots = project.b2pSnapshots ?? {};
+  const t2pTables = sortT2PTables(project.t2pTables ?? []);
+  const lastTable = [...t2pTables].sort((a, b) => a.date.localeCompare(b.date)).at(-1) ?? null;
   const statusDate = view.schedule.statusDate ?? null;
   // Prochain B2P à saisir : le premier B2P postérieur à la dernière date d'état.
   const nextIndex = Math.max(1, dates.findIndex((d) => !statusDate || d > statusDate));
@@ -90,7 +95,34 @@ export default async function ProjectB2PPage({
 
   return (
     <div className="space-y-6">
-      <B2PTables dates={dates} banner={banner} snapshots={snapshots} unitLabel={unitLabel} />
+      {/* ── Tableaux B2P — même écran que Cheetah Cost ── */}
+      <section className="space-y-3" aria-labelledby="tableaux-b2p">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <h2 id="tableaux-b2p" className="text-[13px] font-bold text-slate-800">Tableaux B2P</h2>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{t2pTables.length}</span>
+            {lastTable ? <span className="text-[11px] text-slate-400">· dernier : {formatDateLabel(lastTable.date)}</span> : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <form action={createT2PB2P0Action}>
+              <input type="hidden" name="projectId" value={projectId} />
+              <Button variant="outline" size="sm" type="submit" disabled={t2pTables.some((t) => t.tableKind === "b2p0")}>
+                Créer le tableau B2P0
+              </Button>
+            </form>
+            <a href="#saisie-b2p" className="toolbar-btn toolbar-btn-primary">Démarrer B2P suivant</a>
+          </div>
+        </div>
+        {banner.actionRequise ? (
+          <div className="flex items-start gap-2.5 rounded-xl border px-4 py-3 text-[12px]" style={{ borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.05)" }}>
+            <span className="font-semibold text-[#991b1b]">
+              Retard de {formatGap(banner.ecart, unitLabel).replace("+", "")} sur la fin à date
+            </span>
+            <span className="text-slate-600">— étudiez un scénario correctif (T2Pi-2j) puis retenez-en un (T2Pi-2).</span>
+          </div>
+        ) : null}
+        <T2PTimeline view={view} />
+      </section>
 
       <B2PAdvanceForm
         projectId={projectId}

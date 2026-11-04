@@ -2192,7 +2192,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                         name="effortHours"
                         type="number"
                         min={0}
-                        step="0.25"
+                        step="any"
                         defaultValue={selectedTask.effortHours ?? 0}
                         readOnly={selectedTask.isSummary || selectedTask.type === "MILESTONE"}
                       />
@@ -2224,7 +2224,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                         name="actualWorkHours"
                         type="number"
                         min={0}
-                        step="0.25"
+                        step="any"
                         defaultValue={selectedTask.actualWorkHours ?? 0}
                         readOnly={selectedTask.isSummary}
                       />
@@ -2267,7 +2267,7 @@ export function PlanningWorkspace({ view }: { view: ProjectView }) {
                         name="remainingWorkHours"
                         type="number"
                         min={0}
-                        step="0.25"
+                        step="any"
                         defaultValue={selectedTask.remainingWorkHours ?? 0}
                         readOnly={selectedTask.isSummary}
                       />

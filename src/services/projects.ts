@@ -91,6 +91,7 @@ import type {
   ISODate,
   LevelingStrategy,
   Project,
+  T2PTable,
   ProjectAggregate,
   ProjectMetrics,
   ProjectView,
@@ -4293,7 +4294,191 @@ export async function advanceToB2P(input: {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
     aggregate.project.b2pSnapshots = { ...(aggregate.project.b2pSnapshots ?? {}), [input.b2pDate]: snapshot };
   });
+  // Démarrer le B2Pi, c'est créer le tableau T2Pi-1 (comme dans Cheetah Cost).
+  await upsertT2PI1(input.projectId, input.b2pDate);
   return snapshot;
+}
+
+/* ══ Tableaux de Pilotage du Temps (T2P) — même cycle de vie que les tableaux
+   B2P de Cheetah Cost : B2P0 → T2Pi-1 → scénarios T2Pi-2j → T2Pi-2 retenu. ══ */
+
+function t2pId() {
+  return `t2p_${randomUUID().slice(0, 12)}`;
+}
+
+function assertT2PUnlocked(project: Project, tableId: string) {
+  if ((project.lockedT2PIds ?? []).includes(tableId)) {
+    throw validationError("Ce tableau est verrouillé : déverrouillez-le pour le modifier.");
+  }
+}
+
+/** « Créer le tableau B2P0 » : la référence initiale (Planning Initial). */
+export async function createT2PB2P0(projectId: string) {
+  const view = await getProjectView(projectId);
+  if (!view.activeBaseline) throw validationError("Figez d'abord le Planning Initial (PI) : le B2P0 en est la photographie.");
+  const { buildT2PLinesFromView } = await import("@/lib/fgf/t2p");
+  const lines = buildT2PLinesFromView(view, "reference");
+  const dates = getProjectB2PDates(view.aggregate.project, view.schedule.projectFinishDate);
+  let created: T2PTable | null = null;
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const tables = aggregate.project.t2pTables ?? [];
+    if (tables.some((t) => t.tableKind === "b2p0")) throw validationError("Le tableau B2P0 existe déjà.");
+    const now = nowIso();
+    created = {
+      id: t2pId(),
+      numero: 0,
+      tableKind: "b2p0",
+      date: dates[0] ?? aggregate.project.targetStartDate,
+      createdAt: now,
+      updatedAt: now,
+      unit: aggregate.project.timeUnit ?? "jours",
+      lignes: lines,
+    };
+    aggregate.project.t2pTables = [created, ...tables];
+    aggregate.project.updatedAt = now;
+  });
+  return created!;
+}
+
+/** T2Pi-1 « Prévision avant pilotage » : calculé par le moteur après la saisie du B2Pi. */
+async function upsertT2PI1(projectId: string, b2pDate: string) {
+  const view = await getProjectView(projectId);
+  const { buildT2PLinesFromView } = await import("@/lib/fgf/t2p");
+  const lines = buildT2PLinesFromView(view, "current");
+  const dates = getProjectB2PDates(view.aggregate.project, view.schedule.projectFinishDate);
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const project = aggregate.project;
+    const tables = [...(project.t2pTables ?? [])];
+    const now = nowIso();
+    // B2P0 implicite si le PI est figé et qu'il n'a pas encore été créé.
+    if (!tables.some((t) => t.tableKind === "b2p0") && view.activeBaseline) {
+      tables.unshift({
+        id: t2pId(),
+        numero: 0,
+        tableKind: "b2p0",
+        date: dates[0] ?? project.targetStartDate,
+        createdAt: now,
+        updatedAt: now,
+        unit: project.timeUnit ?? "jours",
+        lignes: buildT2PLinesFromView(view, "reference"),
+      });
+    }
+    const indexInPlan = dates.indexOf(b2pDate);
+    const existing = tables.find((t) => t.tableKind === "i-1" && t.date === b2pDate);
+    const numero =
+      existing?.numero ??
+      (indexInPlan > 0 ? indexInPlan : Math.max(0, ...tables.filter((t) => t.tableKind !== "b2p0").map((t) => t.numero)) + 1);
+    if (existing) {
+      assertT2PUnlocked(project, existing.id);
+      const comments = new Map(existing.lignes.map((l) => [l.lotId, l.commentaire ?? ""]));
+      existing.lignes = lines.map((l) => ({ ...l, commentaire: comments.get(l.lotId) ?? "" }));
+      existing.updatedAt = now;
+    } else {
+      tables.push({ id: t2pId(), numero, tableKind: "i-1", date: b2pDate, createdAt: now, updatedAt: now, unit: project.timeUnit ?? "jours", lignes: lines });
+    }
+    project.t2pTables = tables;
+    project.updatedAt = now;
+  });
+}
+
+/** « Nouveau scénario correctif » : T2Pi-2j, copie du T2Pi-1 (comme buildI2JTable). */
+export async function createT2PScenario(projectId: string, numero: number) {
+  let created: T2PTable | null = null;
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const tables = aggregate.project.t2pTables ?? [];
+    const base = tables.find((t) => t.numero === numero && t.tableKind === "i-1");
+    if (!base || numero <= 0) throw validationError("Démarrez d'abord ce B2P (tableau T2Pi-1) avant d'étudier un scénario.");
+    const next = Math.max(0, ...tables.filter((t) => t.numero === numero && t.tableKind === "i-2j").map((t) => t.scenarioIndex ?? 0)) + 1;
+    const now = nowIso();
+    created = { ...base, id: t2pId(), tableKind: "i-2j", scenarioIndex: next, createdAt: now, updatedAt: now, lignes: base.lignes.map((l) => ({ ...l })) };
+    aggregate.project.t2pTables = [...tables, created];
+    aggregate.project.updatedAt = now;
+  });
+  return created!;
+}
+
+/** Saisie dans un tableau : fins prévues et reste à faire (scénarios), commentaires (tous). */
+export async function updateT2PLines(input: {
+  projectId: string;
+  tableId: string;
+  lines: { lotId: string; finPrevue?: string | null; resteAFaire?: number | null; commentaire?: string | null }[];
+}) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, input.projectId);
+    const table = (aggregate.project.t2pTables ?? []).find((t) => t.id === input.tableId);
+    if (!table) throw notFoundError("Tableau introuvable.");
+    assertT2PUnlocked(aggregate.project, table.id);
+    const editablePlan = table.tableKind === "i-2j" || table.tableKind === "i-2";
+    const byLot = new Map(input.lines.map((l) => [l.lotId, l]));
+    table.lignes = table.lignes.map((line) => {
+      const patch = byLot.get(line.lotId);
+      if (!patch) return line;
+      const next = { ...line, commentaire: (patch.commentaire ?? line.commentaire ?? "").slice(0, 500) };
+      if (editablePlan) {
+        if (patch.finPrevue && /^\d{4}-\d{2}-\d{2}$/.test(patch.finPrevue)) next.finPrevue = patch.finPrevue;
+        if (patch.resteAFaire != null && Number.isFinite(patch.resteAFaire) && patch.resteAFaire >= 0) next.resteAFaire = patch.resteAFaire;
+      }
+      return next;
+    });
+    table.updatedAt = nowIso();
+    aggregate.project.updatedAt = table.updatedAt;
+  });
+}
+
+/**
+ * « Retenir i-2 » — même règle que promoteToI2 (Cost) : le scénario choisi est
+ * CONSERVÉ et DUPLIQUÉ en T2Pi-2 ; un T2Pi-2 déjà retenu redescend en scénario.
+ */
+export async function promoteT2PScenario(projectId: string, tableId: string) {
+  let retained: T2PTable | null = null;
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const tables = aggregate.project.t2pTables ?? [];
+    const chosen = tables.find((t) => t.id === tableId);
+    if (!chosen || chosen.tableKind !== "i-2j") throw validationError("Seul un scénario correctif (T2Pi-2j) peut être retenu.");
+    let nextScenario = Math.max(0, ...tables.filter((t) => t.numero === chosen.numero && t.tableKind === "i-2j").map((t) => t.scenarioIndex ?? 0)) + 1;
+    const now = nowIso();
+    const demoted = tables.map((t) => {
+      if (t.numero === chosen.numero && t.tableKind === "i-2") {
+        const d = { ...t, tableKind: "i-2j" as const, scenarioIndex: nextScenario };
+        nextScenario += 1;
+        return d;
+      }
+      return t;
+    });
+    retained = { ...chosen, id: t2pId(), tableKind: "i-2", scenarioIndex: undefined, createdAt: now, updatedAt: now, lignes: chosen.lignes.map((l) => ({ ...l })) };
+    aggregate.project.t2pTables = [...demoted, retained];
+    aggregate.project.updatedAt = now;
+  });
+  return retained!;
+}
+
+export async function setT2PLocked(projectId: string, tableId: string, locked: boolean) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const ids = new Set(aggregate.project.lockedT2PIds ?? []);
+    if (locked) ids.add(tableId);
+    else ids.delete(tableId);
+    aggregate.project.lockedT2PIds = [...ids];
+    aggregate.project.updatedAt = nowIso();
+  });
+}
+
+/** Suppression d'un tableau (pas le B2P0, jamais un tableau verrouillé). */
+export async function deleteT2PTable(projectId: string, tableId: string) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const tables = aggregate.project.t2pTables ?? [];
+    const table = tables.find((t) => t.id === tableId);
+    if (!table) throw notFoundError("Tableau introuvable.");
+    if (table.tableKind === "b2p0") throw validationError("Le tableau B2P0 (référence initiale) ne se supprime pas.");
+    assertT2PUnlocked(aggregate.project, tableId);
+    aggregate.project.t2pTables = tables.filter((t) => t.id !== tableId);
+    aggregate.project.updatedAt = nowIso();
+  });
 }
 
 export async function updateProjectMetadata(input: UpdateProjectInput) {

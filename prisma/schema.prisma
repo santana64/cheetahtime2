@@ -317,6 +317,8 @@ model Project {
   b2pNotes        Json?
   b2pScenarios    Json?
   b2pSnapshots    Json?
+  t2pTables       Json?
+  lockedT2PIds    String[]        @default([])
   statusDate      DateTime?       @db.Date
   pseudoCriticalCoefficient Decimal? @db.Decimal(4, 2)
   declassedAt     DateTime?
