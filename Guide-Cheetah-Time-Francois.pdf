@@ -1,0 +1,1367 @@
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [6 0 R 8 0 R 10 0 R 12 0 R 14 0 R 16 0 R 18 0 R] /Count 7 >> endobj
+3 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >> endobj
+4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >> endobj
+5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >> endobj
+6 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 7 0 R >> endobj
+7 0 obj << /Length 2143 >> stream
+0.102 0.290 0.125 rg
+0 548 595 294 re
+f
+0.957 0.639 0.129 rg
+0 540 595 8 re
+f
+0.34 0.64 0.36 rg
+0 836 595 6 re
+f
+0.42 0.70 0.45 rg
+56 648 42 3 re
+f
+0.957 0.639 0.129 rg
+102 648 18 3 re
+f
+0.80 0.83 0.80 RG
+0.8 w
+56 70 m
+539 70 l
+S
+BT
+0.957 0.639 0.129 rg
+/F2 9 Tf
+1 0 0 1 56.00 752.00 Tm
+(GUIDE UTILISATEUR - MÉTHODE FGF) Tj
+1 1 1 rg
+/F2 37 Tf
+1 0 0 1 54.00 700.00 Tm
+(Cheetah Time) Tj
+0.90 0.94 0.90 rg
+/F1 16 Tf
+1 0 0 1 56.00 668.00 Tm
+(Le guide complet et pédagogique) Tj
+0.88 0.92 0.88 rg
+/F3 11 Tf
+1 0 0 1 56.00 624.00 Tm
+(Une méthode \(FGF\) - un rythme \(les B2P\) - une lentille \(le délai\).) Tj
+0.102 0.290 0.125 rg
+/F2 12.5 Tf
+1 0 0 1 56.00 506.00 Tm
+(Préparé pour : François) Tj
+0.13 0.16 0.20 rg
+/F1 10.5 Tf
+1 0 0 1 56.00 484.00 Tm
+(Objet : comprendre chaque onglet et le parcours utilisateur, pas à pas.) Tj
+0.13 0.16 0.20 rg
+/F1 10.5 Tf
+1 0 0 1 56.00 466.00 Tm
+(Périmètre : 7 écrans globaux + 12 onglets projet + le parcours de A à Z.) Tj
+0.42 0.45 0.50 rg
+/F1 10 Tf
+1 0 0 1 56.00 444.00 Tm
+(Édité le 19 juin 2026.) Tj
+0.102 0.290 0.125 rg
+/F2 11 Tf
+1 0 0 1 56.00 406.00 Tm
+(Au sommaire) Tj
+0.13 0.16 0.20 rg
+/F1 10.5 Tf
+1 0 0 1 64.00 384.00 Tm
+(1.  L'idée en une phrase) Tj
+0.13 0.16 0.20 rg
+/F1 10.5 Tf
+1 0 0 1 64.00 367.00 Tm
+(2.  Le vocabulaire essentiel) Tj
+0.13 0.16 0.20 rg
+/F1 10.5 Tf
+1 0 0 1 64.00 350.00 Tm
+(3.  Se repérer : les deux barres de menu) Tj
+0.13 0.16 0.20 rg
+/F1 10.5 Tf
+1 0 0 1 64.00 333.00 Tm
+(4.  Le parcours type, de A à Z) Tj
+0.13 0.16 0.20 rg
+/F1 10.5 Tf
+1 0 0 1 64.00 316.00 Tm
+(5.  Les écrans globaux \(la barre du haut\)) Tj
+0.13 0.16 0.20 rg
+/F1 10.5 Tf
+1 0 0 1 64.00 299.00 Tm
+(6.  L'assistant Nouveau projet \(6 étapes\)) Tj
+0.13 0.16 0.20 rg
+/F1 10.5 Tf
+1 0 0 1 64.00 282.00 Tm
+(7.  Les 12 onglets du projet, un par un) Tj
+0.13 0.16 0.20 rg
+/F1 10.5 Tf
+1 0 0 1 64.00 265.00 Tm
+(8.  Les petits plus qui font gagner du temps) Tj
+0.13 0.16 0.20 rg
+/F1 10.5 Tf
+1 0 0 1 64.00 248.00 Tm
+(9.  Un scénario concret de bout en bout) Tj
+0.42 0.45 0.50 rg
+/F1 9 Tf
+1 0 0 1 56.00 54.00 Tm
+(CheetahSoft - Project Management Software) Tj
+0.42 0.45 0.50 rg
+/F1 9 Tf
+1 0 0 1 475.00 54.00 Tm
+(Cheetah Time) Tj
+ET
+endstream endobj
+8 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 9 0 R >> endobj
+9 0 obj << /Length 6158 >> stream
+0.86 0.88 0.86 RG
+0.8 w
+56 802 m
+539 802 l
+S
+0.102 0.290 0.125 rg
+56 738 60 2.4 re
+f
+0.957 0.639 0.129 rg
+122 738 26 2.4 re
+f
+0.985 0.94 0.84 rg
+56 700.1 483 24.9 re
+f
+0.957 0.639 0.129 rg
+56 700.1 3 24.9 re
+f
+0.102 0.290 0.125 rg
+56 524.2999999999998 60 2.4 re
+f
+0.957 0.639 0.129 rg
+122 524.2999999999998 26 2.4 re
+f
+0.985 0.94 0.84 rg
+56 155.90000000000015 483 37.8 re
+f
+0.957 0.639 0.129 rg
+56 155.90000000000015 3 37.8 re
+f
+0.102 0.290 0.125 rg
+56 98.90000000000015 60 2.4 re
+f
+0.957 0.639 0.129 rg
+122 98.90000000000015 26 2.4 re
+f
+0.86 0.88 0.86 RG
+0.8 w
+56 60 m
+539 60 l
+S
+BT
+0.957 0.639 0.129 rg
+/F2 8 Tf
+1 0 0 1 56.00 808.00 Tm
+(CHEETAH TIME) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 134.00 808.00 Tm
+(Guide utilisateur - methode FGF) Tj
+0.957 0.639 0.129 rg
+/F2 8.5 Tf
+1 0 0 1 56.00 776.00 Tm
+(SECTION 1) Tj
+0.102 0.290 0.125 rg
+/F2 17 Tf
+1 0 0 1 56.00 760.00 Tm
+(L'idée en une phrase) Tj
+0.44 0.30 0.05 rg
+/F3 9.6 Tf
+1 0 0 1 69.00 710.00 Tm
+(Une méthode \(FGF\), un rythme \(les B2P\), une lentille \(le délai\).) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 693.10 Tm
+(Cheetah Time est le module délai / planning de la suite. Son frère, Cheetah Cost, regarde exactement la) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 679.50 Tm
+(même donnée mais par la lentille du coût. Les deux partagent les mêmes points d'étape B2P : c'est ça, le) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 665.90 Tm
+(secret de la suite - un seul projet, deux paires de lunettes pour le regarder.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 649.30 Tm
+(Concrètement, le logiciel fait quatre choses pour vous :) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 632.70 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 632.70 Tm
+(Vous DÉCRIVEZ votre projet \(les lots, les durées, les liens, les ressources\).) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 618.10 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 618.10 Tm
+(Il CALCULE tout seul le planning \(le Gantt, le chemin critique, les dates\).) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 603.50 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 603.50 Tm
+(Vous SUIVEZ l'avancement à chaque point d'étape \(le B2P\).) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 588.90 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 588.90 Tm
+(Vous ÉDITEZ des rapports propres pour la commission ou la soutenance.) Tj
+0.957 0.639 0.129 rg
+/F2 8.5 Tf
+1 0 0 1 56.00 562.30 Tm
+(SECTION 2) Tj
+0.102 0.290 0.125 rg
+/F2 17 Tf
+1 0 0 1 56.00 546.30 Tm
+(Le vocabulaire essentiel) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 508.30 Tm
+(À lire en premier : tout le reste en découle. Ce sont VOS mots, ceux de la méthode FGF.) Tj
+0.16 0.34 0.20 rg
+/F2 9.6 Tf
+1 0 0 1 56.00 491.70 Tm
+(LT) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 491.70 Tm
+(Lot de Tâches - la brique de base du planning. Porte une durée, des liens, des) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 478.30 Tm
+(ressources et un budget.) Tj
+0.16 0.34 0.20 rg
+/F2 9.6 Tf
+1 0 0 1 56.00 461.90 Tm
+(PTO) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 461.90 Tm
+(Provision pour Tâches Oubliées - un matelas de sécurité budgété \(durée nulle\).) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 448.50 Tm
+(On peut en mettre plusieurs.) Tj
+0.16 0.34 0.20 rg
+/F2 9.6 Tf
+1 0 0 1 56.00 432.10 Tm
+(TH) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 432.10 Tm
+(Tâche Hamac - une tâche de synthèse qui REGROUPE plusieurs LT \(ex.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 418.70 Tm
+(Maçonnerie = fondations + dalle + murs\).) Tj
+0.16 0.34 0.20 rg
+/F2 9.6 Tf
+1 0 0 1 56.00 402.30 Tm
+(Jalon) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 402.30 Tm
+(Point de contrôle à durée nulle \(J1 à J9, 9 au maximum\). Ex. Définition terminée,) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 388.90 Tm
+(Dalle coulée.) Tj
+0.16 0.34 0.20 rg
+/F2 9.6 Tf
+1 0 0 1 56.00 372.50 Tm
+(B2P) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 372.50 Tm
+(Le rythme FGF : le point d'étape récurrent. B2P0 = lancement, puis B2P1,) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 359.10 Tm
+(B2P2... La cadence est CALCULÉE automatiquement selon la durée du projet.) Tj
+0.16 0.34 0.20 rg
+/F2 9.6 Tf
+1 0 0 1 56.00 342.70 Tm
+(PI) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 342.70 Tm
+(Planning Initial - la photo de référence du planning, figée. Le avant auquel on) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 329.30 Tm
+(compare le pendant.) Tj
+0.16 0.34 0.20 rg
+/F2 9.6 Tf
+1 0 0 1 56.00 312.90 Tm
+(BàD) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 312.90 Tm
+(Budget à Date - budget de référence + ses variations.) Tj
+0.16 0.34 0.20 rg
+/F2 9.6 Tf
+1 0 0 1 56.00 296.50 Tm
+(VA) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 296.50 Tm
+(Valeur Acquise - BàD multiplié par l'avancement %. Ce qu'on a vraiment produit) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 283.10 Tm
+(en valeur.) Tj
+0.16 0.34 0.20 rg
+/F2 9.6 Tf
+1 0 0 1 56.00 266.70 Tm
+(CP) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 266.70 Tm
+(Coût Prévisionnel à terminaison - Dépenses + reste à faire. Là où on va finir.) Tj
+0.16 0.34 0.20 rg
+/F2 9.6 Tf
+1 0 0 1 56.00 250.30 Tm
+(Intensité) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 250.30 Tm
+(Combien d'une ressource sur un LT : 0,25 = un quart de chef de projet, 2,00 =) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 236.90 Tm
+(deux développeurs.) Tj
+0.16 0.34 0.20 rg
+/F2 9.6 Tf
+1 0 0 1 56.00 220.50 Tm
+(Marge) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 220.50 Tm
+(Le retard qu'une tâche peut prendre SANS décaler la fin. Marge = 0 -> tâche) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 180.00 207.10 Tm
+(CRITIQUE.) Tj
+0.44 0.30 0.05 rg
+/F3 9.6 Tf
+1 0 0 1 69.00 178.70 Tm
+(Le réflexe : LT = la brique - TH = le regroupement - Jalon = le point de contrôle - B2P = le rendez-vous de) Tj
+0.44 0.30 0.05 rg
+/F3 9.6 Tf
+1 0 0 1 69.00 165.80 Tm
+(suivi.) Tj
+0.957 0.639 0.129 rg
+/F2 8.5 Tf
+1 0 0 1 56.00 136.90 Tm
+(SECTION 3) Tj
+0.102 0.290 0.125 rg
+/F2 17 Tf
+1 0 0 1 56.00 120.90 Tm
+(Se repérer : les deux barres de menu) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 56.00 48.00 Tm
+(Cheetah Time - Guide utilisateur \(methode FGF\)) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 493.00 48.00 Tm
+(Page 2 / 7) Tj
+ET
+endstream endobj
+10 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 11 0 R >> endobj
+11 0 obj << /Length 5800 >> stream
+0.86 0.88 0.86 RG
+0.8 w
+56 802 m
+539 802 l
+S
+0.102 0.290 0.125 rg
+56 595.7999999999998 60 2.4 re
+f
+0.957 0.639 0.129 rg
+122 595.7999999999998 26 2.4 re
+f
+0.102 0.290 0.125 rg
+56 440.1999999999997 60 2.4 re
+f
+0.957 0.639 0.129 rg
+122 440.1999999999997 26 2.4 re
+f
+0.86 0.88 0.86 RG
+0.8 w
+56 60 m
+539 60 l
+S
+BT
+0.957 0.639 0.129 rg
+/F2 8 Tf
+1 0 0 1 56.00 808.00 Tm
+(CHEETAH TIME) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 134.00 808.00 Tm
+(Guide utilisateur - methode FGF) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 783.00 Tm
+(1\) La barre sombre tout en haut \(niveau global, tous projets\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 769.00 Tm
+(Portefeuille - Portfolio+ - Alertes - Rapports - API - Paramètres - Nouveau projet - Recherche \(Ctrl+K\) -) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 755.40 Tm
+(Déconnexion.) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 733.80 Tm
+(2\) La barre verte du projet \(quand vous êtes DANS un projet\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 719.80 Tm
+(12 onglets : Tableau de bord - Planning - Look-ahead - Potentiel-tâches - Analyse - Ressources -) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 706.20 Tm
+(Référentiels - Bilans B2P - Risques - Soutenance - Activité - Paramètres.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 689.60 Tm
+(Juste au-dessus de ces onglets, un bandeau vert foncé rappelle toujours : le nom du projet, son code, son) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 676.00 Tm
+(statut, sa santé \(vert / orange / rouge\), la date de début, la fin prévisionnelle, le responsable, et des boutons) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 662.40 Tm
+(d'export rapides \(PDF, Excel, CSV, SVG Gantt, JSON\).) Tj
+0.957 0.639 0.129 rg
+/F2 8.5 Tf
+1 0 0 1 56.00 633.80 Tm
+(SECTION 4) Tj
+0.102 0.290 0.125 rg
+/F2 17 Tf
+1 0 0 1 56.00 617.80 Tm
+(Le parcours type, de A à Z) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 579.80 Tm
+(Le fil rouge se lit en cinq temps :) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 563.20 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 563.20 Tm
+(1. Nouveau projet \(on décrit\) - l'assistant en 6 étapes. Le planning naît tout seul.) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 548.60 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 548.60 Tm
+(2. Planning \(on ajuste\) - on vérifie le Gantt, on glisse des barres, on affine les liens.) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 534.00 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 534.00 Tm
+(3. Désigner comme PI \(on fige le avant\) - le trait noir de référence apparaît.) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 519.40 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 519.40 Tm
+(4. Bilans B2P \(on pointe\) - à chaque point d'étape, on note l'avancement et les décisions.) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 504.80 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 504.80 Tm
+(5. Soutenance \(on présente\) - un clic, le PDF marché public part en commission.) Tj
+0.957 0.639 0.129 rg
+/F2 8.5 Tf
+1 0 0 1 56.00 478.20 Tm
+(SECTION 5) Tj
+0.102 0.290 0.125 rg
+/F2 17 Tf
+1 0 0 1 56.00 462.20 Tm
+(Les écrans globaux \(la barre du haut\)) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 419.20 Tm
+(Portefeuille) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 405.20 Tm
+(Votre page d'accueil : la liste de TOUS vos projets, avec statut, santé, avancement, budget et fin prévue. Les) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 391.60 Tm
+(projets archivés sont à part, et un compteur signale les projets à risque. On y importe aussi un planning) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 378.00 Tm
+(existant \(MS Project / XML\) et on nivelle les ressources de tout l'espace.) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 356.40 Tm
+(Portfolio+ \(la tour de contrôle\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 342.40 Tm
+(La vue multi-projets pour un PMO. Son atout : elle détecte les CONFLITS entre projets - une même) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 328.80 Tm
+(ressource sur-sollicitée sur deux chantiers au même moment.) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 307.20 Tm
+(Alertes - Early Warning System) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 293.20 Tm
+(Votre radar. Tout ce qui cloche sur le portefeuille, classé en critique / avertissement / info. Un clic sur une) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 279.60 Tm
+(alerte vous emmène directement sur le planning concerné. Si tout va bien : Aucun signal actif.) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 258.00 Tm
+(Rapports) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 244.00 Tm
+(Centre d'exports niveau portefeuille : vos documents \(PDF, Excel, CSV...\) projet par projet, sans entrer dans) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 230.40 Tm
+(chacun.) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 208.80 Tm
+(API) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 194.80 Tm
+(La documentation technique pour brancher Cheetah Time à d'autres outils. À ignorer si vous ne faites pas) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 181.20 Tm
+(d'intégration informatique.) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 159.60 Tm
+(Paramètres \(global\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 145.60 Tm
+(Réglages de l'espace de travail : devise, fuseau, personnalisation CheetahSoft, notifications \(Slack / Teams /) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 132.00 Tm
+(Jira\) et sécurité \(double authentification MFA\).) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 110.40 Tm
+(Nouveau projet) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 96.40 Tm
+(C'est l'écran le plus important - il est détaillé dans la section suivante.) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 56.00 48.00 Tm
+(Cheetah Time - Guide utilisateur \(methode FGF\)) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 493.00 48.00 Tm
+(Page 3 / 7) Tj
+ET
+endstream endobj
+12 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 13 0 R >> endobj
+13 0 obj << /Length 5550 >> stream
+0.86 0.88 0.86 RG
+0.8 w
+56 802 m
+539 802 l
+S
+0.102 0.290 0.125 rg
+56 738 60 2.4 re
+f
+0.957 0.639 0.129 rg
+122 738 26 2.4 re
+f
+0.985 0.94 0.84 rg
+56 508.6999999999998 483 24.9 re
+f
+0.957 0.639 0.129 rg
+56 508.6999999999998 3 24.9 re
+f
+0.985 0.94 0.84 rg
+56 304.99999999999966 483 24.9 re
+f
+0.957 0.639 0.129 rg
+56 304.99999999999966 3 24.9 re
+f
+0.102 0.290 0.125 rg
+56 247.99999999999966 60 2.4 re
+f
+0.957 0.639 0.129 rg
+122 247.99999999999966 26 2.4 re
+f
+0.86 0.88 0.86 RG
+0.8 w
+56 60 m
+539 60 l
+S
+BT
+0.957 0.639 0.129 rg
+/F2 8 Tf
+1 0 0 1 56.00 808.00 Tm
+(CHEETAH TIME) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 134.00 808.00 Tm
+(Guide utilisateur - methode FGF) Tj
+0.957 0.639 0.129 rg
+/F2 8.5 Tf
+1 0 0 1 56.00 776.00 Tm
+(SECTION 6) Tj
+0.102 0.290 0.125 rg
+/F2 17 Tf
+1 0 0 1 56.00 760.00 Tm
+(L'assistant Nouveau projet \(6 étapes\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 722.00 Tm
+(C'est ici que vous DÉCRIVEZ le projet. Tout en bas, une barre récapitule en temps réel \(nombre de LT,) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 708.40 Tm
+(PTO, jalons, budget\). Le bouton vert Créer le projet lance le calcul.) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 686.80 Tm
+(Étape 1 - Identité) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 672.80 Tm
+(Nom du projet, phase, UNITÉ DE TEMPS \(jours, semaines... - c'est dans cette unité que vous saisirez les) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 659.20 Tm
+(durées\), client / maîtrise d'ouvrage, date de début et date de fin initiale.) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 637.60 Tm
+(Étape 2 - Ressources) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 623.60 Tm
+(Vous listez vos ressources \(R01, R02...\). Pour chacune : nom, heures/jour \(7 h par défaut\) et jours travaillés) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 610.00 Tm
+(\(Lun -> Ven par défaut, cliquables\). Les jours fériés du calendrier projet s'appliquent automatiquement.) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 588.40 Tm
+(Étape 3 - Lots de Tâches \(le cœur\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 574.40 Tm
+(Pour chaque LT : code, nom, durée, budget. Puis deux sous-lignes : les PRÉDÉCESSEURS \(de qui dépend) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 560.80 Tm
+(ce LT, avec le type de lien FD / DD / FF / DF et un délai plus ou moins\) et les RESSOURCES \(qui travaille) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 547.20 Tm
+(dessus, avec son intensité\). Le bouton + PTO ajoute une provision de sécurité.) Tj
+0.44 0.30 0.05 rg
+/F3 9.6 Tf
+1 0 0 1 69.00 518.60 Tm
+(FD = Fin -> Début \(le plus courant\). Un délai positif = on attend ; un délai négatif = on chevauche.) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 496.70 Tm
+(Étape 4 - Jalons \(J1 à J9\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 482.70 Tm
+(Vos points de contrôle à durée nulle \(Définition terminée, Dalle coulée\). Maximum 9. Ils peuvent eux aussi) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 469.10 Tm
+(avoir des prédécesseurs.) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 447.50 Tm
+(Étape 5 - Tâches Hamac) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 433.50 Tm
+(Vous regroupez des LT sous une synthèse \(ex. Maçonnerie englobe fondations + dalle + murs\). Un LT) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 419.90 Tm
+(n'appartient qu'à une seule TH. C'est ce qui donne la hiérarchie du planning.) Tj
+0.16 0.34 0.20 rg
+/F2 10.5 Tf
+1 0 0 1 56.00 398.30 Tm
+(Étape 6 - Planning B2P) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 384.30 Tm
+(La cadence est calculée automatiquement selon la durée du projet : un projet de 3 à 6 mois -> un B2P toutes) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 370.70 Tm
+(les 2 semaines ; de 1 à 2 ans -> tous les 2 mois, etc. Vous obtenez B2P0 \(lancement\) puis B2P1, B2P2... Si) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 357.10 Tm
+(vous modifiez une date à la main et vous éloignez de la règle, un avertissement orange vous le signale \(mais) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 343.50 Tm
+(vous laisse libre\).) Tj
+0.44 0.30 0.05 rg
+/F3 9.6 Tf
+1 0 0 1 69.00 314.90 Tm
+(Ces dates B2P sont identiques côté Cheetah Cost : c'est le pont entre la lentille délai et la lentille coût.) Tj
+0.957 0.639 0.129 rg
+/F2 8.5 Tf
+1 0 0 1 56.00 286.00 Tm
+(SECTION 7) Tj
+0.102 0.290 0.125 rg
+/F2 17 Tf
+1 0 0 1 56.00 270.00 Tm
+(Les 12 onglets du projet, un par un) Tj
+0.102 0.290 0.125 rg
+/F2 12.5 Tf
+1 0 0 1 56.00 223.00 Tm
+(1\) Tableau de bord) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 204.00 Tm
+(À quoi ça sert : le verdict en 10 secondes.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 187.40 Tm
+(Ce que vous voyez : la Vue Direction, le calendrier des bilans B2P, des cartes d'indicateurs, le Cockpit de) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 173.80 Tm
+(coûts FGF \(BàD, VA, Dépenses, CPI, SPI, EAC, VAC...\), un bloc Livraison \(budget, coût réel, avancement,) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 160.20 Tm
+(valeur acquise, référentiel actif\), le chemin critique, les jalons à venir et les signaux de variance par tâche.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 143.60 Tm
+(À retenir : la page du patron pressé. Vert = bien, orange = surveiller, rouge = agir.) Tj
+0.102 0.290 0.125 rg
+/F2 12.5 Tf
+1 0 0 1 56.00 118.00 Tm
+(2\) Planning \(l'atelier principal\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 99.00 Tm
+(À quoi ça sert : construire et ajuster le planning visuellement.) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 56.00 48.00 Tm
+(Cheetah Time - Guide utilisateur \(methode FGF\)) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 493.00 48.00 Tm
+(Page 4 / 7) Tj
+ET
+endstream endobj
+14 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 15 0 R >> endobj
+15 0 obj << /Length 6285 >> stream
+0.86 0.88 0.86 RG
+0.8 w
+56 802 m
+539 802 l
+S
+0.985 0.94 0.84 rg
+56 651.2999999999998 483 24.9 re
+f
+0.957 0.639 0.129 rg
+56 651.2999999999998 3 24.9 re
+f
+0.86 0.88 0.86 RG
+0.8 w
+56 60 m
+539 60 l
+S
+BT
+0.957 0.639 0.129 rg
+/F2 8 Tf
+1 0 0 1 56.00 808.00 Tm
+(CHEETAH TIME) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 134.00 808.00 Tm
+(Guide utilisateur - methode FGF) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 788.00 Tm
+(Ce que vous voyez : un écran à 3 modes, commutables en un clic - Grille / Gantt / Inspecteur. La Grille est le) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 774.40 Tm
+(tableau des tâches \(WBS, nom, début, fin, durée, marge\). Le Gantt affiche les barres dans le temps : on) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 760.80 Tm
+(GLISSE une barre pour la déplacer, on TIRE ses bords pour changer la durée, on déplace les jalons) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 747.20 Tm
+(\(losanges\). L'Inspecteur montre tous les détails d'une tâche \(au plus tôt / tard, mode auto ou manuel, formule) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 733.60 Tm
+(de charge, marges, contraintes, coûts, VP / VA\).) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 717.00 Tm
+(Les boutons clés : ajouter une tâche racine / sœur / enfant / jalon ; Désigner comme PI \(fige le planning de) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 703.40 Tm
+(référence, trait noir + suivi B2P en rouge pour le réalisé et vert pour la prévision\) ; densité \(Ctrl+1/2/3\), filtre,) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 689.80 Tm
+(bascule Baseline, bascule Critique.) Tj
+0.44 0.30 0.05 rg
+/F3 9.6 Tf
+1 0 0 1 69.00 661.20 Tm
+(C'est ici que vous passez 80 % de votre temps. Le Gantt n'est PAS décoratif : il recalcule réellement.) Tj
+0.102 0.290 0.125 rg
+/F2 12.5 Tf
+1 0 0 1 56.00 635.30 Tm
+(3\) Look-ahead \(4 semaines\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 616.30 Tm
+(À quoi ça sert : la vue chantier, imprimable, pour le conducteur de travaux.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 599.70 Tm
+(Ce que vous voyez : un tableau des tâches des 4 prochaines semaines \(qui, quand\) avec un statut En retard) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 586.10 Tm
+(/ À risque / OK et sa raison.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 569.50 Tm
+(À retenir : qu'est-ce qu'on fait dans les semaines qui viennent - concret, terrain.) Tj
+0.102 0.290 0.125 rg
+/F2 12.5 Tf
+1 0 0 1 56.00 543.90 Tm
+(4\) Potentiel-tâches \(réseau PERT\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 524.90 Tm
+(À quoi ça sert : voir la LOGIQUE du projet, sans l'axe du temps.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 508.30 Tm
+(Ce que vous voyez : un diagramme de boîtes reliées par des flèches ; le chemin critique apparaît en rouge.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 494.70 Tm
+(En dessous, la table de tous les liens \(type, prédécesseur, successeur, décalage, critique oui / non\).) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 478.10 Tm
+(À retenir : est-ce que mon enchaînement tient debout ? Idéal pour discuter la logique, pas les dates.) Tj
+0.102 0.290 0.125 rg
+/F2 12.5 Tf
+1 0 0 1 56.00 452.50 Tm
+(5\) Analyse \(ordonnancement avancé\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 433.50 Tm
+(À quoi ça sert : prévoir et challenger le planning avec des outils statistiques.) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 416.90 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 416.90 Tm
+(Earned Schedule : SPI_t \(performance de délai\), date de fin prédite, glissement prédit.) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 402.30 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 402.30 Tm
+(Monte Carlo \(1 500 simulations\) : l'histogramme des dates de fin possibles avec P10 / P50 / P80 / P90 -) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 388.70 Tm
+(la fameuse date qu'on promet au client \(P80\) - et les tâches les plus souvent critiques.) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 374.10 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 374.10 Tm
+(Courbe en S : prévu / réalisé / prévision.) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 359.50 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 359.50 Tm
+(Simulateur what-if FGF : et si ce LT glisse de 5 jours, ça coûte combien ?) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 344.90 Tm
+(À retenir : l'onglet pour anticiper et arbitrer avec des chiffres solides.) Tj
+0.102 0.290 0.125 rg
+/F2 12.5 Tf
+1 0 0 1 56.00 319.30 Tm
+(6\) Ressources) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 300.30 Tm
+(À quoi ça sert : gérer les personnes, équipes et équipements, et leur charge.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 283.70 Tm
+(Ce que vous voyez : par ressource, la charge hebdomadaire, les affectations, les SURCHARGES \(en) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 270.10 Tm
+(rouge\). On ajoute une ressource \(Personne / Équipe / Équipement\), on règle son calendrier, et on saisit les) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 256.50 Tm
+(feuilles de temps \(heures réellement passées\).) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 239.90 Tm
+(À retenir : c'est ici qu'on repère - Untel est à 130 %, il faut lisser.) Tj
+0.102 0.290 0.125 rg
+/F2 12.5 Tf
+1 0 0 1 56.00 214.30 Tm
+(7\) Référentiels \(baselines\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 195.30 Tm
+(À quoi ça sert : figer des photos du planning et comparer.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 178.70 Tm
+(Ce que vous voyez : un bouton Capturer un référentiel, l'historique des photos \(date, charge gelée, coût) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 165.10 Tm
+(gelé, statut\), la possibilité d'en ACTIVER une, et une analyse des écarts \(delta début / fin / charge / coût vs) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 151.50 Tm
+(aujourd'hui\).) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 134.90 Tm
+(À retenir : le référentiel actif débloque la Valeur Acquise. C'est votre avant officiel.) Tj
+0.102 0.290 0.125 rg
+/F2 12.5 Tf
+1 0 0 1 56.00 109.30 Tm
+(8\) Bilans B2P \(le rituel FGF - lentille délai\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 90.30 Tm
+(À quoi ça sert : faire le point à chaque rendez-vous B2P.) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 56.00 48.00 Tm
+(Cheetah Time - Guide utilisateur \(methode FGF\)) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 493.00 48.00 Tm
+(Page 5 / 7) Tj
+ET
+endstream endobj
+16 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 17 0 R >> endobj
+17 0 obj << /Length 5842 >> stream
+0.86 0.88 0.86 RG
+0.8 w
+56 802 m
+539 802 l
+S
+0.985 0.94 0.84 rg
+56 708.6999999999999 483 24.9 re
+f
+0.957 0.639 0.129 rg
+56 708.6999999999999 3 24.9 re
+f
+0.102 0.290 0.125 rg
+56 295.09999999999957 60 2.4 re
+f
+0.957 0.639 0.129 rg
+122 295.09999999999957 26 2.4 re
+f
+0.102 0.290 0.125 rg
+56 128.89999999999958 60 2.4 re
+f
+0.957 0.639 0.129 rg
+122 128.89999999999958 26 2.4 re
+f
+0.86 0.88 0.86 RG
+0.8 w
+56 60 m
+539 60 l
+S
+BT
+0.957 0.639 0.129 rg
+/F2 8 Tf
+1 0 0 1 56.00 808.00 Tm
+(CHEETAH TIME) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 134.00 808.00 Tm
+(Guide utilisateur - methode FGF) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 788.00 Tm
+(Ce que vous voyez : un sélecteur de B2P \(les passés sont cochés, ceux avec une note sont marqués\). Pour) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 774.40 Tm
+(le B2P choisi : l'avancement global, le glissement projet, un Rapport de synthèse \(BàD, Dépenses, CP, Écart) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 760.80 Tm
+(final - le volet coût vient de la coûtenance\), une revue lot par lot \(avancement, fin prévue, glissement, statut\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 747.20 Tm
+(et une note de bilan éditable pour consigner les décisions.) Tj
+0.44 0.30 0.05 rg
+/F3 9.6 Tf
+1 0 0 1 69.00 718.60 Tm
+(C'est le cœur de la méthode : le rendez-vous où l'on regarde la vérité en face, lot par lot.) Tj
+0.102 0.290 0.125 rg
+/F2 12.5 Tf
+1 0 0 1 56.00 692.70 Tm
+(9\) Risques) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 673.70 Tm
+(À quoi ça sert : tenir les registres de pilotage.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 657.10 Tm
+(Ce que vous voyez : le registre des risques, les incidents / problèmes et les demandes de changement. La) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 643.50 Tm
+(traçabilité - indispensable en marché public.) Tj
+0.102 0.290 0.125 rg
+/F2 12.5 Tf
+1 0 0 1 56.00 617.90 Tm
+(10\) Soutenance) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 598.90 Tm
+(À quoi ça sert : produire le livrable à présenter en commission.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 582.30 Tm
+(Ce que vous voyez : un PDF marché public en 6 pages \(tableau de bord, planning de référence vs actuel,) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 568.70 Tm
+(courbe en S, tableau des écarts FGF, points d'alerte, ressources\), plus des exports Gantt SVG et Excel) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 555.10 Tm
+(multi-onglets. Un encart résume les chiffres courants \(avancement, fin prévue / contractuelle, SPI_t, chemin) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 541.50 Tm
+(critique, surcharges\).) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 524.90 Tm
+(À retenir : un clic = un dossier propre, format soutenance, prêt à poser sur la table.) Tj
+0.102 0.290 0.125 rg
+/F2 12.5 Tf
+1 0 0 1 56.00 499.30 Tm
+(11\) Activité) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 480.30 Tm
+(À quoi ça sert : la collaboration et la mémoire du projet.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 463.70 Tm
+(Ce que vous voyez : commentaires sur les tâches, mentions @email, pièces jointes, et le journal d'activité) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 450.10 Tm
+(\(qui a fait quoi, quand\).) Tj
+0.102 0.290 0.125 rg
+/F2 12.5 Tf
+1 0 0 1 56.00 424.50 Tm
+(12\) Paramètres \(projet\)) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 405.50 Tm
+(À quoi ça sert : régler ce projet précis.) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 388.90 Tm
+(Ce que vous voyez : Section 1 Informations générales \(statut, santé\), Section 2 Calendrier du projet, Section) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 375.30 Tm
+(3 Modèle de projet, Section 4 Zone de danger \(archiver / supprimer\). On y choisit aussi la stratégie de) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 361.70 Tm
+(nivellement \(priorité puis marge, marge puis priorité, ou délai minimal\).) Tj
+0.957 0.639 0.129 rg
+/F2 8.5 Tf
+1 0 0 1 56.00 333.10 Tm
+(SECTION 8) Tj
+0.102 0.290 0.125 rg
+/F2 17 Tf
+1 0 0 1 56.00 317.10 Tm
+(Les petits plus qui font gagner du temps) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 279.10 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 279.10 Tm
+(Recherche Ctrl+K : la palette de commandes - sauter à n'importe quel projet ou onglet en tapant deux) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 265.50 Tm
+(lettres.) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 250.90 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 250.90 Tm
+(Mode réunion : plein écran pour présenter proprement \(Échap pour sortir\).) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 236.30 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 236.30 Tm
+(Assistant IA : un bouton flottant dans chaque projet pour poser une question sur votre planning.) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 221.70 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 221.70 Tm
+(Rafraîchissement live : la page se met à jour seule \(toutes les 30 s\) si un collègue modifie en même) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 208.10 Tm
+(temps.) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 193.50 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 193.50 Tm
+(Exports : toujours à portée de clic dans le bandeau du projet \(PDF, Excel, CSV, SVG Gantt, JSON\).) Tj
+0.957 0.639 0.129 rg
+/F2 8.5 Tf
+1 0 0 1 56.00 166.90 Tm
+(SECTION 9) Tj
+0.102 0.290 0.125 rg
+/F2 17 Tf
+1 0 0 1 56.00 150.90 Tm
+(Un scénario concret de bout en bout) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 56.00 112.90 Tm
+(Réhabilitation d'un groupe scolaire :) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 96.30 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 96.30 Tm
+(1. Nouveau projet : vous saisissez 8 LT \(démolition, fondations, maçonnerie...\), 2 ressources, 4 jalons et) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 56.00 48.00 Tm
+(Cheetah Time - Guide utilisateur \(methode FGF\)) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 493.00 48.00 Tm
+(Page 6 / 7) Tj
+ET
+endstream endobj
+18 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents 19 0 R >> endobj
+19 0 obj << /Length 1951 >> stream
+0.86 0.88 0.86 RG
+0.8 w
+56 802 m
+539 802 l
+S
+0.985 0.94 0.84 rg
+56 646.2999999999998 483 24.9 re
+f
+0.957 0.639 0.129 rg
+56 646.2999999999998 3 24.9 re
+f
+0.86 0.88 0.86 RG
+0.8 w
+56 60 m
+539 60 l
+S
+BT
+0.957 0.639 0.129 rg
+/F2 8 Tf
+1 0 0 1 56.00 808.00 Tm
+(CHEETAH TIME) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 134.00 808.00 Tm
+(Guide utilisateur - methode FGF) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 788.00 Tm
+(une TH Gros œuvre. Le logiciel propose B2P0 + 6 B2P \(toutes les 2 semaines\).) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 773.40 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 773.40 Tm
+(2. Planning : vous vérifiez le Gantt, vous rallongez un LT de 2 jours en tirant la barre, puis vous cliquez) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 759.80 Tm
+(Désigner comme PI. Le trait noir de référence apparaît.) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 745.20 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 745.20 Tm
+(3. Trois semaines plus tard, Bilans B2P : vous sélectionnez B2P2, vous voyez que la maçonnerie glisse) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 731.60 Tm
+(de +3 j, vous écrivez la note - renfort équipe décidé.) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 717.00 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 717.00 Tm
+(4. Analyse : le Monte Carlo confirme une fin P80 au 14 novembre. Vous testez un what-if : rattraper) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 703.40 Tm
+(coûte 4 200 EUR.) Tj
+0.957 0.639 0.129 rg
+/F2 10 Tf
+1 0 0 1 60.00 688.80 Tm
+(•) Tj
+0.13 0.16 0.20 rg
+/F1 10 Tf
+1 0 0 1 76.00 688.80 Tm
+(5. Soutenance : un clic, le PDF 6 pages part en commission.) Tj
+0.44 0.30 0.05 rg
+/F3 9.6 Tf
+1 0 0 1 69.00 656.20 Tm
+(Avec ce guide, Cheetah Time n'a plus aucun secret. Bonne navigation, François.) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 56.00 48.00 Tm
+(Cheetah Time - Guide utilisateur \(methode FGF\)) Tj
+0.42 0.45 0.50 rg
+/F1 8 Tf
+1 0 0 1 493.00 48.00 Tm
+(Page 7 / 7) Tj
+ET
+endstream endobj
+xref
+0 20
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000156 00000 n 
+0000000253 00000 n 
+0000000355 00000 n 
+0000000460 00000 n 
+0000000606 00000 n 
+0000002801 00000 n 
+0000002947 00000 n 
+0000009157 00000 n 
+0000009305 00000 n 
+0000015158 00000 n 
+0000015306 00000 n 
+0000020909 00000 n 
+0000021057 00000 n 
+0000027395 00000 n 
+0000027543 00000 n 
+0000033438 00000 n 
+0000033586 00000 n 
+trailer << /Size 20 /Root 1 0 R >>
+startxref
+35590
+%%EOF

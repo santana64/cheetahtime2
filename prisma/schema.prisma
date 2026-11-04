@@ -1,0 +1,817 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  AT_RISK
+  ON_HOLD
+  COMPLETED
+}
+
+enum ProjectHealth {
+  ON_TRACK
+  WATCH
+  AT_RISK
+  OFF_TRACK
+}
+
+enum ProjectOrigin {
+  SEEDED
+  CREATED
+  DUPLICATED
+  TEMPLATE
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  PLANNER
+  VIEWER
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  DISABLED
+}
+
+enum TaskType {
+  SUMMARY
+  TASK
+  MILESTONE
+}
+
+enum TaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  BLOCKED
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskConstraintType {
+  ASAP
+  START_NO_EARLIER_THAN
+  START_NO_LATER_THAN
+  FINISH_NO_EARLIER_THAN
+  FINISH_NO_LATER_THAN
+  MUST_START_ON
+  MUST_FINISH_ON
+}
+
+enum TaskSchedulingMode {
+  AUTO
+  MANUAL
+}
+
+enum TaskWorkFormula {
+  FIXED_DURATION
+  FIXED_UNITS
+  FIXED_WORK
+}
+
+enum TaskCalendarMode {
+  PROJECT
+  CUSTOM
+}
+
+enum LevelingStrategy {
+  PRIORITY_THEN_SLACK
+  SLACK_THEN_PRIORITY
+  MIN_DELAY
+}
+
+enum DependencyType {
+  FS
+  SS
+  FF
+  SF
+}
+
+enum ResourceType {
+  PERSON
+  TEAM
+  EQUIPMENT
+}
+
+enum ActualCostCategory {
+  LABOR
+  MATERIAL
+  EQUIPMENT
+  SUBCONTRACT
+  TRAVEL
+  OVERHEAD
+  OTHER
+}
+
+enum ActualCostSource {
+  TIMESHEET
+  MANUAL
+  IMPORT
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SLACK
+  TEAMS
+  JIRA
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
+
+enum AttachmentKind {
+  LINK
+  FILE_REFERENCE
+  BINARY
+}
+
+enum IssueSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IssueStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  CLOSED
+}
+
+enum ChangeRequestStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  IMPLEMENTED
+}
+
+enum ChangeRequestImpact {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model WorkspaceState {
+  id            String    @id
+  storeVersion  Int
+  seededFrom    String
+  initializedAt DateTime
+  lastUpdatedAt DateTime  @updatedAt
+}
+
+model Workspace {
+  id                  String              @id @default(cuid())
+  slug                String              @unique
+  name                String
+  defaultCurrencyCode String              @default("EUR")
+  timezone            String              @default("Europe/Paris")
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  settings            WorkspaceSettings?
+  memberships         WorkspaceMember[]
+  sessions            Session[]
+  projects            Project[]
+  users               User[]              @relation("DefaultWorkspaceUsers")
+  notifications       Notification[]
+  templates           ProjectTemplate[]
+
+  @@index([updatedAt])
+}
+
+model WorkspaceSettings {
+  id                       String    @id @default(cuid())
+  workspaceId              String    @unique
+  defaultCurrencyCode      String    @default("EUR")
+  timezone                 String    @default("Europe/Paris")
+  fiscalYearStartMonth     Int       @default(1)
+  emailNotifications       Boolean   @default(false)
+  inAppNotifications       Boolean   @default(true)
+  slackNotifications       Boolean   @default(false)
+  slackWebhookUrl          String?
+  teamsWebhookUrl          String?
+  jiraBaseUrl              String?
+  attachmentPolicy         String    @default("link-or-reference")
+  updatedAt                DateTime  @updatedAt
+
+  workspace                Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id                 String             @id @default(cuid())
+  email              String             @unique
+  name               String
+  passwordHash       String
+  status             UserStatus         @default(ACTIVE)
+  defaultWorkspaceId String?
+  mfaEnabled         Boolean            @default(false)
+  mfaSecretEncrypted String?
+  failedLoginCount   Int                @default(0)
+  lockedUntil        DateTime?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  lastLoginAt        DateTime?
+
+  defaultWorkspace   Workspace?         @relation("DefaultWorkspaceUsers", fields: [defaultWorkspaceId], references: [id], onDelete: SetNull)
+  memberships        WorkspaceMember[]
+  sessions           Session[]
+  ownedProjects      Project[]          @relation("ProjectOwner")
+  sponsoredProjects  Project[]          @relation("ProjectSponsor")
+  capturedBaselines  Baseline[]         @relation("BaselineCapturedBy")
+  authoredComments   TaskComment[]
+  uploadedAttachments TaskAttachment[]
+  activityEvents     ActivityEvent[]
+  notifications      Notification[]
+  issueAssignments   IssueItem[]        @relation("IssueAssignee")
+  requestedChanges   ChangeRequest[]    @relation("ChangeRequester")
+  approvedChanges    ChangeRequest[]    @relation("ChangeApprover")
+  createdTemplates   ProjectTemplate[]
+
+  @@index([defaultWorkspaceId])
+  @@index([status])
+  @@index([lockedUntil])
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole @default(PLANNER)
+  permissions String[]      @default([])
+  createdAt   DateTime      @default(now())
+
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+model Session {
+  id            String     @id @default(cuid())
+  userId        String
+  workspaceId   String
+  tokenHash     String     @unique
+  createdAt     DateTime   @default(now())
+  lastSeenAt    DateTime   @default(now())
+  expiresAt     DateTime
+  revokedAt     DateTime?
+
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace     Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([workspaceId, expiresAt])
+}
+
+model Project {
+  id              String          @id @default(cuid())
+  workspaceId     String          @default("workspace-cheetah-time")
+  slug            String          @unique
+  code            String          @unique
+  name            String
+  origin          ProjectOrigin   @default(CREATED)
+  sourceProjectId String?
+  clientName      String
+  description     String          @default("")
+  portfolio       String
+  ownerUserId     String?
+  ownerName       String
+  sponsorUserId   String?
+  sponsorName     String
+  status          ProjectStatus   @default(PLANNING)
+  health          ProjectHealth   @default(ON_TRACK)
+  targetStartDate DateTime        @db.Date
+  targetFinishDate DateTime?      @db.Date
+  budgetAmount    Decimal         @db.Decimal(12, 2)
+  currencyCode    String          @default("EUR")
+  levelingStrategy LevelingStrategy @default(PRIORITY_THEN_SLACK)
+  levelingMaxDelayDays Int        @default(30)
+  archivedAt      DateTime?
+  archivedBy      String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  sourceProject   Project?        @relation("ProjectLineage", fields: [sourceProjectId], references: [id], onDelete: SetNull)
+  derivedProjects Project[]       @relation("ProjectLineage")
+  ownerUser       User?           @relation("ProjectOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  sponsorUser     User?           @relation("ProjectSponsor", fields: [sponsorUserId], references: [id], onDelete: SetNull)
+  calendar        ProjectCalendar?
+  tasks           Task[]
+  dependencies    Dependency[]
+  resources       Resource[]
+  assignments     Assignment[]
+  baselines       Baseline[]
+  timesheetEntries TimesheetEntry[]
+  actualCostEntries ActualCostEntry[]
+  riskItems         RiskItem[]
+  issueItems        IssueItem[]
+  changeRequests    ChangeRequest[]
+  taskComments      TaskComment[]
+  taskAttachments   TaskAttachment[]
+  activityEvents    ActivityEvent[]
+  notifications     Notification[]
+  templates         ProjectTemplate[]
+
+  @@index([workspaceId, archivedAt, updatedAt])
+  @@index([ownerUserId])
+  @@index([sponsorUserId])
+  @@index([sourceProjectId])
+  @@index([archivedAt, updatedAt])
+}
+
+model ProjectCalendar {
+  id           String              @id @default(cuid())
+  projectId    String              @unique
+  name         String
+  timezone     String
+  workingDays  Int[]
+  hoursPerDay  Int                 @default(8)
+
+  project      Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  exceptions   CalendarException[]
+}
+
+model CalendarException {
+  id           String           @id @default(cuid())
+  calendarId   String
+  date         DateTime         @db.Date
+  label        String
+  isWorkingDay Boolean          @default(false)
+
+  calendar     ProjectCalendar  @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  @@index([calendarId, date])
+}
+
+model Task {
+  id               String                @id @default(cuid())
+  projectId        String
+  parentId         String?
+  sortOrder        Int
+  name             String
+  description      String                @default("")
+  notes            String                @default("")
+  type             TaskType              @default(TASK)
+  status           TaskStatus            @default(NOT_STARTED)
+  priority         TaskPriority          @default(MEDIUM)
+  progressPercent  Int                   @default(0)
+  durationDays     Int                   @default(1)
+  schedulingMode   TaskSchedulingMode    @default(AUTO)
+  workFormula      TaskWorkFormula       @default(FIXED_DURATION)
+  effortHours      Decimal?              @db.Decimal(10, 2)
+  calendarMode     TaskCalendarMode      @default(PROJECT)
+  calendarWorkingDays Int[]
+  calendarHoursPerDay Int?
+  constraintType   TaskConstraintType    @default(ASAP)
+  constraintDate   DateTime?             @db.Date
+  deadlineDate     DateTime?             @db.Date
+  levelingDelayDays Int                  @default(0)
+  levelingPriority Int                   @default(500)
+  manualStartDate  DateTime?             @db.Date
+  manualFinishDate DateTime?             @db.Date
+  actualStartDate  DateTime?             @db.Date
+  actualFinishDate DateTime?             @db.Date
+  actualWorkHours  Decimal               @default(0) @db.Decimal(10, 2)
+  remainingWorkHours Decimal             @default(0) @db.Decimal(10, 2)
+  scheduledStartDate DateTime?           @db.Date
+  scheduledFinishDate DateTime?          @db.Date
+  earliestStartDate DateTime?            @db.Date
+  earliestFinishDate DateTime?           @db.Date
+  latestStartDate  DateTime?             @db.Date
+  latestFinishDate DateTime?             @db.Date
+  totalSlackDays   Int?
+  freeSlackDays    Int?
+  isCritical       Boolean               @default(false)
+
+  project          Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent           Task?                 @relation("TaskHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children         Task[]                @relation("TaskHierarchy")
+  predecessors     Dependency[]          @relation("SuccessorTask")
+  successors       Dependency[]          @relation("PredecessorTask")
+  assignments      Assignment[]
+  baselineSnapshots BaselineTaskSnapshot[]
+  calendarExceptions TaskCalendarException[]
+  timesheetEntries  TimesheetEntry[]
+  actualCostEntries  ActualCostEntry[]
+  comments          TaskComment[]
+  attachments       TaskAttachment[]
+  issueItems        IssueItem[]
+  changeRequests    ChangeRequest[]
+
+  @@index([projectId, parentId, sortOrder])
+}
+
+model Dependency {
+  id                String           @id @default(cuid())
+  projectId         String
+  predecessorProjectId String
+  predecessorTaskId String
+  successorProjectId   String
+  successorTaskId   String
+  type              DependencyType   @default(FS)
+  lagDays           Int              @default(0)
+  label             String?
+  createdAt         DateTime         @default(now())
+
+  project           Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  predecessorTask   Task             @relation("PredecessorTask", fields: [predecessorTaskId], references: [id], onDelete: Cascade)
+  successorTask     Task             @relation("SuccessorTask", fields: [successorTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, predecessorProjectId, predecessorTaskId, successorProjectId, successorTaskId])
+  @@index([successorTaskId])
+}
+
+model Resource {
+  id                String         @id @default(cuid())
+  projectId         String
+  name              String
+  role              String
+  type              ResourceType   @default(PERSON)
+  location          String
+  availabilityPct   Int            @default(100)
+  capacityHoursPerDay Int          @default(8)
+  calendarWorkingDays Int[]
+  calendarHoursPerDay Int?
+  costRate          Decimal?       @db.Decimal(10, 2)
+  color             String
+
+  project           Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignments       Assignment[]
+  calendarExceptions ResourceCalendarException[]
+  timesheetEntries  TimesheetEntry[]
+  actualCostEntries ActualCostEntry[]
+
+  @@index([projectId, role])
+}
+
+model Assignment {
+  id             String     @id @default(cuid())
+  projectId      String
+  taskId         String
+  resourceId     String
+  allocationPct  Int        @default(100)
+  notes          String?
+
+  project        Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task           Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  resource       Resource   @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, resourceId])
+  @@index([projectId, resourceId])
+}
+
+model Baseline {
+  id           String                 @id @default(cuid())
+  projectId    String
+  name         String
+  description  String                 @default("")
+  capturedAt   DateTime               @default(now())
+  capturedByUserId String?
+  capturedBy   String
+  isActive     Boolean                @default(false)
+
+  project      Project                @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  capturedByUser User?                @relation("BaselineCapturedBy", fields: [capturedByUserId], references: [id], onDelete: SetNull)
+  snapshots    BaselineTaskSnapshot[]
+
+  @@index([projectId, capturedAt])
+  @@index([capturedByUserId])
+}
+
+model BaselineTaskSnapshot {
+  id             String      @id @default(cuid())
+  baselineId     String
+  taskId         String
+  name           String
+  startDate      DateTime?   @db.Date
+  finishDate     DateTime?   @db.Date
+  durationDays   Int
+  workHours      Decimal     @db.Decimal(10, 2)
+  plannedCost    Decimal     @db.Decimal(12, 2)
+  progressPercent Int        @default(0)
+  isCritical     Boolean     @default(false)
+
+  baseline       Baseline    @relation(fields: [baselineId], references: [id], onDelete: Cascade)
+  task           Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([baselineId, taskId])
+  @@index([taskId])
+}
+
+model TaskCalendarException {
+  id           String    @id @default(cuid())
+  taskId       String
+  date         DateTime  @db.Date
+  label        String
+  isWorkingDay Boolean   @default(false)
+
+  task         Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, date])
+}
+
+model ResourceCalendarException {
+  id           String    @id @default(cuid())
+  resourceId   String
+  date         DateTime  @db.Date
+  label        String
+  isWorkingDay Boolean   @default(false)
+
+  resource     Resource  @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@index([resourceId, date])
+}
+
+model TimesheetEntry {
+  id          String    @id @default(cuid())
+  projectId   String
+  taskId      String
+  resourceId  String?
+  entryDate   DateTime  @db.Date
+  workHours   Decimal   @db.Decimal(10, 2)
+  costAmount  Decimal?  @db.Decimal(12, 2)
+  notes       String    @default("")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task        Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  resource    Resource? @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  costLedgerEntry ActualCostEntry?
+
+  @@index([projectId, entryDate])
+  @@index([taskId, entryDate])
+  @@index([resourceId, entryDate])
+}
+
+model ActualCostEntry {
+  id             String             @id @default(cuid())
+  projectId      String
+  taskId         String?
+  resourceId     String?
+  timesheetEntryId String?          @unique
+  entryDate      DateTime           @db.Date
+  source         ActualCostSource   @default(MANUAL)
+  category       ActualCostCategory @default(OTHER)
+  vendorName     String?
+  referenceCode  String?
+  description    String             @default("")
+  quantity       Decimal?           @db.Decimal(12, 2)
+  unitCost       Decimal?           @db.Decimal(12, 2)
+  amount         Decimal            @db.Decimal(12, 2)
+  currencyCode   String             @default("EUR")
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  project        Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task           Task?              @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  resource       Resource?          @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  timesheetEntry TimesheetEntry?    @relation(fields: [timesheetEntryId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, entryDate])
+  @@index([taskId, entryDate])
+  @@index([resourceId, entryDate])
+  @@index([source, category])
+}
+
+enum RiskCategory {
+  TECHNICAL
+  SCHEDULE
+  COST
+  RESOURCE
+  EXTERNAL
+  LEGAL
+  OTHER
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RiskStatus {
+  OPEN
+  MITIGATED
+  ACCEPTED
+  CLOSED
+  ESCALATED
+}
+
+model RiskItem {
+  id             String       @id @default(cuid())
+  projectId      String
+  code           String
+  title          String
+  description    String       @default("")
+  category       RiskCategory @default(TECHNICAL)
+  probability    RiskLevel    @default(MEDIUM)
+  impact         RiskLevel    @default(MEDIUM)
+  status         RiskStatus   @default(OPEN)
+  ownerName      String       @default("")
+  mitigation     String       @default("")
+  contingency    String       @default("")
+  identifiedDate DateTime     @db.Date
+  targetDate     DateTime?    @db.Date
+  closedDate     DateTime?    @db.Date
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  project        Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+}
+
+model IssueItem {
+  id             String        @id @default(cuid())
+  projectId      String
+  taskId         String?
+  assigneeUserId String?
+  code           String
+  title          String
+  description    String        @default("")
+  severity       IssueSeverity @default(MEDIUM)
+  status         IssueStatus   @default(OPEN)
+  ownerName      String        @default("")
+  dueDate        DateTime?     @db.Date
+  resolvedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  project        Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task           Task?         @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  assigneeUser   User?         @relation("IssueAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, status])
+  @@index([taskId])
+  @@index([assigneeUserId])
+}
+
+model ChangeRequest {
+  id             String              @id @default(cuid())
+  projectId      String
+  taskId         String?
+  requesterUserId String?
+  approverUserId  String?
+  code           String
+  title          String
+  description    String              @default("")
+  status         ChangeRequestStatus @default(DRAFT)
+  scheduleImpactDays Int             @default(0)
+  costImpactAmount Decimal           @default(0) @db.Decimal(12, 2)
+  impactLevel     ChangeRequestImpact @default(MEDIUM)
+  decisionNotes   String             @default("")
+  requestedAt     DateTime           @default(now())
+  decidedAt       DateTime?
+  implementedAt   DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  project         Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task            Task?               @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  requester       User?               @relation("ChangeRequester", fields: [requesterUserId], references: [id], onDelete: SetNull)
+  approver        User?               @relation("ChangeApprover", fields: [approverUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, status])
+  @@index([taskId])
+  @@index([requesterUserId])
+  @@index([approverUserId])
+}
+
+model TaskComment {
+  id         String   @id @default(cuid())
+  projectId  String
+  taskId     String
+  authorUserId String?
+  authorName String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorUser User?    @relation(fields: [authorUserId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([authorUserId])
+}
+
+model TaskAttachment {
+  id           String         @id @default(cuid())
+  projectId    String
+  taskId       String
+  uploadedByUserId String?
+  kind         AttachmentKind @default(LINK)
+  fileName     String
+  url          String?
+  storageProvider String      @default("reference")
+  storagePath  String?
+  checksumSha256 String?
+  mimeType     String?
+  sizeBytes    Int?
+  description  String         @default("")
+  createdAt    DateTime       @default(now())
+
+  project      Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task         Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedByUser User?        @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([taskId, createdAt])
+  @@index([projectId, createdAt])
+  @@index([uploadedByUserId])
+  @@index([storageProvider])
+}
+
+model ActivityEvent {
+  id         String   @id @default(cuid())
+  projectId  String
+  actorUserId String?
+  actorName  String
+  action     String
+  entityType String
+  entityId   String?
+  entityName String?
+  fieldName  String?
+  oldValue   String?
+  newValue   String?
+  createdAt  DateTime @default(now())
+
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  actorUser  User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@index([actorUserId])
+}
+
+model Notification {
+  id          String             @id @default(cuid())
+  workspaceId String
+  projectId   String?
+  userId      String
+  channel     NotificationChannel @default(IN_APP)
+  status      NotificationStatus  @default(UNREAD)
+  title       String
+  body        String              @default("")
+  entityType  String?
+  entityId    String?
+  providerTarget String?
+  providerMessageId String?
+  sentAt      DateTime?
+  errorMessage String?
+  createdAt   DateTime            @default(now())
+  readAt      DateTime?
+
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     Project?            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, status, createdAt])
+  @@index([projectId, createdAt])
+  @@index([userId, status, createdAt])
+  @@index([channel, status, createdAt])
+}
+
+model ProjectTemplate {
+  id          String    @id @default(cuid())
+  workspaceId String
+  sourceProjectId String?
+  name        String
+  description String    @default("")
+  snapshotJson Json
+  createdByUserId String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sourceProject Project? @relation(fields: [sourceProjectId], references: [id], onDelete: SetNull)
+  createdByUser User?    @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, updatedAt])
+  @@index([sourceProjectId])
+  @@index([createdByUserId])
+}

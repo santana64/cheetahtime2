@@ -1,0 +1,38 @@
+appId: com.cheetahsoft.cheetahtime
+productName: Cheetah Time
+copyright: © CheetahSoft
+directories:
+  output: dist-desktop
+  buildResources: build
+# L'app Electron (asar) ne contient QUE electron/ + package.json : on exclut
+# tout node_modules racine (pas de PostgreSQL embarqué inutile).
+files:
+  - electron/**/*
+  - package.json
+  - "!node_modules/**/*"
+  - "!**/*.map"
+# Le serveur Next.js "standalone" complet est copié dans resources/app par le
+# hook afterPack (fs brut) — extraResources filtrerait node_modules et .next.
+afterPack: scripts/after-pack.cjs
+asar: true
+npmRebuild: false
+compression: normal
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: Cheetah-Time-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Cheetah Time
+  uninstallDisplayName: Cheetah Time
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico

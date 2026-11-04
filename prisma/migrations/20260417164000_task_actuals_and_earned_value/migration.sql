@@ -1,0 +1,5 @@
+ALTER TABLE "Task"
+ADD COLUMN "actualStartDate" DATE,
+ADD COLUMN "actualFinishDate" DATE,
+ADD COLUMN "actualWorkHours" DECIMAL(10, 2) NOT NULL DEFAULT 0,
+ADD COLUMN "remainingWorkHours" DECIMAL(10, 2) NOT NULL DEFAULT 0;

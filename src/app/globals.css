@@ -1,0 +1,1016 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-brand-green: var(--brand-green);
+  --color-brand-green-deep: var(--brand-green-deep);
+  --color-brand-orange: var(--brand-orange);
+  --color-brand-orange-deep: var(--brand-orange-deep);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  /* Custom animation tokens */
+  --animate-cheetah-pulse: cheetah-pulse 3.5s ease-in-out infinite;
+  --animate-spot-1: spot-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+  --animate-spot-2: spot-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+  --animate-spot-3: spot-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.45s both;
+  --animate-glow-ring: glow-ring 2.5s ease-in-out infinite;
+  --animate-shimmer: shimmer 2.2s linear infinite;
+  --animate-float: float 5s ease-in-out infinite;
+  --animate-gradient-x: gradient-x 8s ease infinite;
+}
+
+:root {
+  /* ── Page surface — warm cream off-white ── */
+  --background: oklch(0.978 0.008 85);
+  --foreground: oklch(0.155 0.022 230);
+
+  /* ── Cards — pure white, crisp ── */
+  --card: oklch(1.0 0 0);
+  --card-foreground: oklch(0.155 0.022 230);
+  --popover: oklch(1.0 0 0);
+  --popover-foreground: oklch(0.155 0.022 230);
+
+  /* ── Primary — deep forest green, authoritative ── */
+  --primary: oklch(0.355 0.118 145);
+  --primary-foreground: oklch(0.975 0.015 145);
+
+  /* ── Secondary — light green wash ── */
+  --secondary: oklch(0.925 0.030 145);
+  --secondary-foreground: oklch(0.235 0.065 145);
+
+  /* ── Muted — warm neutral ── */
+  --muted: oklch(0.952 0.007 85);
+  --muted-foreground: oklch(0.455 0.016 220);
+
+  /* ── Accent — warm orange tint ── */
+  --accent: oklch(0.962 0.024 58);
+  --accent-foreground: oklch(0.255 0.065 52);
+
+  /* ── Destructive — precise rose ── */
+  --destructive: oklch(0.570 0.220 24);
+
+  /* ── Borders — warm, minimal chroma ── */
+  --border: oklch(0.880 0.011 85);
+  --input: oklch(0.880 0.011 85);
+  --ring: oklch(0.500 0.128 145);
+
+  /* ── Chart palette (green-anchored) ── */
+  --chart-1: oklch(0.43 0.13 145);
+  --chart-2: oklch(0.67 0.17 52);
+  --chart-3: oklch(0.64 0.14 58);
+  --chart-4: oklch(0.54 0.18 24);
+  --chart-5: oklch(0.47 0.11 258);
+
+  /* ── Radius system — 10px base ── */
+  --radius: 0.625rem;
+
+  /* ── Sidebar tokens ── */
+  --sidebar: oklch(0.982 0.005 90);
+  --sidebar-foreground: oklch(0.155 0.022 230);
+  --sidebar-primary: oklch(0.355 0.118 145);
+  --sidebar-primary-foreground: oklch(0.975 0.015 145);
+  --sidebar-accent: oklch(0.925 0.030 145);
+  --sidebar-accent-foreground: oklch(0.235 0.065 145);
+  --sidebar-border: oklch(0.880 0.011 85);
+  --sidebar-ring: oklch(0.500 0.128 145);
+
+  /* ── Fonts ── */
+  --font-sans: var(--font-manrope);
+  --font-mono: var(--font-plex-mono);
+
+  /* ── Brand tokens ── */
+  --brand-green: oklch(0.555 0.155 145);
+  --brand-green-deep: oklch(0.355 0.118 145);
+  --brand-orange: oklch(0.670 0.172 52);
+  --brand-orange-deep: oklch(0.530 0.172 52);
+
+  /* ── Couleurs sémantiques FGF — SOURCE UNIQUE ──
+     Code couleur standard de la méthode FGF de coûtenance : un contrôleur de
+     coûts doit retrouver la même couleur pour BàD / Dépenses / VA / CP / écart. */
+  --c-bad: #111827;       /* Budget à Date (BàD) */
+  --c-depenses: #be123c;  /* Dépenses / réalisé (rouge) */
+  --c-va: #3730a3;        /* Valeur Acquise (bleu) */
+  --c-cp: #047857;        /* Coût Prévisionnel à terminaison (vert) */
+  --c-ecart-pos: #dc2626; /* écart défavorable (dépassement) */
+  --c-ecart-neg: #059669; /* écart favorable (sous contrôle) */
+}
+
+/* ═══════════════════════════════════════════════════
+   KEYFRAME ANIMATIONS — ELITE EDITION
+═══════════════════════════════════════════════════ */
+
+/* Logo breathing */
+@keyframes cheetah-pulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.04); filter: brightness(1.06); }
+}
+
+/* Spot spring reveal */
+@keyframes spot-appear {
+  from { opacity: 0; transform: scale(0) rotate(-45deg); }
+  to { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+/* Glow ring pulse */
+@keyframes glow-ring {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 oklch(0.555 0.155 145 / 0.35),
+      0 2px 8px oklch(0.355 0.118 145 / 0.20);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px oklch(0.555 0.155 145 / 0),
+      0 2px 12px oklch(0.355 0.118 145 / 0.30);
+  }
+}
+
+/* Horizontal shimmer sweep */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+/* Subtle vertical float */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+/* Figure-8 float */
+@keyframes float-x {
+  0%, 100% { transform: translateY(0) translateX(0); }
+  25% { transform: translateY(-8px) translateX(4px); }
+  50% { transform: translateY(-5px) translateX(-3px); }
+  75% { transform: translateY(-10px) translateX(2px); }
+}
+
+/* Shifting gradient */
+@keyframes gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Ring expand + fade */
+@keyframes ring-expand {
+  0% { transform: scale(0.8); opacity: 0.7; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+/* SVG dash draw */
+@keyframes cheetah-dash {
+  from { stroke-dashoffset: 120; opacity: 0; }
+  to { stroke-dashoffset: 0; opacity: 1; }
+}
+
+/* Fade + slide up */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Scale + fade in */
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.93); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ── NEW ELITE KEYFRAMES ── */
+
+/* Aurora blob drift 1 — green NW */
+@keyframes aurora-drift-1 {
+  0%   { transform: translate(0, 0) scale(1) rotate(0deg); }
+  33%  { transform: translate(60px, 40px) scale(1.10) rotate(12deg); }
+  66%  { transform: translate(-20px, 80px) scale(0.95) rotate(-6deg); }
+  100% { transform: translate(80px, -30px) scale(1.06) rotate(18deg); }
+}
+
+/* Aurora blob drift 2 — orange SE */
+@keyframes aurora-drift-2 {
+  0%   { transform: translate(0, 0) scale(1) rotate(0deg); }
+  33%  { transform: translate(-50px, -60px) scale(1.08) rotate(-10deg); }
+  66%  { transform: translate(30px, -20px) scale(1.12) rotate(8deg); }
+  100% { transform: translate(-70px, 50px) scale(0.96) rotate(-15deg); }
+}
+
+/* Blur + slide entrance — premium reveal */
+@keyframes blur-reveal {
+  from {
+    opacity: 0;
+    filter: blur(12px);
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Spring slide — overshoots slightly */
+@keyframes slide-spring {
+  0%  { opacity: 0; transform: translateY(18px); }
+  60% { transform: translateY(-4px); }
+  80% { transform: translateY(2px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Number/value pop — spring reveal */
+@keyframes count-pop {
+  0%   { opacity: 0; transform: scale(0.55) translateY(8px); }
+  65%  { transform: scale(1.10) translateY(-2px); }
+  85%  { transform: scale(0.97) translateY(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Holographic rainbow shimmer sweep */
+@keyframes holo-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Animated gradient text flow */
+@keyframes text-flow {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Pulsing scale */
+@keyframes pulse-scale {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.06); opacity: 0.85; }
+}
+
+/* Logo ring rotate — anneau externe tourne lentement */
+@keyframes logo-ring-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Logo breathe — scale + green drop-shadow glow */
+@keyframes logo-breathe {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 6px rgba(86, 164, 91, 0.42));
+  }
+  50% {
+    transform: scale(1.045);
+    filter: drop-shadow(0 0 20px rgba(86, 164, 91, 0.80));
+  }
+}
+
+/* Pulse ring — expands + fades (orange accent) */
+@keyframes pulse-ring {
+  0%   { transform: scale(1);    opacity: 0.65; }
+  80%  { transform: scale(1.22); opacity: 0; }
+  100% { transform: scale(1.22); opacity: 0; }
+}
+
+/* Aurora gradient border — shifts hue across green→orange→blue */
+@keyframes aurora-border {
+  0%   { background-position:   0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position:   0% 50%; }
+}
+
+/* Spark particle expand */
+@keyframes spark {
+  0%   { transform: scale(1); opacity: 0.7; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+/* Bottom line grow */
+@keyframes line-grow {
+  from { width: 0; opacity: 0; }
+  to   { width: 100%; opacity: 1; }
+}
+
+/* Vertical shimmer (for progress bars) */
+@keyframes progress-sheen {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+
+/* ═══════════════════════════════════════════════════
+   CHEETAH MOTION DESIGN SYSTEM
+═══════════════════════════════════════════════════ */
+
+/* Speed streak — horizontal velocity line sweeps across the screen */
+@keyframes speed-streak {
+  0%   { transform: translateX(-100%); opacity: 0; }
+  6%   { opacity: 1; }
+  88%  { opacity: 0.70; }
+  100% { transform: translateX(160vw); opacity: 0; }
+}
+
+/* Velocity enter — content enters from left with explosive acceleration */
+@keyframes velocity-enter {
+  0%   { opacity: 0; transform: translateX(-80px) scaleX(0.86); filter: blur(14px); }
+  20%  { filter: blur(4px); }
+  55%  { transform: translateX(8px) scaleX(1.02); filter: blur(0px); }
+  75%  { transform: translateX(-2px) scaleX(0.997); }
+  100% { opacity: 1; transform: translateX(0) scaleX(1); filter: blur(0px); }
+}
+
+/* Rosette bloom — cheetah spot materialises from nothing with organic spring */
+@keyframes rosette-bloom {
+  0%   { opacity: 0; transform: scale(0) rotate(-45deg); filter: blur(4px); }
+  45%  { transform: scale(1.28) rotate(8deg); filter: blur(0px); }
+  68%  { transform: scale(0.88) rotate(-2deg); }
+  84%  { transform: scale(1.05) rotate(1deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); filter: blur(0px); }
+}
+
+/* Cheetah lunge — squish-and-stretch horizontal pounce */
+@keyframes cheetah-lunge {
+  0%   { transform: translateX(0)    scaleX(1.00) scaleY(1.00); }
+  18%  { transform: translateX(-4px) scaleX(0.93) scaleY(1.05); }
+  48%  { transform: translateX(10px) scaleX(1.09) scaleY(0.94); }
+  72%  { transform: translateX(-2px) scaleX(0.98) scaleY(1.01); }
+  88%  { transform: translateX(1px)  scaleX(1.01) scaleY(0.998); }
+  100% { transform: translateX(0)    scaleX(1.00) scaleY(1.00); }
+}
+
+/* Coat drift — ultra-slow drift for the rosette SVG background pattern */
+@keyframes coat-drift {
+  0%   { transform: translate(0px, 0px)  scale(1.000); }
+  33%  { transform: translate(14px, 9px) scale(1.013); }
+  66%  { transform: translate(-9px, 18px) scale(0.991); }
+  100% { transform: translate(6px, -7px) scale(1.007); }
+}
+
+/* Hunt focus — predator snap-to-focus reveal */
+@keyframes hunt-focus {
+  0%   { opacity: 0; transform: scale(1.06); filter: blur(6px); }
+  65%  { transform: scale(0.99); filter: blur(0px); }
+  100% { opacity: 1; transform: scale(1.00); filter: blur(0px); }
+}
+
+/* Paw ripple — circular ripple emanating from a contact point */
+@keyframes paw-ripple {
+  0%   { transform: scale(0.5); opacity: 0.55; }
+  100% { transform: scale(2.8); opacity: 0; }
+}
+
+
+/* ═══════════════════════════════════════════════════
+   ANIMATION UTILITIES — ELITE SUITE
+═══════════════════════════════════════════════════ */
+
+@layer utilities {
+
+  /* ── Existing ── */
+  .animate-cheetah-pulse { animation: cheetah-pulse 3.5s ease-in-out infinite; }
+  .animate-spot-1 { animation: spot-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both; }
+  .animate-spot-2 { animation: spot-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.30s both; }
+  .animate-spot-3 { animation: spot-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.45s both; }
+  .animate-spot-4 { animation: spot-appear 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.60s both; }
+  .animate-glow-ring { animation: glow-ring 2.5s ease-in-out infinite; }
+  .animate-float { animation: float 5s ease-in-out infinite; }
+  .animate-float-x { animation: float-x 7s ease-in-out infinite; }
+  .animate-gradient-x { background-size: 200% 200%; animation: gradient-x 6s ease infinite; }
+  .animate-fade-up { animation: fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-scale-in { animation: scale-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-ring-expand { animation: ring-expand 1.8s ease-out infinite; }
+  .animate-pulse-scale { animation: pulse-scale 2.8s ease-in-out infinite; }
+
+  /* ── NEW elite animations ── */
+  .animate-blur-reveal  { animation: blur-reveal  0.70s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-slide-spring { animation: slide-spring 0.60s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-count-pop    { animation: count-pop    0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  .animate-spark        { animation: spark        1.2s ease-out infinite; }
+
+  /* ── Cheetah motion utilities ── */
+  .animate-velocity-enter  { animation: velocity-enter  0.75s cubic-bezier(0.06, 0.97, 0.37, 1) both; }
+  .animate-rosette-bloom   { animation: rosette-bloom   0.65s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  .animate-cheetah-lunge   { animation: cheetah-lunge   0.52s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  .animate-coat-drift      { animation: coat-drift      48s  ease-in-out infinite alternate; }
+  .animate-hunt-focus      { animation: hunt-focus      0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .animate-paw-ripple      { animation: paw-ripple      1.8s ease-out infinite; }
+
+  /* ── Stagger delay utilities ── */
+  .delay-0   { animation-delay: 0ms; }
+  .delay-50  { animation-delay: 50ms; }
+  .delay-75  { animation-delay: 75ms; }
+  .delay-100 { animation-delay: 100ms; }
+  .delay-150 { animation-delay: 150ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-225 { animation-delay: 225ms; }
+  .delay-250 { animation-delay: 250ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-350 { animation-delay: 350ms; }
+  .delay-400 { animation-delay: 400ms; }
+  .delay-450 { animation-delay: 450ms; }
+  .delay-500 { animation-delay: 500ms; }
+  .delay-550 { animation-delay: 550ms; }
+  .delay-600 { animation-delay: 600ms; }
+  .delay-700 { animation-delay: 700ms; }
+  .delay-800 { animation-delay: 800ms; }
+
+  /* ── Elite card lift — spring physics ── */
+  .elite-lift {
+    transition:
+      transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 0.28s ease;
+    will-change: transform;
+  }
+  .elite-lift:hover {
+    transform: translateY(-4px) scale(1.014);
+    box-shadow:
+      0 0 0 1px oklch(0.555 0.155 145 / 0.08),
+      0 4px 8px -2px oklch(0.355 0.118 145 / 0.10),
+      0 20px 48px -12px oklch(0.355 0.118 145 / 0.20),
+      0 0 80px -40px oklch(0.670 0.172 52 / 0.14);
+  }
+
+  /* ── Card lift (existing, kept) ── */
+  .card-lift {
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+  }
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 4px 6px -2px oklch(0.355 0.118 145 / 0.08),
+      0 12px 32px -8px oklch(0.355 0.118 145 / 0.14);
+  }
+
+  /* ── Holographic shimmer overlay ── */
+  .holo-surface {
+    position: relative;
+    overflow: hidden;
+  }
+  .holo-surface::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      115deg,
+      transparent 25%,
+      oklch(0.555 0.155 145 / 0.05) 34%,
+      oklch(1 0 0 / 0.14) 40%,
+      oklch(0.670 0.172 52 / 0.08) 46%,
+      oklch(1 0 0 / 0.10) 52%,
+      oklch(0.555 0.155 145 / 0.05) 58%,
+      transparent 68%
+    );
+    background-size: 300% 100%;
+    animation: holo-shimmer 5s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+  .holo-surface:hover::after {
+    opacity: 1;
+  }
+
+  /* ── Shimmer loading surface ── */
+  .shimmer-surface {
+    background: linear-gradient(90deg,
+      oklch(0.92 0.006 85) 25%,
+      oklch(0.96 0.004 85) 50%,
+      oklch(0.92 0.006 85) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.8s ease-in-out infinite;
+  }
+
+  /* ── Animated shimmer background utility ── */
+  .animate-shimmer-bg {
+    background: linear-gradient(105deg, transparent 35%, oklch(1 0 0 / 0.5) 50%, transparent 65%);
+    background-size: 200% 100%;
+    animation: shimmer 2.2s linear infinite;
+  }
+
+  /* ── Gradient text — static ── */
+  .gradient-text {
+    background: linear-gradient(
+      135deg,
+      oklch(0.355 0.118 145) 0%,
+      oklch(0.555 0.155 145) 45%,
+      oklch(0.670 0.172 52) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Shimmer text — animated rainbow ── */
+  .shimmer-text {
+    background: linear-gradient(
+      90deg,
+      oklch(0.355 0.118 145) 0%,
+      oklch(0.500 0.145 145) 18%,
+      oklch(0.670 0.172 52) 36%,
+      oklch(0.555 0.155 145) 54%,
+      oklch(0.355 0.118 145) 72%,
+      oklch(0.555 0.155 145) 90%,
+      oklch(0.355 0.118 145) 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: text-flow 6s linear infinite;
+  }
+
+  /* ── Glow shadow utilities ── */
+  .glow-green {
+    box-shadow:
+      0 0 20px oklch(0.555 0.155 145 / 0.22),
+      0 0 60px oklch(0.555 0.155 145 / 0.08);
+  }
+  .glow-orange {
+    box-shadow:
+      0 0 20px oklch(0.670 0.172 52 / 0.22),
+      0 0 60px oklch(0.670 0.172 52 / 0.08);
+  }
+  .glow-rose {
+    box-shadow:
+      0 0 20px oklch(0.570 0.220 24 / 0.22),
+      0 0 60px oklch(0.570 0.220 24 / 0.08);
+  }
+  .glow-amber {
+    box-shadow:
+      0 0 20px oklch(0.750 0.190 55 / 0.22),
+      0 0 60px oklch(0.750 0.190 55 / 0.08);
+  }
+
+  /* ── Glassmorphism ── */
+  .glass {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.62);
+  }
+
+  /* ── Gradient border ── */
+  .gradient-border {
+    position: relative;
+    border: 1px solid transparent !important;
+    background-clip: padding-box;
+  }
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      oklch(0.555 0.155 145 / 0.35),
+      oklch(0.670 0.172 52 / 0.20),
+      oklch(0.355 0.118 145 / 0.15)
+    );
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  /* ── Metric number animation ── */
+  .metric-value {
+    animation: count-pop 0.60s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  /* ── Logo breathe utility ── */
+  .logo-breathe {
+    animation: logo-breathe 3.8s ease-in-out infinite;
+    transform-origin: center;
+  }
+
+  /* ── Speed streak diagonal lines (CheetahCost signature) ── */
+  .speed-bg {
+    background-image:
+      repeating-linear-gradient(
+        -62deg,
+        transparent,
+        transparent           42px,
+        rgba(86, 164, 91, 0.018) 42px,
+        rgba(86, 164, 91, 0.018) 43px
+      ),
+      repeating-linear-gradient(
+        -62deg,
+        transparent,
+        transparent            86px,
+        rgba(244, 163, 33, 0.012) 86px,
+        rgba(244, 163, 33, 0.012) 87px
+      );
+  }
+
+  /* ── Aurora gradient border — reveals on hover ── */
+  .aurora-card {
+    position: relative;
+    isolation: isolate;
+  }
+  .aurora-card::before {
+    content: '';
+    position: absolute;
+    inset: -1.5px;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      #56a45b,
+      #f4a321,
+      oklch(0.60 0.20 258),
+      #56a45b,
+      #f4a321
+    );
+    background-size: 400% 400%;
+    animation: aurora-border 5s ease infinite;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    z-index: -1;
+    pointer-events: none;
+  }
+  .aurora-card:hover::before {
+    opacity: 0.55;
+  }
+
+  /* ── Separator bar green→orange ── */
+  .brand-sep {
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #56a45b, #f4a321);
+    opacity: 0.55;
+  }
+
+  /* ── Gantt progress gradient ── */
+  .gantt-progress {
+    background: linear-gradient(90deg,
+      oklch(0 0 0 / 0.22),
+      oklch(0 0 0 / 0.12)
+    );
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════
+   BASE LAYER — PREMIUM FOUNDATION
+═══════════════════════════════════════════════════ */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  /* ── Body: warm cream base + static gradient layers ── */
+  body {
+    @apply bg-background text-foreground;
+    position: relative;
+  }
+
+  /* ── Aurora blob 1 — deep forest green, north-west ── */
+  body::before {
+    content: '';
+    position: fixed;
+    width: 90vmax;
+    height: 80vmax;
+    top: -35vmax;
+    left: -35vmax;
+    background: radial-gradient(
+      ellipse at 40% 40%,
+      oklch(0.72 0.10 145 / 0.13) 0%,
+      oklch(0.78 0.07 152 / 0.06) 40%,
+      transparent 68%
+    );
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: -1;
+    animation: aurora-drift-1 28s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+
+  /* ── Aurora blob 2 — warm orange, south-east ── */
+  body::after {
+    content: '';
+    position: fixed;
+    width: 80vmax;
+    height: 75vmax;
+    bottom: -30vmax;
+    right: -30vmax;
+    background: radial-gradient(
+      ellipse at 60% 60%,
+      oklch(0.75 0.12 52 / 0.09) 0%,
+      oklch(0.80 0.08 65 / 0.04) 40%,
+      transparent 68%
+    );
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: -1;
+    animation: aurora-drift-2 35s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+
+  /* ── Film grain noise overlay — static (avoids Turbopack SVG data-URI panic on Windows) ── */
+  html::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9998;
+    opacity: 0.022;
+    background-image:
+      repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0.03) 0px,
+        transparent 1px,
+        transparent 3px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        rgba(0,0,0,0.015) 0px,
+        transparent 1px,
+        transparent 4px
+      );
+    background-size: 4px 4px, 4px 4px;
+  }
+
+  html {
+    @apply font-sans;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* ── Premium orange-tinted text selection ── */
+  ::selection {
+    background: color-mix(in oklab, var(--brand-orange) 25%, white);
+    color: oklch(0.18 0.04 50);
+  }
+
+  h1, h2, h3, h4 {
+    @apply text-balance;
+    letter-spacing: -0.015em;
+  }
+
+  p {
+    @apply text-pretty;
+  }
+
+  /* ── Premium Scrollbars ── */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.72 0.07 145 / 0.38);
+    border-radius: 100px;
+    transition: background 0.2s;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.555 0.155 145 / 0.70);
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* ── Focus ring — brand green ── */
+  :focus-visible {
+    outline: 2px solid oklch(0.500 0.128 145 / 0.80);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* ── Mode réunion — vue épurée plein écran pour présentation ── */
+.meeting-mode header.sticky,
+.meeting-mode > div > div > footer {
+  display: none !important;
+}
+.meeting-mode main {
+  margin-top: 0.5rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PERFORMANCE — neutralise les effets perpétuels (cause principale de lenteur)
+   Fonds « aurora » animés plein écran, dégradés mouvants, pulsations, flous.
+   Les éléments restent visibles, simplement statiques.
+   ═══════════════════════════════════════════════════════════════════════ */
+body::before,
+body::after {
+  animation: none !important;
+}
+.animate-gradient-x,
+.animate-cheetah-pulse,
+.animate-glow-ring,
+.animate-float,
+.animate-float-x,
+.animate-ring-expand,
+.animate-pulse-scale,
+.animate-spark,
+.animate-coat-drift,
+.animate-paw-ripple,
+.animate-shimmer-bg,
+.shimmer-surface,
+.holo-surface,
+.logo-breathe,
+.speed-bg {
+  animation: none !important;
+}
+.holo-surface::before,
+.holo-surface::after,
+.gradient-text,
+.shimmer-text {
+  animation: none !important;
+  background-position: 0 0 !important;
+}
+/* Apparitions : une entrée brève et simultanée au lieu d'un ballet échelonné */
+.animate-velocity-enter,
+.animate-slide-spring,
+.animate-hunt-focus,
+.animate-blur-reveal,
+.animate-count-pop,
+.animate-rosette-bloom,
+.animate-scale-in,
+.animate-fade-up,
+.animate-cheetah-lunge,
+.animate-spot-1,
+.animate-spot-2,
+.animate-spot-3,
+.animate-spot-4 {
+  animation-duration: 0.24s !important;
+  animation-delay: 0ms !important;
+}
+[class*="delay-"] {
+  animation-delay: 0ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   CHEETAHCOST DESIGN LAYER — refonte « 100 % CheetahCost »
+   Port fidèle du système visuel de CheetahCost : fond cream,
+   panneaux verre, barres d'accent KPI, boutons, inputs.
+   (Appended last → règles gagnantes.)
+   ============================================================ */
+:root {
+  --bg: #f5f1e8;
+  --sidebar-bg: #162c1e;
+  --green: #56a45b;
+  --green-2: #3f8f48;
+  --green-deep: #1c3827;
+  --orange: #f4a321;
+  --orange-2: #d97706;
+  /* Aligne la surface de page shadcn (bg-background) sur le cream CheetahCost */
+  --background: #f5f1e8;
+  /* Texte secondaire lisible (contraste relevé pour la clarté demandée). */
+  --muted: rgba(15, 23, 42, 0.66);
+}
+
+/* Fond d'application : cream + halos vert/orange (identique à .app-shell CheetahCost).
+   Pas de background-attachment: fixed → évite un repeint du fond à chaque scroll (perf). */
+body {
+  background:
+    radial-gradient(ellipse 900px 520px at 6% 0%, rgba(86, 164, 91, 0.13), transparent 65%),
+    radial-gradient(ellipse 700px 450px at 96% 4%, rgba(244, 163, 33, 0.09), transparent 60%),
+    linear-gradient(180deg, #f5f1e8 0%, #f8f5ee 100%) !important;
+}
+/* Retire les aurora blobs animés + le grain : CheetahCost a un fond statique net */
+body::before,
+body::after,
+html::after {
+  display: none !important;
+}
+
+/* App shell (cream + halos) — disponible aussi en classe utilitaire */
+.app-shell {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 900px 520px at 6% 0%, rgba(86, 164, 91, 0.13), transparent 65%),
+    radial-gradient(ellipse 700px 450px at 96% 4%, rgba(244, 163, 33, 0.09), transparent 60%),
+    linear-gradient(180deg, #f5f1e8 0%, #f8f5ee 100%);
+}
+
+/* Panneaux & cartes */
+.panel {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.03),
+    0 4px 16px rgba(0, 0, 0, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.panel-soft {
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+.panel-solid {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.09);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 6px 20px rgba(0, 0, 0, 0.05);
+}
+.card-lift {
+  transition:
+    transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card-lift:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.04),
+    0 10px 28px rgba(0, 0, 0, 0.08);
+}
+
+/* Statuts */
+.status-ok { background: rgba(5, 150, 105, 0.09); border-color: rgba(5, 150, 105, 0.22); color: #065f46; }
+.status-watch { background: rgba(245, 158, 11, 0.09); border-color: rgba(245, 158, 11, 0.25); color: #92400e; }
+.status-critical { background: rgba(239, 68, 68, 0.09); border-color: rgba(239, 68, 68, 0.22); color: #991b1b; }
+.status-neutral { background: rgba(148, 163, 184, 0.10); border-color: rgba(148, 163, 184, 0.22); color: #475569; }
+
+/* Barres d'accent KPI */
+.kpi-accent-green { border-left: 3px solid #56a45b; }
+.kpi-accent-orange { border-left: 3px solid #f4a321; }
+.kpi-accent-red { border-left: 3px solid #ef4444; }
+.kpi-accent-slate { border-left: 3px solid #94a3b8; }
+
+/* Boutons toolbar (B2P) */
+.toolbar-btn {
+  display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 10px;
+  border-radius: 6px; border: 1px solid rgba(0, 0, 0, 0.12); background: rgba(255, 255, 255, 0.85);
+  font-size: 11px; font-weight: 600; color: #1e293b; cursor: pointer; transition: all 0.13s ease; white-space: nowrap;
+}
+.toolbar-btn:hover { background: #fff; border-color: rgba(0, 0, 0, 0.2); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); }
+.toolbar-btn:active { transform: scale(0.975); }
+.toolbar-btn:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+.toolbar-btn-primary { background: #56a45b; border-color: #3f8f48; color: #fff; }
+.toolbar-btn-primary:hover { background: #3f8f48; border-color: #357a3a; }
+.toolbar-btn-warning { background: #f4a321; border-color: #d97706; color: #1a0e00; }
+.toolbar-btn-warning:hover { background: #d97706; border-color: #b45309; }
+
+/* Inputs */
+.input-base {
+  height: 36px; width: 100%; border-radius: 8px; border: 1px solid rgba(0, 0, 0, 0.13);
+  background: #fff; padding: 0 10px; font-size: 13px; color: #0f172a;
+  transition: border-color 0.15s, box-shadow 0.15s; outline: none;
+}
+.input-base:focus { border-color: #56a45b; box-shadow: 0 0 0 3px rgba(86, 164, 91, 0.14); }
+.input-base::placeholder { color: rgba(15, 23, 42, 0.38); }
+
+/* Divers */
+.section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(15, 23, 42, 0.58); }
+.divider-y { width: 1px; height: 20px; background: rgba(0, 0, 0, 0.10); flex-shrink: 0; }
+.table-row-hover:hover { background: rgba(86, 164, 91, 0.04); }
+
+/* Scrollbar CheetahCost */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(15, 23, 42, 0.14); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(86, 164, 91, 0.5); background-clip: padding-box; }

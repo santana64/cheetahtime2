@@ -1,0 +1,65 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# desktop (Electron) build output
+/dist-desktop/
+/dist-desktop-*/
+
+# runtime backups + local backup config (créés à l'exécution, jamais à committer)
+/backups/
+/cheetah-backup-config.json
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+/src/generated/prisma
+/data/*.local.json
+/data/attachments/
+/.interop/
+/.codex-mpp-probe/
+/.codex-temp/
+/scripts/__pycache__/
+.env.local
+
+# never commit: prospect data (PII), env dumps, local identity store
+/scripts/prospection/
+*.env
+*.env.txt
+/data/*.identity.json
+/data/backups/

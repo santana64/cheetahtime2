@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx --yes next build)",
+      "Bash(npx --yes next build --no-turbopack)",
+      "Bash(node -e \"const next = require\\('next/package.json'\\); console.log\\(next.version\\)\")",
+      "Bash(npm install:*)",
+      "Bash(node -e \"require\\('./node_modules/next/dist/lib/metadata/resolvers/resolve-basics.js'\\)\")",
+      "Bash(python -c ' *)",
+      "Read(//c/dev/projetfinal \\(2\\)/projetfinal \\(3\\)/src/app/**)",
+      "Read(//c/dev/projetfinal \\(2\\)/projetfinal \\(3\\)/src/components/**)",
+      "Bash(node -e ' *)",
+      "Bash(npm run *)",
+      "Bash(npm test *)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(Read-Content \"C:\\\\Users\\\\piess\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--dev-cheetahproject-codex-build-cheetah-time-cheetahproject-codex-build-cheetah-time\\\\bfb7fa80-f536-4b30-a5c5-7bfaf6e9f206\\\\tasks\\\\b8omt7zx0.output\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3010/dashboard)",
+      "Bash(taskkill /PID 22832 /F)",
+      "Bash(python collecte.py --limit 1500 --output prospects_brut.csv)",
+      "Bash(python -X utf8 collecte.py --limit 1500 --output prospects_brut.csv)",
+      "Bash(Get-Content \"C:\\\\Users\\\\piess\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--dev-cheetahproject-codex-build-cheetah-time-cheetahproject-codex-build-cheetah-time\\\\6f1693d3-8fc0-490d-bff4-3f11c60850a0\\\\tasks\\\\b658w9ebi.output\" -Raw)",
+      "PowerShell(Get-Content \"C:\\\\Users\\\\piess\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--dev-cheetahproject-codex-build-cheetah-time-cheetahproject-codex-build-cheetah-time\\\\6f1693d3-8fc0-490d-bff4-3f11c60850a0\\\\tasks\\\\b658w9ebi.output\" -Raw; Write-Host \"---\"; if \\(Test-Path \"C:\\\\dev\\\\cheetahproject-codex-build-cheetah-time\\\\cheetahproject-codex-build-cheetah-time\\\\scripts\\\\prospection\\\\prospects_brut.csv\"\\) { $lines = \\(Get-Content \"C:\\\\dev\\\\cheetahproject-codex-build-cheetah-time\\\\cheetahproject-codex-build-cheetah-time\\\\scripts\\\\prospection\\\\prospects_brut.csv\" | Measure-Object -Line\\).Lines; Write-Host \"prospects_brut.csv : $lines lignes\" } else { Write-Host \"prospects_brut.csv : pas encore créé\" })",
+      "PowerShell(Get-Process python -ErrorAction SilentlyContinue)",
+      "Bash(python -X utf8 collecte.py --dept 06 --limit 10 --output test.csv)"
+    ]
+  }
+}
