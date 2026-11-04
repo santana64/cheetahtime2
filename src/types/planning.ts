@@ -153,6 +153,23 @@ export interface Project {
   statusDate?: ISODate | null;
   /** Coefficient du chemin pseudo-critique (CdC p. 4, « au choix du planificateur »). Défaut 1,3. */
   pseudoCriticalCoefficient?: number | null;
+  /**
+   * Instantanés « Prévision avant pilotage » par date de B2P (CdC p. 12) :
+   * FP, écart (unité projet), avancement et statut d'action de pilotage.
+   */
+  b2pSnapshots?: Record<
+    ISODate,
+    {
+      date: ISODate;
+      capturedAt: string;
+      finADate: ISODate | null;
+      finPrevisionnelle: ISODate | null;
+      ecart: number | null;
+      unit: string;
+      avancement: number;
+      actionRequise: boolean;
+    }
+  >;
   levelingStrategy: LevelingStrategy;
   levelingMaxDelayDays: number;
   archivedAt?: string | null;

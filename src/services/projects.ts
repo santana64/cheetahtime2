@@ -7,6 +7,7 @@ import {
 import { buildRecommendedB2PDates } from "@/lib/fgf/b2p";
 import {
   DEFAULT_HOURS_PER_DAY,
+  fromWorkingDays,
   toSignedWorkingDays,
   toWorkingDays,
 } from "@/lib/planning/time-unit";
@@ -3014,49 +3015,46 @@ function buildDashboardMetrics(
     costPerformanceIndex,
   });
 
+  // Indicateurs de délai (la FP et l'indice délai sont dans le bandeau et le cockpit :
+  // on ne les répète pas ici). Unité = unité du projet.
+  const metricUnit = aggregate.project.timeUnit ?? "jours";
+  const metricUnitLabel = metricUnit === "mois" ? "mois" : metricUnit === "semaines" ? "sem." : metricUnit === "heures" ? "h" : "j";
+  const inUnit = (days: number) => {
+    const v = fromWorkingDays(days, metricUnit, aggregate.calendar.hoursPerDay);
+    return `${v.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} ${metricUnitLabel}`;
+  };
   const dashboardMetrics: DashboardMetric[] = [
     {
-      label: "Avancement du plan",
-      value: `${overallProgress}%`,
+      label: "Avancement",
+      value: `${overallProgress} %`,
       tone: overallProgress >= 70 ? "positive" : overallProgress >= 40 ? "watch" : "neutral",
-      hint: `${executableTasks.length} tache(s) executables`,
+      hint: `${executableTasks.length} LT exécutables`,
     },
     {
-      label: "Fin previsionnelle",
-      value: finishValue,
-      tone:
-        aggregate.project.targetFinishDate &&
-        finishValue !== "Unscheduled" &&
-        compareIsoDates(finishValue, aggregate.project.targetFinishDate) > 0
-          ? "danger"
-          : "neutral",
-      hint: finishVarianceHint,
-    },
-    {
-      label: "Chaine critique",
-      value: `${criticalTasks.length}`,
+      label: "Chemin critique",
+      value: `${criticalTasks.length} LT`,
       tone: criticalTasks.length > 5 ? "danger" : criticalTasks.length > 2 ? "watch" : "neutral",
-      hint: "Taches a marge nulle",
+      hint: "LT à marge totale nulle ou négative",
     },
     {
-      label: "Ecart baseline",
-      value: `${maxBaselineSlip}d`,
+      label: "Écart au PI (plus grand)",
+      value: inUnit(maxBaselineSlip),
       tone: maxBaselineSlip > 5 ? "danger" : maxBaselineSlip > 0 ? "watch" : "positive",
-      hint: "Plus grand ecart de fin",
+      hint: "Plus grand écart de fin d'un LT",
     },
     {
       label: "Charge ressources",
-      value: hotResource ? `${hotResource.maxAllocationPct}%` : "0%",
+      value: hotResource ? `${hotResource.maxAllocationPct} %` : "0 %",
       tone:
         hotResource && hotResource.maxAllocationPct > 100
           ? "danger"
         : hotResource && hotResource.maxAllocationPct > 85
             ? "watch"
             : "positive",
-      hint: hotResource ? hotResource.resource.name : "Aucune affectation",
+      hint: hotResource ? `Pic : ${hotResource.resource.name}` : "Aucune affectation",
     },
     {
-      label: "Inter-projets",
+      label: "Liens inter-projets",
       value: `${externalDependencies.length}`,
       tone:
         externalPredecessorCount > 0
@@ -3066,32 +3064,19 @@ function buildDashboardMetrics(
             : "positive",
       hint:
         externalDependencies.length > 0
-          ? `${externalPredecessorCount} incoming / ${externalSuccessorCount} outgoing`
+          ? `${externalPredecessorCount} entrant(s) / ${externalSuccessorCount} sortant(s)`
           : "Aucun lien logique externe",
     },
-    // KPI de COÛT retirés (Cheetah Time = outil de délai — spec François) : Coût planifié,
-    // Coût réel, Valeur acquise. On ne garde que l'indice de délai (SPI / Earned Schedule).
     {
-      label: "SPI (délai)",
-      value: schedulePerformanceIndex != null ? schedulePerformanceIndex.toFixed(2) : "--",
-      tone:
-        schedulePerformanceIndex == null
-          ? "neutral"
-          : schedulePerformanceIndex < 0.95
-            ? "danger"
-            : "positive",
-      hint: "Indice de performance planning (Earned Schedule)",
-    },
-    {
-      label: "Retard de lissage",
-      value: `${totalLevelingDelayDays}d`,
+      label: "Décalage de nivellement",
+      value: inUnit(totalLevelingDelayDays),
       tone:
         totalLevelingDelayDays > 5
           ? "danger"
           : totalLevelingDelayDays > 0
             ? "watch"
             : "positive",
-      hint: `${leveledTasks.length} tache(s) lissees`,
+      hint: `${leveledTasks.length} LT décalé(s) pour les capacités`,
     },
   ];
 
@@ -3563,6 +3548,22 @@ export async function listProjectSummaries(options: { workspaceId?: string } = {
       id: aggregate.project.id,
       name: aggregate.project.name,
     }));
+}
+
+/**
+ * Vue allégée pour les composants client du planning : chaque LT n'est
+ * sérialisé qu'une fois (au lieu d'environ 5 : agrégat, planning indexé,
+ * liste ordonnée, métriques « en retard » / « critiques »). Les tâches de
+ * l'agrégat sont remplacées par les tâches planifiées (même forme, sur-ensemble).
+ */
+export function toClientPlanningView(view: ProjectView): ProjectView {
+  return {
+    ...view,
+    aggregate: { ...view.aggregate, tasks: view.tasks, timesheetEntries: [], actualCostEntries: [] },
+    schedule: { ...view.schedule, tasksById: {} },
+    metrics: { ...view.metrics, delayedTasks: [], criticalTasks: [] },
+    resourceSummaries: [],
+  };
 }
 
 export async function getProjectView(projectId: string, options: { workspaceId?: string } = {}) {
@@ -4047,6 +4048,150 @@ export async function setProjectB2PScenario(input: {
       updatedAt: nowIso(),
     };
   });
+}
+
+/** Paramètres de pilotage du temps (date d'état, coefficient pseudo-critique). */
+export async function updateProjectPilotageSettings(input: {
+  projectId: string;
+  statusDate: string | null;
+  pseudoCriticalCoefficient: number | null;
+}) {
+  if (input.statusDate && !/^\d{4}-\d{2}-\d{2}$/.test(input.statusDate)) {
+    throw validationError("La date d'état doit être une date valide (AAAA-MM-JJ).");
+  }
+  if (
+    input.pseudoCriticalCoefficient != null &&
+    (!Number.isFinite(input.pseudoCriticalCoefficient) ||
+      input.pseudoCriticalCoefficient < 1 ||
+      input.pseudoCriticalCoefficient > 5)
+  ) {
+    throw validationError("Le coefficient pseudo-critique doit être compris entre 1 et 5.");
+  }
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, input.projectId);
+    aggregate.project.statusDate = input.statusDate;
+    aggregate.project.pseudoCriticalCoefficient = input.pseudoCriticalCoefficient;
+    aggregate.project.updatedAt = nowIso();
+  });
+}
+
+export interface B2PAdvanceRowInput {
+  taskId: string;
+  /** NOT_STARTED | STARTED | DONE */
+  etat: "NOT_STARTED" | "STARTED" | "DONE";
+  actualStartDate?: string | null;
+  forecastFinishDate?: string | null;
+  actualFinishDate?: string | null;
+  /** Nouvelle durée (unité projet) — pour les Provisions de Temps non franchies. */
+  newDurationUnits?: number | null;
+}
+
+export interface B2PSnapshot {
+  date: string;
+  capturedAt: string;
+  finADate: string | null;
+  finPrevisionnelle: string | null;
+  ecart: number | null;
+  unit: string;
+  avancement: number;
+  actionRequise: boolean;
+}
+
+/**
+ * Passage guidé au B2P suivant (CdC B1) : saisie, en une fois, des LT
+ * commencés (début réel + prévision de fin), des LT finis (fin réelle), des
+ * nouvelles durées des PT ; la date d'état passe à la date du B2P ; un
+ * instantané « Prévision avant pilotage T2Pi-1 » est enregistré.
+ */
+export async function advanceToB2P(input: {
+  projectId: string;
+  b2pDate: string;
+  rows: B2PAdvanceRowInput[];
+}) {
+  const isDate = (v?: string | null) => Boolean(v && /^\d{4}-\d{2}-\d{2}$/.test(v));
+  if (!isDate(input.b2pDate)) throw validationError("Date de B2P invalide.");
+
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, input.projectId);
+    const unit = aggregate.project.timeUnit ?? "jours";
+    const hoursPerDay = aggregate.calendar.hoursPerDay;
+    const byId = new Map(aggregate.tasks.map((t) => [t.id, t]));
+
+    for (const row of input.rows) {
+      const task = byId.get(row.taskId);
+      if (!task || task.type === "SUMMARY") continue;
+
+      if (row.newDurationUnits != null && Number.isFinite(row.newDurationUnits) && row.newDurationUnits >= 0) {
+        task.durationUnits = row.newDurationUnits;
+        task.durationDays = row.newDurationUnits === 0 ? 0 : toWorkingDays(row.newDurationUnits, unit, hoursPerDay);
+        task.effortHours = task.durationDays * hoursPerDay;
+      }
+
+      if (row.etat === "DONE") {
+        const start = isDate(row.actualStartDate) ? row.actualStartDate! : task.actualStartDate ?? null;
+        const finish = isDate(row.actualFinishDate) ? row.actualFinishDate! : input.b2pDate;
+        if (start && finish < start) {
+          throw validationError(`« ${task.name} » : la fin réelle précède le début réel.`);
+        }
+        task.actualStartDate = start ?? finish;
+        task.actualFinishDate = finish;
+        task.status = "DONE";
+        task.progressPercent = 100;
+      } else if (row.etat === "STARTED") {
+        const start = isDate(row.actualStartDate) ? row.actualStartDate! : task.actualStartDate ?? input.b2pDate;
+        if (start > input.b2pDate) {
+          throw validationError(`« ${task.name} » : un LT commencé ne peut pas débuter après la date du B2P.`);
+        }
+        task.actualStartDate = start;
+        task.actualFinishDate = null;
+        task.status = "IN_PROGRESS";
+        if (isDate(row.forecastFinishDate)) {
+          const forecast = row.forecastFinishDate!;
+          if (forecast < start) throw validationError(`« ${task.name} » : la prévision de fin précède le début.`);
+          // Durée totale = début réel → prévision de fin ; avancement = part écoulée à la date du B2P.
+          const totalDays = Math.max(1, workingDayDistance(start, forecast, aggregate.calendar) + 1);
+          const elapsedDays = Math.min(totalDays, Math.max(0, workingDayDistance(start, input.b2pDate, aggregate.calendar)));
+          task.durationDays = totalDays;
+          task.durationUnits = null;
+          task.effortHours = totalDays * hoursPerDay;
+          task.progressPercent = Math.min(99, Math.max(1, Math.round((elapsedDays / totalDays) * 100)));
+        } else if (task.progressPercent <= 0) {
+          task.progressPercent = 1;
+        }
+      } else {
+        // Non commencé : on efface un éventuel réel saisi par erreur.
+        if (task.status !== "DONE") {
+          task.actualStartDate = null;
+          task.actualFinishDate = null;
+          task.progressPercent = 0;
+          task.status = "NOT_STARTED";
+        }
+      }
+    }
+
+    aggregate.project.statusDate = input.b2pDate;
+    aggregate.project.updatedAt = nowIso();
+  });
+
+  // Instantané « Prévision avant pilotage » (calculé après saisie, avant tout scénario).
+  const view = await getProjectView(input.projectId);
+  const { computeDelayBanner } = await import("@/lib/fgf/delay-banner");
+  const banner = computeDelayBanner(view);
+  const snapshot: B2PSnapshot = {
+    date: input.b2pDate,
+    capturedAt: nowIso(),
+    finADate: banner.finADate,
+    finPrevisionnelle: banner.finPrevisionnelle,
+    ecart: banner.ecart,
+    unit: banner.unit,
+    avancement: banner.avancement,
+    actionRequise: banner.actionRequise,
+  };
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, input.projectId);
+    aggregate.project.b2pSnapshots = { ...(aggregate.project.b2pSnapshots ?? {}), [input.b2pDate]: snapshot };
+  });
+  return snapshot;
 }
 
 export async function updateProjectMetadata(input: UpdateProjectInput) {

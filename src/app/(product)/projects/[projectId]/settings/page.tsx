@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { ProjectSettingsPage } from "@/features/projects/project-settings-page";
+import { PilotageSettingsForm } from "@/features/projects/pilotage-settings-form";
 import { ProjectVersionHistory } from "@/features/backup/project-version-history";
 import { getProjectView } from "@/services/projects";
 import { listSnapshots } from "@/services/backup-store";
@@ -19,6 +20,12 @@ export default async function ProjectSettingsRoute({
   const snapshots = await listSnapshots();
   return (
     <div className="space-y-6">
+      <PilotageSettingsForm
+        projectId={projectId}
+        statusDate={view.aggregate.project.statusDate ?? null}
+        effectiveStatusDate={view.schedule.statusDate ?? null}
+        coefficient={view.aggregate.project.pseudoCriticalCoefficient ?? null}
+      />
       <ProjectSettingsPage view={view} />
       <ProjectVersionHistory projectId={projectId} snapshots={snapshots} />
     </div>

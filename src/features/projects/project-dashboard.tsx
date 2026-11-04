@@ -8,9 +8,7 @@ import {
 import { Panel, StatGrid, StatTile } from "@/components/app/ui-kit";
 import { formatDateLabel, formatPercent } from "@/lib/format/formatters";
 import type { ProjectView } from "@/types/planning";
-import { ProjectCalendarForm } from "@/features/projects/project-calendar-form";
-import { ProjectMetadataForm } from "@/features/projects/project-metadata-form";
-import { ProjectOperationsPanel } from "@/features/projects/project-operations-panel";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 /**
@@ -54,7 +52,7 @@ export function ProjectDashboard({ view }: { view: ProjectView }) {
               <StatTile
                 label="Avancement global"
                 value={formatPercent(m.overallProgress)}
-                sub={`${m.executableTaskCount} tâche(s) exécutable(s) dans le réseau`}
+                sub={`${m.executableTaskCount} LT exécutables`}
                 progress={m.overallProgress}
               />
               <StatTile
@@ -64,36 +62,25 @@ export function ProjectDashboard({ view }: { view: ProjectView }) {
               />
               <StatTile
                 label="Chemin critique"
-                value={`${m.criticalTaskCount} tâche(s)`}
-                sub="Marge totale nulle"
+                value={`${m.criticalTaskCount} LT`}
+                sub="Marge totale nulle ou négative"
                 tone="#e2424a"
               />
               <StatTile
                 label="Profil de nivellement"
-                value={`${m.totalLevelingDelayDays}j`}
-                sub={`${m.leveledTaskCount} tâche(s) décalée(s) pour les capacités`}
+                value={`${m.leveledTaskCount} LT`}
+                sub={`Décalés par le nivellement (${m.totalLevelingDelayDays} j ouvrés cumulés)`}
                 tone="#e0902a"
               />
               <StatTile
-                label="Référentiel actif"
+                label="Planning de référence (PàD)"
                 value={view.activeBaseline?.name ?? "Aucun"}
                 sub={
                   view.activeBaseline
                     ? `Capturé le ${new Date(view.activeBaseline.capturedAt).toLocaleDateString("fr-FR")}`
-                    : "Capturez un référentiel une fois la logique approuvée."
+                    : "Figez le Planning Initial (PI) dans l'onglet Planning."
                 }
               />
-              <div className="rounded-xl border border-black/5 bg-white p-4">
-                <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-                  Santé du moteur
-                </div>
-                <div className="mt-2">
-                  <ProjectHealthBadge health={m.derivedHealth} />
-                </div>
-                {m.healthReasons[0] && (
-                  <p className="mt-1.5 text-[11px] leading-4 text-slate-500">{m.healthReasons[0]}</p>
-                )}
-              </div>
             </StatGrid>
           </Panel>
 
@@ -122,11 +109,13 @@ export function ProjectDashboard({ view }: { view: ProjectView }) {
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <PriorityBadge priority={task.priority} />
                     <span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-[10px] font-bold text-rose-700">
-                      {task.totalSlackDays ?? 0}j slack
+                      {(task.totalSlackDays ?? 0) < 0
+                        ? `Marge négative : ${task.totalSlackDays} j`
+                        : "Marge totale : 0"}
                     </span>
                     {task.levelingDelayDays > 0 && (
                       <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-700">
-                        +{task.levelingDelayDays}j nivelé
+                        +{task.levelingDelayDays} j (nivellement)
                       </span>
                     )}
                   </div>
@@ -167,26 +156,11 @@ export function ProjectDashboard({ view }: { view: ProjectView }) {
 
           {/* ══ ÉCARTS AU RÉFÉRENTIEL ════════════════════════════════ */}
           <Panel
-            title="Écarts au référentiel"
-            subtitle="Perspective calendaire dérivée du moteur"
+            title="Écarts au Planning Initial"
+            subtitle="Par LT : écart de début, de fin et de charge par rapport au PI"
             accent="#4b6bdc"
             bodyClassName="space-y-3"
           >
-            <div className="rounded-xl border border-black/5 bg-slate-50/70 p-4">
-              <div className="text-[12px] font-bold text-slate-700">Perspective calendaire dérivée</div>
-              <div className="mt-2">
-                <ProjectHealthBadge health={m.derivedHealth} />
-              </div>
-              <div className="mt-3 space-y-1.5 text-xs text-slate-600">
-                {m.healthReasons.map((reason) => (
-                  <div key={reason} className="flex items-start gap-2">
-                    <span className="mt-1 block size-1.5 shrink-0 rounded-full" style={{ background: "#56a45b99" }} />
-                    {reason}
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {view.tasks
               .filter((task) => !task.isSummary)
               .slice(0, 8)
@@ -212,7 +186,7 @@ export function ProjectDashboard({ view }: { view: ProjectView }) {
                           </div>
                         </div>
                         <div className="mt-0.5 text-[10px] text-slate-400">
-                          Référentiel&#160;: {variance?.snapshot ? "disponible" : "non capturé"}
+                          PI&#160;: {variance?.snapshot ? "figé" : "non figé"}
                         </div>
                       </div>
                     </div>
@@ -220,7 +194,7 @@ export function ProjectDashboard({ view }: { view: ProjectView }) {
                       <span>Début <span className="font-semibold text-slate-800">{variance?.startVarianceDays ?? 0}j</span></span>
                       <span>Fin <span className="font-semibold text-slate-800">{variance?.finishVarianceDays ?? 0}j</span></span>
                       <span>Charge <span className="font-semibold text-slate-800">{variance?.workVarianceHours ?? 0}h</span></span>
-                      <span>IPS <span className="font-semibold text-slate-800">{variance?.schedulePerformanceIndex?.toFixed(2) ?? "—"}</span></span>
+                      <span>Indice délai <span className="font-semibold text-slate-800">{variance?.schedulePerformanceIndex != null ? variance.schedulePerformanceIndex.toFixed(2).replace(".", ",") : "—"}</span></span>
                       <span>Nivellement <span className="font-semibold text-slate-800">{task.levelingDelayDays ? `+${task.levelingDelayDays}j` : "aucun"}</span></span>
                     </div>
                   </div>
@@ -230,12 +204,41 @@ export function ProjectDashboard({ view }: { view: ProjectView }) {
 
         </div>
 
-        {/* ══ PANNEAU LATÉRAL ══════════════════════════════════════ */}
-        <div className="space-y-5">
-          <ProjectMetadataForm view={view} />
-          <ProjectCalendarForm view={view} />
-          <ProjectOperationsPanel view={view} />
-        </div>
+        {/* ══ PANNEAU LATÉRAL — lecture seule (les réglages et la suppression sont dans Paramètres) ══ */}
+        <aside className="space-y-5">
+          <Panel title="Identité du projet" accent="#56a45b" bodyClassName="space-y-2 text-[12.5px]">
+            {[
+              ["Maître d'ouvrage", view.aggregate.project.clientName],
+              ["Responsable", view.aggregate.project.ownerName],
+              ["Phase", view.aggregate.project.phase ?? "—"],
+              ["Début", formatDateLabel(view.aggregate.project.targetStartDate)],
+              ["Fin contractuelle", formatDateLabel(view.aggregate.project.targetFinishDate)],
+              ["Unité de temps", view.aggregate.project.timeUnit ?? "jours"],
+            ].map(([k, v]) => (
+              <div key={k} className="flex justify-between gap-3 border-b border-black/[0.04] pb-1.5 last:border-0">
+                <span className="text-slate-500">{k}</span>
+                <span className="text-right font-semibold text-slate-800">{v}</span>
+              </div>
+            ))}
+            <Link
+              href={`/projects/${view.aggregate.project.id}/settings`}
+              className="mt-2 inline-flex text-[12px] font-bold text-[#3f8f48] underline-offset-2 hover:underline"
+            >
+              Modifier dans Paramètres →
+            </Link>
+          </Panel>
+          <Panel title="Santé calculée" accent="#4b6bdc" bodyClassName="space-y-2">
+            <ProjectHealthBadge health={m.derivedHealth} />
+            <ul className="space-y-1.5 text-[12px] text-slate-600">
+              {m.healthReasons.map((reason) => (
+                <li key={reason} className="flex items-start gap-2">
+                  <span className="mt-1.5 block size-1.5 shrink-0 rounded-full" style={{ background: "#56a45b99" }} />
+                  {reason}
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        </aside>
       </div>
     </div>
   );

@@ -9,6 +9,8 @@ import { initialFormState } from "@/features/projects/form-state";
 import { PageHeader } from "@/components/app/ui-kit";
 import { formatDateLabel } from "@/lib/format/formatters";
 import type { B2PPlanningReview } from "@/lib/fgf/b2p-review";
+import { fromWorkingDays, timeUnitShortLabel } from "@/lib/planning/time-unit";
+import type { TimeUnit } from "@/types/planning";
 
 const STATUT_STYLE: Record<string, { color: string; bg: string }> = {
   "Terminé": { color: "#047857", bg: "rgba(5,150,105,0.10)" },
@@ -16,12 +18,6 @@ const STATUT_STYLE: Record<string, { color: string; bg: string }> = {
   "Non démarré": { color: "rgba(15,23,42,0.55)", bg: "rgba(15,23,42,0.05)" },
 };
 
-type DelaiSynthese = {
-  finInitiale: string | null;
-  finPrevisionnelle: string | null;
-  dateActuelle: string;
-  glissementJours: number;
-};
 
 export function B2PBilanView({
   projectId,
@@ -30,7 +26,7 @@ export function B2PBilanView({
   review,
   notes,
   scenarios,
-  delai,
+  unit,
 }: {
   projectId: string;
   dates: string[];
@@ -38,8 +34,13 @@ export function B2PBilanView({
   review: B2PPlanningReview;
   notes: Record<string, string>;
   scenarios: Record<string, string>;
-  delai: DelaiSynthese;
+  unit: TimeUnit;
 }) {
+  const unitLabel = timeUnitShortLabel(unit);
+  const gap = (days: number) => {
+    const v = fromWorkingDays(days, unit);
+    return v > 0 ? `+${v.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} ${unitLabel}` : `0 ${unitLabel}`;
+  };
   const today = new Date().toISOString().slice(0, 10);
   const defaultIndex = Math.max(0, dates.findIndex((d) => d >= today));
   const [index, setIndex] = useState(defaultIndex === -1 ? 0 : defaultIndex);
@@ -61,7 +62,7 @@ export function B2PBilanView({
     <div className="space-y-5">
       <PageHeader
         eyebrow="Méthode FGF · revue planning"
-        title="Bilans B2P — durée"
+        title="Bilan par B2P"
         description={
           <>
             À chaque B2P, point d&apos;étape sur l&apos;avancement, les dates et le glissement par lot.
@@ -97,57 +98,10 @@ export function B2PBilanView({
         })}
       </div>
 
-      {/* Synthèse */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-white/70 bg-white/90 p-4">
-          <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Avancement global</div>
-          <div className="mt-1 text-xl font-black text-[#1a4a20]">{review.avancementGlobal}%</div>
-        </div>
-        <div className="rounded-xl border border-white/70 bg-white/90 p-4">
-          <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Glissement projet</div>
-          <div className="mt-1 text-xl font-black" style={{ color: review.glissementProjet > 0 ? "var(--c-ecart-pos)" : "var(--c-ecart-neg)" }}>
-            {review.glissementProjet > 0 ? `+${review.glissementProjet} j` : "0 j"}
-          </div>
-        </div>
-        <div className="rounded-xl border border-white/70 bg-white/90 p-4">
-          <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">B2P sélectionné</div>
-          <div className="mt-1 text-xl font-black text-slate-900">{formatDateLabel(selectedDate)}</div>
-        </div>
-      </div>
-
-      {/* Synthèse délai (lentille temps) */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Synthèse délai — lentille temps</CardTitle>
-          <p className="text-xs text-slate-500">
-Fin Initiale, Fin Prévisionnelle, date actuelle et glissement (en jours) au B2P sélectionné.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { k: "Fin Initiale", v: formatDateLabel(delai.finInitiale), tone: "#111827" },
-              { k: "Date actuelle", v: formatDateLabel(delai.dateActuelle), tone: "#3730a3" },
-              { k: "Fin Prévisionnelle", v: formatDateLabel(delai.finPrevisionnelle), tone: "#047857" },
-              {
-                k: "Écart (glissement)",
-                v: delai.glissementJours > 0 ? `+${delai.glissementJours} j` : "0 j",
-                tone: delai.glissementJours > 0 ? "var(--c-ecart-pos)" : "var(--c-ecart-neg)",
-              },
-            ].map((c) => (
-              <div key={c.k} className="rounded-xl border border-slate-200 bg-slate-50/70 p-3">
-                <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{c.k}</div>
-                <div className="mt-1 text-base font-black" style={{ color: c.tone }}>{c.v}</div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Tableau par lot */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Revue par lot — délai</CardTitle>
+          <CardTitle className="text-base">Revue par lot — délai (écarts en {unitLabel})</CardTitle>
           <p className="text-xs text-slate-500">État courant du planning au B2P sélectionné.</p>
         </CardHeader>
         <CardContent>
@@ -174,7 +128,7 @@ Fin Initiale, Fin Prévisionnelle, date actuelle et glissement (en jours) au B2P
                         className="px-3 py-2 text-right tabular-nums font-semibold"
                         style={{ color: lot.glissementJours > 0 ? "var(--c-ecart-pos)" : "var(--c-ecart-neg)" }}
                       >
-                        {lot.glissementJours > 0 ? `+${lot.glissementJours} j` : "0 j"}
+                        {gap(lot.glissementJours)}
                       </td>
                       <td className="px-3 py-2">
                         <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={{ color: st.color, background: st.bg }}>

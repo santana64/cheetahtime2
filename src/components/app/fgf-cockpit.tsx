@@ -4,6 +4,7 @@ import { buildRecommendedB2PDates, getB2PCadenceRule } from "@/lib/fgf/b2p";
 import { classifyIndex, levelLabel, type LensLevel } from "@/lib/fgf/two-lens";
 import { calculateEarnedSchedule } from "@/services/advanced-planning";
 import type { ProjectView } from "@/types/planning";
+import { computeDelayBanner, formatGap } from "@/lib/fgf/delay-banner";
 
 /**
  * Cockpit DÉLAI FGF — au B2P courant.
@@ -84,37 +85,27 @@ export function FgfCockpit({ view }: { view: ProjectView }) {
       .at(-1) ?? null;
   const b2pDates = dateFin ? buildRecommendedB2PDates({ dateDebut, dateFin }) : [];
   const cadence = dateFin ? getB2PCadenceRule(dateDebut, dateFin) : null;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = view.schedule.statusDate ?? new Date().toISOString().slice(0, 10);
   const nextIndex = b2pDates.findIndex((d) => d >= today);
   const currentB2P = nextIndex >= 0 ? nextIndex : Math.max(0, b2pDates.length - 1);
   const railStart = b2pDates[0] ?? dateDebut;
   const railEnd = b2pDates[b2pDates.length - 1] ?? dateFin ?? dateDebut;
   const sparse = b2pDates.length > 11;
 
-  // Fin prévue vs contractuelle.
-  const finish = view.schedule.projectFinishDate ?? null;
-  const target = project.targetFinishDate ?? null;
-  const finishDelta =
-    finish && target
-      ? Math.round((parseIsoDate(finish).getTime() - parseIsoDate(target).getTime()) / 86_400_000)
-      : null;
-
+  // Verdict sur l'écart FP − PàD, exprimé dans l'unité du projet (CdC p. 12).
+  const banner = computeDelayBanner(view);
+  const ecartLabel = formatGap(banner.ecart, banner.unitLabel);
   const verdict =
-    slip > 0
-      ? `Délai ${PHRASE[level]} — glissement de ${slip} j sur le chemin critique (${metrics.criticalTaskCount} tâche·s).`
+    (banner.ecart ?? 0) > 0
+      ? `Délai ${PHRASE[level]} — retard de ${ecartLabel.replace("+", "")} sur la fin à date (${metrics.criticalTaskCount} LT critiques).`
       : level === "favorable"
-        ? "Délai maîtrisé — la fin au plus tôt tient le référentiel."
+        ? "Délai maîtrisé — la fin prévisionnelle tient le planning à date."
         : `Délai ${PHRASE[level]} — à surveiller sur le chemin critique.`;
 
   const rows: { label: string; value: React.ReactNode; tone?: string }[] = [
-    { label: "Glissement", value: slip > 0 ? `+${slip} j` : "0 j", tone: slip > 0 ? NEG : POS },
-    {
-      label: "Fin prévue",
-      value: formatDateLabel(finish),
-      tone: finishDelta == null ? undefined : finishDelta > 0 ? NEG : POS,
-    },
-    { label: "Fin contractuelle", value: formatDateLabel(target) },
-    { label: "Fin prévue (Earned Schedule)", value: formatDateLabel(es.IEAC_t), tone: "#b45309" },
+    { label: "Écart (FP − PàD)", value: ecartLabel, tone: (banner.ecart ?? 0) > 0 ? NEG : POS },
+    { label: "Fin selon la durée acquise", value: formatDateLabel(es.IEAC_t), tone: "#b45309" },
+    { label: "LT critiques", value: `${metrics.criticalTaskCount}` },
     { label: "Avancement", value: formatPercent(metrics.overallProgress) },
   ];
 
@@ -127,7 +118,7 @@ export function FgfCockpit({ view }: { view: ProjectView }) {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[9.5px] font-bold uppercase tracking-[0.22em] text-slate-400">
-              Cockpit délai FGF · pilotage du temps
+              Pilotage du temps · méthode FGF
             </div>
             <h2 className="mt-1 flex items-center gap-2 text-[19px] font-black leading-tight text-slate-900">
               <span className="inline-flex size-2.5 flex-shrink-0 rounded-full" style={{ background: lv.dot, boxShadow: `0 0 10px ${lv.ring}` }} aria-hidden="true" />
@@ -165,7 +156,7 @@ export function FgfCockpit({ view }: { view: ProjectView }) {
                 {today >= railStart && today <= railEnd && (
                   <div className="absolute top-0" style={{ left: `${msFrac(railStart, railEnd, today) * 100}%` }}>
                     <div className="h-[26px] w-px -translate-x-1/2" style={{ background: "rgba(15,23,42,0.45)" }} />
-                    <div className="mt-0.5 -translate-x-1/2 whitespace-nowrap text-[8.5px] font-semibold text-slate-500">aujourd’hui</div>
+                    <div className="mt-0.5 -translate-x-1/2 whitespace-nowrap text-[8.5px] font-semibold text-slate-500">date d&apos;état</div>
                   </div>
                 )}
                 {b2pDates.map((d, i) => {
@@ -220,18 +211,26 @@ export function FgfCockpit({ view }: { view: ProjectView }) {
             </span>
           </div>
 
-          <div className="mt-1.5 flex items-end gap-2">
-            <div className="font-mono text-[26px] font-black leading-none tabular-nums text-slate-900">
-              {spi != null ? spi.toFixed(2) : "n/a"}
-            </div>
-            <div className="pb-0.5 text-[10.5px] font-semibold text-slate-400">SPI_t · perf. délai</div>
-          </div>
-          <IndexGauge index={spi} dot={lv.dot} />
+          {spi != null && Number.isFinite(spi) ? (
+            <>
+              <div className="mt-1.5 flex items-end gap-2">
+                <div className="ct-num text-[24px] font-black leading-none text-slate-900">
+                  {spi.toFixed(2).replace(".", ",")}
+                </div>
+                <div className="pb-0.5 text-[10.5px] font-semibold text-slate-500">Indice de performance délai (1,00 = au plan)</div>
+              </div>
+              <IndexGauge index={spi} dot={lv.dot} />
+            </>
+          ) : (
+            <p className="mt-1.5 text-[12px] leading-5 text-slate-500">
+              Indice de performance délai : disponible dès le premier B2P avec avancement saisi.
+            </p>
+          )}
 
           <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
             {rows.map((r) => (
               <div key={r.label} className="min-w-0">
-                <dt className="truncate text-[9px] font-bold uppercase tracking-[0.12em] text-slate-400">{r.label}</dt>
+                <dt className="section-label truncate">{r.label}</dt>
                 <dd className="mt-0.5 truncate font-mono text-[12.5px] font-bold tabular-nums" style={{ color: r.tone ?? "#1e293b" }}>
                   {r.value}
                 </dd>

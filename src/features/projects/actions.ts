@@ -39,6 +39,9 @@ import {
   updateProjectCalendar,
   updateProjectMetadata,
   type CreateProjectStructureInput,
+  updateProjectPilotageSettings,
+  advanceToB2P,
+  type B2PAdvanceRowInput,
 } from "@/services/projects";
 import type {
   ActualCostCategory,
@@ -1495,4 +1498,62 @@ export async function recordActivityAction(formData: FormData) {
     oldValue: optional(formData, "oldValue"),
     newValue: optional(formData, "newValue"),
   });
+}
+
+
+/** Paramètres de pilotage : date d'état et coefficient pseudo-critique (CdC p. 4). */
+export async function updatePilotageSettingsAction(
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  try {
+    await requireProjectWriteAccess();
+    const projectId = required(formData, "projectId");
+    const coefficientRaw = optional(formData, "pseudoCriticalCoefficient");
+    const coefficient = coefficientRaw ? Number(coefficientRaw.replace(",", ".")) : null;
+    await updateProjectPilotageSettings({
+      projectId,
+      statusDate: optional(formData, "statusDate"),
+      pseudoCriticalCoefficient: coefficient,
+    });
+    revalidatePath(`/projects/${projectId}`, "layout");
+    return { status: "success", message: "Paramètres de pilotage enregistrés." };
+  } catch (error) {
+    return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer les paramètres de pilotage.") };
+  }
+}
+
+/** Passage guidé au B2P suivant (CdC B1). */
+export async function advanceB2PAction(
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  try {
+    await requireProjectWriteAccess();
+    const projectId = required(formData, "projectId");
+    const b2pDate = required(formData, "b2pDate");
+    const ids = formData.getAll("taskId").map(String);
+    const rows: B2PAdvanceRowInput[] = ids.map((taskId) => {
+      const etat = String(formData.get(`etat:${taskId}`) ?? "NOT_STARTED") as B2PAdvanceRowInput["etat"];
+      const dur = optional(formData, `duree:${taskId}`);
+      return {
+        taskId,
+        etat: etat === "STARTED" || etat === "DONE" ? etat : "NOT_STARTED",
+        actualStartDate: optional(formData, `debut:${taskId}`),
+        forecastFinishDate: optional(formData, `prevfin:${taskId}`),
+        actualFinishDate: optional(formData, `fin:${taskId}`),
+        newDurationUnits: dur ? Number(dur.replace(",", ".")) : null,
+      };
+    });
+    const snapshot = await advanceToB2P({ projectId, b2pDate, rows });
+    revalidatePath(`/projects/${projectId}`, "layout");
+    return {
+      status: "success",
+      message: snapshot.actionRequise
+        ? "B2P enregistré — action de pilotage requise : étudiez un scénario correctif."
+        : "B2P enregistré — action de pilotage non requise.",
+    };
+  } catch (error) {
+    return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer le passage au B2P.") };
+  }
 }

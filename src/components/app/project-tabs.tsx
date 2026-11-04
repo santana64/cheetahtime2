@@ -14,12 +14,12 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
   const tabs = [
     { href: `/projects/${projectId}/dashboard`, label: "Tableau de bord" },
     { href: `/projects/${projectId}/planning`, label: "Planning" },
-    { href: `/projects/${projectId}/lookahead`, label: "Look-ahead" },
+    { href: `/projects/${projectId}/lookahead`, label: "À venir" },
     { href: `/projects/${projectId}/network`, label: "Potentiel-tâches" },
-    { href: `/projects/${projectId}/analytics`, label: "Analyse" },
+    { href: `/projects/${projectId}/analytics`, label: "Rapports de délais" },
     { href: `/projects/${projectId}/resources`, label: "Ressources" },
     { href: `/projects/${projectId}/baselines`, label: "Référentiels" },
-    { href: `/projects/${projectId}/b2p`, label: "Bilans B2P" },
+    { href: `/projects/${projectId}/b2p`, label: "Tableaux B2P" },
     { href: `/projects/${projectId}/risks`, label: "Risques" },
     { href: `/projects/${projectId}/soutenance`, label: "Soutenance" },
     { href: `/projects/${projectId}/activity`, label: "Activité" },
@@ -27,15 +27,16 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
   ];
 
   return (
-    <div className="flex flex-wrap items-center">
+    <nav className="-mb-px flex items-center overflow-x-auto" aria-label="Onglets du projet">
       {tabs.map((tab) => {
         const isActive = pathname === tab.href;
         return (
           <Link
             key={tab.href}
             href={tab.href}
+            aria-current={isActive ? "page" : undefined}
             className={cn(
-              "relative -mb-px border-b-2 px-3.5 py-2.5 text-[12.5px] font-semibold whitespace-nowrap transition-colors duration-100 select-none",
+              "relative border-b-2 px-3 py-2.5 text-[12.5px] font-bold whitespace-nowrap transition-colors duration-100 select-none",
               isActive
                 ? "border-[#56a45b] text-[#3f8f48]"
                 : "border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-800",
@@ -45,6 +46,6 @@ export function ProjectTabs({ projectId }: { projectId: string }) {
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }

@@ -6,6 +6,10 @@ import { MilestoneTrend } from "@/components/app/milestone-trend";
 import { buildRecommendedB2PDates, getB2PCadenceRule } from "@/lib/fgf/b2p";
 import { buildB2PPlanningReview } from "@/lib/fgf/b2p-review";
 import { getProjectView } from "@/services/projects";
+import { B2PTables } from "@/components/app/b2p-tables";
+import { B2PAdvanceForm, type B2PAdvanceTaskRow } from "@/features/projects/b2p-advance-form";
+import { computeDelayBanner } from "@/lib/fgf/delay-banner";
+import { fromWorkingDays, timeUnitShortLabel } from "@/lib/planning/time-unit";
 
 export default async function ProjectB2PPage({
   params,
@@ -64,8 +68,40 @@ export default async function ProjectB2PPage({
   const cadence = getB2PCadenceRule(dateDebut, dateFin);
   const review = buildB2PPlanningReview(view);
 
+  const banner = computeDelayBanner(view);
+  const unitLabel = timeUnitShortLabel(project.timeUnit ?? "jours");
+  const snapshots = project.b2pSnapshots ?? {};
+  const statusDate = view.schedule.statusDate ?? null;
+  // Prochain B2P à saisir : le premier B2P postérieur à la dernière date d'état.
+  const nextIndex = Math.max(1, dates.findIndex((d) => !statusDate || d > statusDate));
+  const nextDate = dates[nextIndex] ?? dates[dates.length - 1] ?? new Date().toISOString().slice(0, 10);
+  const advanceRows: B2PAdvanceTaskRow[] = view.tasks
+    .filter((t) => !t.isSummary && t.type !== "SUMMARY")
+    .map((t) => ({
+      id: t.id,
+      code: t.code ?? t.wbsCode,
+      name: t.name,
+      isProvision: /^PT/i.test(t.code ?? "") || /provision/i.test(t.name),
+      status: t.status,
+      plannedStart: t.scheduledStartDate ?? null,
+      plannedFinish: t.scheduledFinishDate ?? null,
+      actualStart: t.actualStartDate ?? null,
+      actualFinish: t.actualFinishDate ?? null,
+      durationUnits: fromWorkingDays(t.durationDays, project.timeUnit ?? "jours"),
+    }));
+
   return (
     <div className="space-y-6">
+      <B2PTables dates={dates} banner={banner} snapshots={snapshots} unitLabel={unitLabel} />
+
+      <B2PAdvanceForm
+        projectId={projectId}
+        nextB2PDate={nextDate}
+        b2pLabel={`B2P${nextIndex}`}
+        unitLabel={unitLabel}
+        rows={advanceRows}
+      />
+
       <B2PBilanView
         projectId={projectId}
         dates={dates}
@@ -73,30 +109,19 @@ export default async function ProjectB2PPage({
         review={review}
         notes={project.b2pNotes ?? {}}
         scenarios={project.b2pScenarios ?? {}}
-        delai={{
-          finInitiale: project.targetFinishDate ?? null,
-          finPrevisionnelle: view.schedule.projectFinishDate ?? null,
-          dateActuelle: new Date().toISOString().slice(0, 10),
-          glissementJours: view.metrics.scheduleSlipDays ?? review.glissementProjet ?? 0,
-        }}
+        unit={project.timeUnit ?? "jours"}
       />
 
-      {/* Rapport Périodique de Pilotage du Temps (spec FGF B3) */}
-      <div className="rounded-2xl border border-white/70 bg-white/85 p-5">
-        <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Méthode FGF · pilotage</div>
-        <h2 className="mt-1 text-xl font-black tracking-tight text-[#1a4a20]">Rapport Périodique de Pilotage du Temps</h2>
-        <p className="mt-2 max-w-3xl text-sm text-slate-500">
-          À chaque B2P : le <strong>double planning</strong> (PàD — Planning à Date — en noir, réalisé en rouge, prévu en vert, sur l&apos;onglet Planning),
-          plus les diagrammes <strong>Temps/Temps</strong> et <strong>Jalons-Jalons</strong> ci-dessous.
+      {/* Rapport Périodique de Pilotage du Temps (CdC B3) : double planning + Temps/Temps + Jalons-Jalons — pas de courbe en S. */}
+      <section className="ct-card p-5">
+        <div className="section-label">Méthode FGF · pilotage</div>
+        <h2 className="ct-title mt-1 text-[17px]">Rapport Périodique de Pilotage du Temps</h2>
+        <p className="mt-1.5 max-w-3xl text-[12.5px] leading-5 text-slate-600">
+          Double planning (PàD en noir, réalisé en rouge, reste à faire en vert — onglet{" "}
+          <Link href={`/projects/${projectId}/planning`} className="font-semibold text-[#3f8f48] underline">Planning</Link>
+          ) et diagrammes Temps/Temps et Jalons-Jalons ci-dessous. Le rapport PDF reprend ces éléments.
         </p>
-        <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] leading-5 text-emerald-900">
-          <strong>Passer au B2P suivant</strong> — saisir : pour les <strong>LT commencés</strong>, la date de début et la prévision de fin ;
-          pour les <strong>LT finis</strong>, la date de fin réelle ; les éventuels <strong>nouveaux LT</strong> ; et une nouvelle durée pour les <strong>PT</strong> non franchies.
-          Ces saisies se font sur l&apos;onglet{" "}
-          <Link href={`/projects/${projectId}/planning`} className="font-semibold underline">Planning</Link>{" "}
-          (glisser les barres ou via l&apos;inspecteur), puis <em>« Désigner comme PI »</em> fige le <strong>PàD</strong>.
-        </div>
-      </div>
+      </section>
 
       <MilestoneTrend view={view} />
     </div>

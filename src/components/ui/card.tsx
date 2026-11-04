@@ -9,9 +9,9 @@ export function Card({
   return (
     <div
       className={cn(
-        // Style CheetahCost .panel-solid : blanc net, bord discret, ombre douce
-        "rounded-2xl border border-black/[0.09] bg-white",
-        "shadow-[0_1px_2px_rgba(0,0,0,0.04),0_6px_20px_rgba(0,0,0,0.05)]",
+        // Carte « écran d'accueil » : blanc, bord 8 %, ombre verte douce.
+        "rounded-2xl border border-black/[0.08] bg-white",
+        "shadow-[0_6px_22px_-12px_rgba(22,101,52,0.18)]",
         className,
       )}
       {...props}
@@ -33,7 +33,7 @@ export function CardTitle({
   return (
     <h3
       className={cn(
-        "text-base font-semibold tracking-tight text-slate-900",
+        "text-base font-black tracking-tight text-[#0d1f10]",
         className,
       )}
       {...props}
