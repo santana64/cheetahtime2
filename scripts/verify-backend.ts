@@ -92,11 +92,12 @@ async function main() {
   } = advancedPlanning;
   const { buildSmartAlerts } = smartAlerts;
   const {
-    buildExcelXml,
     buildGanttSvg,
-    buildSCurveSvg,
-    buildSoutenancePdf,
+    buildProjectXlsx,
   } = reportServices;
+  const { buildTimeReportPdf } = await loadModule<typeof import("../src/services/time-report")>(
+    "../src/services/time-report.ts",
+  );
   const { createProjectFromBtpTemplate, listBtpTemplates } = btpTemplates;
   const { parseXerFile } = xerInterop;
 
@@ -1157,10 +1158,9 @@ async function main() {
     summary.smartAlertsLifecycle = true;
 
     assert(
-      buildSCurveSvg(view).includes("<svg") &&
-        buildGanttSvg(view).includes("<svg") &&
-        buildExcelXml(view).includes("Worksheet") &&
-        buildSoutenancePdf(view).byteLength > 500,
+      buildGanttSvg(view).includes("<svg") &&
+        buildProjectXlsx(view).subarray(0, 2).toString() === "PK" &&
+        buildTimeReportPdf(view).subarray(0, 5).toString() === "%PDF-",
       "Expected soutenance and enriched exports to render concrete payloads.",
     );
     summary.soutenanceExportLifecycle = true;

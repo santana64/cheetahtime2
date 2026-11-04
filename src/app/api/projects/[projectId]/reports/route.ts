@@ -3,16 +3,13 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import {
   buildBurndownCsv,
-  buildExcelHtml,
-  buildExcelXml,
   buildGanttSvg,
   buildProjectReport,
+  buildProjectXlsx,
   buildResourcesCsv,
-  buildSCurveSvg,
-  buildSimplePdf,
-  buildSoutenancePdf,
   buildTasksCsv,
 } from "@/services/reports";
+import { buildTimeReportPdf } from "@/services/time-report";
 import { exportProjectData, getProjectView } from "@/services/projects";
 
 export async function GET(
@@ -41,40 +38,21 @@ export async function GET(
     });
   }
 
-  if (format === "xls" || format === "excel") {
-    return new Response(buildExcelXml(view), {
+  if (format === "xls" || format === "xlsx" || format === "excel" || format === "excel-html") {
+    return new Response(new Uint8Array(buildProjectXlsx(view)), {
       headers: {
-        "content-type": "application/vnd.ms-excel; charset=utf-8",
-        "content-disposition": `attachment; filename="${baseName}-rapport-complet.xls"`,
+        "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "content-disposition": `attachment; filename="${baseName}-pilotage-temps.xlsx"`,
       },
     });
   }
 
-  if (format === "excel-html") {
-    return new Response(buildExcelHtml(view), {
-      headers: {
-        "content-type": "application/vnd.ms-excel; charset=utf-8",
-        "content-disposition": `attachment; filename="${baseName}-rapport-html.xls"`,
-      },
-    });
-  }
-
-  if (format === "pdf") {
-    const pdf = buildSimplePdf(view);
-    return new Response(pdf, {
+  // Rapport Périodique de Pilotage du Temps (commission / marché public).
+  if (format === "pdf" || format === "soutenance" || format === "soutenance-pdf") {
+    return new Response(new Uint8Array(buildTimeReportPdf(view)), {
       headers: {
         "content-type": "application/pdf",
-        "content-disposition": `attachment; filename="${baseName}-rapport.pdf"`,
-      },
-    });
-  }
-
-  if (format === "soutenance" || format === "soutenance-pdf") {
-    const pdf = buildSoutenancePdf(view);
-    return new Response(pdf, {
-      headers: {
-        "content-type": "application/pdf",
-        "content-disposition": `attachment; filename="${baseName}-soutenance.pdf"`,
+        "content-disposition": `attachment; filename="${baseName}-rapport-pilotage-temps.pdf"`,
       },
     });
   }
@@ -84,15 +62,6 @@ export async function GET(
       headers: {
         "content-type": "image/svg+xml; charset=utf-8",
         "content-disposition": `attachment; filename="${baseName}-gantt.svg"`,
-      },
-    });
-  }
-
-  if (format === "s-curve-svg" || format === "scurve-svg") {
-    return new Response(buildSCurveSvg(view), {
-      headers: {
-        "content-type": "image/svg+xml; charset=utf-8",
-        "content-disposition": `attachment; filename="${baseName}-courbe-s.svg"`,
       },
     });
   }
