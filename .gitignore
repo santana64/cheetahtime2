@@ -63,3 +63,8 @@ next-env.d.ts
 *.env.txt
 /data/*.identity.json
 /data/backups/
+
+# store lock / identity backups (never commit)
+/data/*.lock
+/data/*.identity.json.bak
+/data/*.corrupt-*

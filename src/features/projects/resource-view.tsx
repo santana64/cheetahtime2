@@ -1,4 +1,5 @@
 import { EmptyState } from "@/components/app/empty-state";
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -238,9 +239,9 @@ export function ResourceView({ view }: { view: ProjectView }) {
               delay={0}
             />
             <MetricTile
-              label="Travail non affecte"
+              label="Travail non affecté"
               value={String(unassignedTaskCount)}
-              sub="taches executables encore sans capacite nominative"
+              sub="tâches exécutables encore sans capacité nominative"
               accent={unassignedTaskCount > 0 ? "orange" : "green"}
               delay={80}
             />
@@ -250,7 +251,7 @@ export function ResourceView({ view }: { view: ProjectView }) {
               sub={
                 hottestResource
                   ? `${formatPercent(hottestResource.maxAllocationPct)} de charge max — ${formatHours(hottestResource.maxAllocatedHours)} sur ${monthlyLoad ? "le mois le plus chargé" : "la semaine la plus chargée"}`
-                  : "Aucune affectation planifiee."
+                  : "Aucune affectation planifiée."
               }
               accent="orange"
               delay={160}
@@ -265,7 +266,7 @@ export function ResourceView({ view }: { view: ProjectView }) {
             <MetricTile
               label="Impact du nivellement"
               value={`${view.metrics.totalLevelingDelayDays}j`}
-              sub={`${view.metrics.leveledTaskCount} tache(s) avec retard de nivellement persistant`}
+              sub={`${view.metrics.leveledTaskCount} tâche(s) avec retard de nivellement persistant`}
               accent={view.metrics.totalLevelingDelayDays > 0 ? "orange" : "green"}
               delay={320}
             />
@@ -334,7 +335,7 @@ export function ResourceView({ view }: { view: ProjectView }) {
                 <thead>
                   <tr className="text-left text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "rgba(0,0,0,0.38)" }}>
                     <th className="px-3 py-2">Ressource</th>
-                    <th className="px-3 py-2">Role</th>
+                    <th className="px-3 py-2">Rôle</th>
                     <th className="px-3 py-2">Charge {periodAdj}</th>
                     <th className="px-3 py-2">Affectations</th>
                   </tr>
@@ -424,7 +425,7 @@ export function ResourceView({ view }: { view: ProjectView }) {
                       Type
                       <Select name="type" defaultValue={resource.type}>
                         <option value="PERSON">Personne</option>
-                        <option value="TEAM">Equipe</option>
+                        <option value="TEAM">Équipe</option>
                         <option value="EQUIPMENT">Equipement</option>
                       </Select>
                     </label>
@@ -521,14 +522,14 @@ export function ResourceView({ view }: { view: ProjectView }) {
         </>
       ) : (
         <EmptyState
-          eyebrow="Equipe vide"
-          title="Constituez l'equipe de livraison"
-          description="Creez des personnes, equipes et equipements pour que les responsables, la chaleur d'allocation et l'equilibrage de charge puissent traverser le planning."
+          eyebrow="Équipe vide"
+          title="Constituez l'équipe de livraison"
+          description="Créez des personnes, équipes et equipements pour que les responsables, la chaleur d'allocation et l'equilibrage de charge puissent traverser le planning."
         />
       )}
 
       {/* Timesheet */}
-      <SectionPanel eyebrow="Feuilles de temps" title="Saisie des reels" accentColor="#f4a321" delay={300}>
+      <SectionPanel eyebrow="Feuilles de temps" title="Saisie des réels" accentColor="#f4a321" delay={300}>
         <form action={saveTimesheetEntryDirectAction} className="grid gap-3 lg:grid-cols-3">
           <input type="hidden" name="projectId" value={view.aggregate.project.id} />
           <label className="grid gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "rgba(0,0,0,0.45)" }}>
@@ -554,7 +555,7 @@ export function ResourceView({ view }: { view: ProjectView }) {
           </label>
           <label className="grid gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "rgba(0,0,0,0.45)" }}>
             Date de saisie
-            <Input name="entryDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} required className="h-8 text-sm" />
+            <FrenchDateInput name="entryDate" defaultValue={new Date().toISOString().slice(0, 10)} required={true} />
           </label>
           <label className="grid gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "rgba(0,0,0,0.45)" }}>
             Heures travaillees
@@ -582,7 +583,7 @@ export function ResourceView({ view }: { view: ProjectView }) {
                 color: "#7a4f00",
               }}
             >
-              Saisir les reels
+              Saisir les réels
             </button>
           </div>
         </form>
@@ -593,7 +594,7 @@ export function ResourceView({ view }: { view: ProjectView }) {
               <thead>
                 <tr className="text-left text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "rgba(0,0,0,0.38)" }}>
                   <th className="px-3 py-2">Date</th>
-                  <th className="px-3 py-2">Tache</th>
+                  <th className="px-3 py-2">Tâche</th>
                   <th className="px-3 py-2">Ressource</th>
                   <th className="px-3 py-2">Heures</th>
                   <th className="px-3 py-2">Notes</th>
@@ -638,14 +639,14 @@ export function ResourceView({ view }: { view: ProjectView }) {
           </div>
         ) : (
           <div className="mt-4 text-[12px]" style={{ color: "rgba(0,0,0,0.40)" }}>
-            Aucune saisie de temps enregistree pour le moment.
+            Aucune saisie de temps enregistrée pour le moment.
           </div>
         )}
       </SectionPanel>
 
       {/* Assignment detail */}
       {view.aggregate.assignments.length ? (
-        <SectionPanel eyebrow="Affectations" title="Detail des affectations" accentColor="#56a45b" delay={400}>
+        <SectionPanel eyebrow="Affectations" title="Détail des affectations" accentColor="#56a45b" delay={400}>
           <div className="grid gap-4 lg:grid-cols-2">
             {view.aggregate.assignments.map((assignment, i) => {
               const task = taskMap.get(assignment.taskId);
@@ -732,8 +733,8 @@ export function ResourceView({ view }: { view: ProjectView }) {
       ) : (
         <EmptyState
           eyebrow="Affectations vides"
-          title="Reliez les ressources aux taches"
-          description="Les affectations transforment le planning en plan de livraison utilisable en liant la capacite nominative aux taches et aux dates."
+          title="Reliez les ressources aux tâches"
+          description="Les affectations transforment le planning en plan de livraison utilisable en liant la capacité nominative aux tâches et aux dates."
         />
       )}
     </div>

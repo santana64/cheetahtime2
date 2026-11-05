@@ -25,18 +25,35 @@ const DAY = 86_400_000;
 
 export function LevelingGantt({ view }: { view: ProjectView }) {
   const tasks = view.tasks.filter((t) => !t.isSummary);
-  const rows = tasks
+  const allRows = tasks
     .map((t) => ({
       code: t.wbsCode || t.code,
       name: t.name,
       milestone: t.type === "MILESTONE",
-      shifted: (t.levelingDelayDays ?? 0) > 0,
+      shifted:
+        (t.levelingDelayDays ?? 0) > 0 ||
+        Boolean(t.earliestStartDate && t.scheduledStartDate && t.scheduledStartDate > t.earliestStartDate),
       bStart: ms(t.earliestStartDate) ?? ms(t.scheduledStartDate),
       bEnd: ms(t.earliestFinishDate) ?? ms(t.scheduledFinishDate),
       aStart: ms(t.scheduledStartDate),
       aEnd: ms(t.scheduledFinishDate),
     }))
     .filter((r) => r.aStart != null && r.aEnd != null);
+  // Gros planning : on ne compare que les LT décalés (plafonné) — sinon des
+  // milliers de lignes SVG alourdissaient la page.
+  const MAX_ROWS = 60;
+  const rows =
+    allRows.length > MAX_ROWS ? allRows.filter((r) => r.shifted).slice(0, MAX_ROWS) : allRows;
+  const hiddenCount = allRows.length - rows.length;
+
+  if (rows.length < 1 && allRows.length > MAX_ROWS) {
+    return (
+      <div className="rounded-2xl border border-white/70 bg-white/85 p-6 text-sm text-slate-500">
+        <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Nivellement</div>
+        <p className="mt-2">Aucun LT décalé par le nivellement ({allRows.length} LT planifiés).</p>
+      </div>
+    );
+  }
 
   if (rows.length < 1) {
     return (
@@ -110,11 +127,12 @@ export function LevelingGantt({ view }: { view: ProjectView }) {
         <h2 className="mt-1 text-xl font-black tracking-tight text-[#1a4a20]">Planning avant / après nivellement</h2>
         <p className="mt-1 text-sm text-slate-500">
           « Avant » = dates au plus tôt ; « après » = dates nivelées. <strong style={{ color: SHIFTED }}>{totalShift}</strong> LT décalé·s (orange) pour résorber les surcharges.
+          {hiddenCount > 0 ? ` ${hiddenCount} LT non décalés ne sont pas affichés.` : ""}
         </p>
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="Avant nivellement (au plus tôt)" kind="before" />
-        <Panel title="Après nivellement (planifié)" kind="after" />
+        {Panel({ title: "Avant nivellement (au plus tôt)", kind: "before" })}
+        {Panel({ title: "Après nivellement (planifié)", kind: "after" })}
       </div>
     </div>
   );

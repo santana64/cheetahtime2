@@ -36,7 +36,7 @@ export default async function NewProjectPage() {
               },
               {
                 label: "Lots de Tâches & Tâches Hamac",
-                desc: "Chaque LT porte durée, prédécesseurs, ressources et budget. Les TH regroupent les LT en synthèses (ex. Maçonnerie).",
+                desc: "Chaque LT porte sa durée (dans l'unité choisie), ses prédécesseurs typés avec délai, ses ressources avec intensité et d'éventuelles dates imposées. Les TH regroupent les LT en synthèses (ex. Maçonnerie).",
               },
               {
                 label: "Ressources & intensités",

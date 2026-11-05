@@ -27,7 +27,7 @@ export default async function ProjectAnalyticsPage({
     <div className="space-y-5">
       <PageHeader
         eyebrow="Ordonnancement avancé"
-        title="Earned Schedule, Monte Carlo et courbe en S"
+        title="Durée acquise et Monte Carlo"
         description="Prévision de la date de fin réelle (lentille délai) et distribution probabiliste des scénarios."
       />
 
@@ -105,14 +105,14 @@ export default async function ProjectAnalyticsPage({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Earned Schedule</CardTitle>
+            <CardTitle className="text-base">Durée acquise</CardTitle>
             <p className="text-xs text-slate-500">Métrique temporelle complémentaire à l'EVM — prédit la date de fin réelle.</p>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             {[
-              ["ES (Earned Schedule)", `${earnedSchedule.ES} sem.`, earnedSchedule.ES > 0 ? "text-emerald-700" : "text-slate-600"],
+              ["ES (durée acquise)", `${earnedSchedule.ES} sem.`, earnedSchedule.ES > 0 ? "text-emerald-700" : "text-slate-600"],
               ["AT (Actual Time)", `${earnedSchedule.AT} sem.`, "text-slate-700"],
-              ["SPI_t (perf. temporelle)", earnedSchedule.SPI_t != null ? earnedSchedule.SPI_t.toFixed(3) : "n/a", (earnedSchedule.SPI_t ?? 1) >= 1 ? "text-emerald-700 font-bold" : (earnedSchedule.SPI_t ?? 1) >= 0.9 ? "text-amber-700 font-bold" : "text-rose-600 font-bold"],
+              ["Indice délai (perf. temporelle)", earnedSchedule.SPI_t != null ? earnedSchedule.SPI_t.toFixed(3) : "n/a", (earnedSchedule.SPI_t ?? 1) >= 1 ? "text-emerald-700 font-bold" : (earnedSchedule.SPI_t ?? 1) >= 0.9 ? "text-amber-700 font-bold" : "text-rose-600 font-bold"],
               ["IEAC_t (fin prévue ES)", formatDateLabel(earnedSchedule.IEAC_t), (earnedSchedule.predictedSlip ?? 0) === 0 ? "text-emerald-700" : "text-rose-600"],
               ["Glissement prédit", `${earnedSchedule.predictedSlip} j.`, earnedSchedule.predictedSlip === 0 ? "text-emerald-700" : "text-rose-600"],
               ["Avancement global", formatPercent(view.metrics.overallProgress), "text-slate-700"],

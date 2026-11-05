@@ -1,0 +1,118 @@
+# Construit l'installateur Windows de Cheetah Time sur une vraie machine Windows,
+# l'installe en silence, lance l'application pour vérifier qu'elle démarre,
+# puis publie le .exe :
+#  - à chaque exécution : en « artifact » téléchargeable depuis l'onglet Actions ;
+#  - sur un tag v* (ex. v0.1.0) : en pièce jointe d'une Release GitHub.
+name: Installateur Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, "claude/**"]
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: installateur-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false" # pas de certificat : installateur non signé
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Construction de l'installateur
+        run: npm run desktop
+
+      - name: Publier l'installateur (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cheetah-Time-Setup-windows
+          path: dist-desktop/Cheetah-Time-Setup-*.exe
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Installation silencieuse
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist-desktop -Filter "Cheetah-Time-Setup-*.exe" | Select-Object -First 1
+          if (-not $setup) { throw "Installateur introuvable dans dist-desktop" }
+          "Installateur : $($setup.Name) ($([math]::Round($setup.Length / 1MB)) Mo)"
+          $p = Start-Process -FilePath $setup.FullName -ArgumentList "/S" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "L'installation a échoué (code $($p.ExitCode))" }
+          $exe = Join-Path $env:LOCALAPPDATA "Programs\Cheetah Time\Cheetah Time.exe"
+          if (-not (Test-Path $exe)) { throw "Application non installée : $exe" }
+          if (-not (Test-Path (Join-Path $env:LOCALAPPDATA "Programs\Cheetah Time\resources\app\server.js"))) { throw "Serveur interne absent" }
+          "Installée : $exe"
+
+      - name: Serveur interne (lancé comme par l'application)
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:LOCALAPPDATA "Programs\Cheetah Time"
+          $env:ELECTRON_RUN_AS_NODE = "1"; $env:NODE_ENV = "production"; $env:PORT = "3300"; $env:HOSTNAME = "127.0.0.1"
+          $env:CHEETAH_TIME_PERSISTENCE = "local"; $env:DATABASE_URL = ""
+          $env:CHEETAH_TIME_LOCAL_STORE_PATH = Join-Path $env:RUNNER_TEMP "ct-test\cheetah-time.local.json"
+          $env:CHEETAH_DESKTOP_TOKEN = "jeton-test-ci"
+          $srv = Start-Process -FilePath (Join-Path $dir "Cheetah Time.exe") -ArgumentList "`"$dir\resources\app\server.js`"" -WorkingDirectory "$dir\resources\app" -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP\srv.out" -RedirectStandardError "$env:RUNNER_TEMP\srv.err"
+          $ok = $false
+          for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
+            Start-Sleep -Seconds 2
+            try { $r = Invoke-WebRequest "http://127.0.0.1:3300/projects" -Headers @{ Cookie = "cheetah_desktop_token=jeton-test-ci" } -UseBasicParsing -TimeoutSec 20; $ok = $r.StatusCode -eq 200 } catch { }
+          }
+          "--- sortie serveur ---"; Get-Content "$env:RUNNER_TEMP\srv.out" -ErrorAction SilentlyContinue | Select-Object -Last 40
+          "--- erreurs serveur ---"; Get-Content "$env:RUNNER_TEMP\srv.err" -ErrorAction SilentlyContinue | Select-Object -Last 40
+          if (-not $srv.HasExited) { Stop-Process -Id $srv.Id -Force }
+          if (-not $ok) { throw "Le serveur interne ne répond pas sur /projects" }
+          $store = Get-Item $env:CHEETAH_TIME_LOCAL_STORE_PATH -ErrorAction SilentlyContinue
+          if (-not $store) { throw "Le serveur répond mais n'a pas créé ses données" }
+          "Serveur OK, données créées : $($store.Length) octets"
+
+      - name: Premier lancement de l'application
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:LOCALAPPDATA "Programs\Cheetah Time\Cheetah Time.exe"
+          $out = "$env:RUNNER_TEMP\app.out"
+          $app = Start-Process -FilePath $exe -PassThru -RedirectStandardOutput $out -RedirectStandardError "$env:RUNNER_TEMP\app.err"
+          # L'application démarre son serveur interne sur un port libre et l'annonce dans son journal.
+          $port = $null
+          for ($i = 0; $i -lt 60 -and -not $port; $i++) {
+            Start-Sleep -Seconds 2
+            $m = Select-String -Path $out -Pattern "Local:\s+http://127\.0\.0\.1:(\d+)" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($m) { $port = $m.Matches[0].Groups[1].Value }
+          }
+          $code = 0
+          if ($port) { try { $code = (Invoke-WebRequest "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 30).StatusCode } catch { $code = -1 } }
+          Start-Sleep -Seconds 5
+          $alive = -not $app.HasExited
+          Get-Process -Name "Cheetah Time" -ErrorAction SilentlyContinue | Stop-Process -Force
+          "--- journal de l'application ---"; Get-Content $out, "$env:RUNNER_TEMP\app.err" -ErrorAction SilentlyContinue | Select-Object -Last 40
+          if (-not $port) { throw "Le serveur interne de l'application n'a pas démarré" }
+          if ($code -ne 200) { throw "L'accueil de l'application ne répond pas (HTTP $code)" }
+          if (-not $alive) { throw "L'application s'est fermée toute seule" }
+          "Application OK : serveur interne sur le port $port, accueil HTTP $code, fenêtre toujours ouverte"
+
+      - name: SHA-256
+        shell: pwsh
+        run: Get-ChildItem dist-desktop -Filter "Cheetah-Time-Setup-*.exe" | Get-FileHash -Algorithm SHA256 | Format-List
+
+      - name: Publier dans une Release (tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-desktop/Cheetah-Time-Setup-*.exe
+          draft: false
+          prerelease: true

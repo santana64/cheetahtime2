@@ -207,6 +207,140 @@ async function main() {
       (view3.aggregate.project.b2pDates?.length ?? 0) === dates.length,
       "ré-import : mêmes dates B2P",
     );
+    // ── 6 ter. Concordance avec Cheetah Cost (référence) : un vrai fichier Cost ──
+    {
+      const { readFileSync } = await import("node:fs");
+      const costText = readFileSync(path.join(process.cwd(), "scripts", "fixtures", "cheetahcost-demo.json"), "utf8");
+      const costFile = JSON.parse(costText);
+      const imported = await projectServices.importSuiteProject(costText);
+      const vc = await projectServices.getProjectView(imported.projectId);
+      const pc = vc.aggregate.project;
+      assert(pc.phase === costFile.project.phase, "phase Cost conservée");
+      assert(pc.targetStartDate === costFile.project.dateDebut && pc.targetFinishDate === costFile.project.dateFin, "dates Cost conservées");
+      assert(JSON.stringify(pc.b2pDates) === JSON.stringify(costFile.project.b2pDates), "dates de B2P Cost conservées à l'identique");
+      const back = await projectServices.buildSuiteExport(imported.projectId);
+      assert(JSON.stringify(back.project.b2pDates) === JSON.stringify(costFile.project.b2pDates), "ré-export : mêmes dates de B2P que Cost");
+      assert(
+        JSON.stringify(back.project.lots.map((l: { code: string; libelle: string }) => [l.code, l.libelle])) ===
+          JSON.stringify(costFile.project.lots.map((l: { code: string; libelle: string }) => [l.code, l.libelle])),
+        "ré-export : mêmes lots (codes et libellés) que Cost",
+      );
+      assert(back.schemaVersion === costFile.schemaVersion, "même version de schéma que Cost");
+      console.log(`✓ Concordance Cheetah Cost (fichier Cost réel : ${costFile.project.lots.length} lots, ${costFile.project.b2pDates.length} dates B2P → Time → Cost à l'identique)`);
+    }
+
+    // ── 6 bis. Lentille délai dans le fichier commun (schéma 1.1.0) ──
+    {
+      assert(file.schemaVersion === "1.0.0", `schéma Cheetah Cost 1.0.0 attendu, obtenu ${file.schemaVersion}`);
+      const delai0 = (file.project as { lentilleDelai?: { lots: unknown[]; uniteTemps: string } }).lentilleDelai;
+      assert(delai0 && delai0.lots.length === 3, "bloc lentilleDelai avec 3 lots attendu");
+      // Figer le PI puis saisir un B2P : le retard doit apparaître dans le fichier.
+      await projectServices.captureBaseline(pid, "PI recette", "Recette");
+      const leaf = (await projectServices.getProjectView(pid)).tasks.find((t) => !t.isSummary && t.type !== "MILESTONE");
+      assert(leaf, "un LT feuille attendu");
+      const b2pDate = dates[1];
+      const snap = await projectServices.advanceToB2P({
+        projectId: pid,
+        b2pDate,
+        rows: [{ taskId: leaf.id, etat: "STARTED", actualStartDate: dates[0], forecastFinishDate: "2030-01-31" }],
+      });
+      assert(snap.actionRequise && (snap.ecart ?? 0) > 0, `retard attendu au B2P, obtenu écart ${snap.ecart}`);
+      const file2 = await projectServices.buildSuiteExport(pid);
+      const d2 = (file2.project as { lentilleDelai?: { parB2P: { date: string; ecart: number | null; actionPilotageRequise: boolean }[]; ecart: number | null; dateEtat: string | null } }).lentilleDelai!;
+      const entry = d2.parB2P.find((x) => x.date === b2pDate);
+      assert(entry && entry.actionPilotageRequise && entry.ecart === snap.ecart, "le B2P et son retard figurent dans le fichier commun");
+      assert(d2.dateEtat === b2pDate, `date d'état exportée attendue ${b2pDate}, obtenu ${d2.dateEtat}`);
+      // ── Tableaux B2P (T2P) : même cycle de vie que Cheetah Cost ──
+      {
+        const t2p = await loadModule<typeof import("../src/lib/fgf/t2p")>("../src/lib/fgf/t2p.ts");
+        let tables = (await projectServices.getProjectView(pid)).aggregate.project.t2pTables ?? [];
+        assert(tables.some((t) => t.tableKind === "b2p0"), "T2P : B2P0 créé avec le PI");
+        const i1 = tables.find((t) => t.tableKind === "i-1" && t.date === b2pDate);
+        assert(i1 && t2p.getT2PLabel(i1) === "T2P1-1", "T2P : démarrer le B2P1 crée T2P1-1");
+        const calendar = (await projectServices.getProjectView(pid)).aggregate.calendar;
+        assert(t2p.getT2PStatus(i1, t2p.aggregateT2P(i1, calendar)).label === "Action de pilotage requise", "T2P1-1 en retard → action requise");
+        const sc = await projectServices.createT2PScenario(pid, 1);
+        assert(t2p.getT2PLabel(sc) === "T2P1-21", `scénario : T2P1-21 attendu, obtenu ${t2p.getT2PLabel(sc)}`);
+        // Le scénario ramène toutes les fins à la Fin à Date → écart nul.
+        await projectServices.updateT2PLines({ projectId: pid, tableId: sc.id, lines: sc.lignes.map((l) => ({ lotId: l.lotId, finPrevue: l.finADate, resteAFaire: 0, commentaire: "Renfort d'équipe" })) });
+        tables = (await projectServices.getProjectView(pid)).aggregate.project.t2pTables ?? [];
+        const sc2 = tables.find((t) => t.id === sc.id)!;
+        assert(t2p.aggregateT2P(sc2, calendar).ecart <= 0, "scénario corrigé : écart ≤ 0");
+        assert(t2p.getT2PEcartReference(tables, sc2)?.id === i1.id, "écart précédent d'un T2Pi-2j = T2Pi-1 du même B2P");
+        const kept = await projectServices.promoteT2PScenario(pid, sc.id);
+        tables = (await projectServices.getProjectView(pid)).aggregate.project.t2pTables ?? [];
+        assert(t2p.getT2PLabel(kept) === "T2P1-2" && tables.some((t) => t.id === sc.id), "retenir i-2 duplique le scénario et le conserve");
+        const sc3 = await projectServices.createT2PScenario(pid, 1);
+        await projectServices.promoteT2PScenario(pid, sc3.id);
+        tables = (await projectServices.getProjectView(pid)).aggregate.project.t2pTables ?? [];
+        assert(tables.filter((t) => t.numero === 1 && t.tableKind === "i-2").length === 1, "un seul T2P1-2 retenu");
+        assert(tables.find((t) => t.id === kept.id)?.tableKind === "i-2j", "l'ancien T2P1-2 redescend en scénario");
+        await projectServices.setT2PLocked(pid, i1.id, true);
+        let refused = false;
+        try { await projectServices.deleteT2PTable(pid, i1.id); } catch { refused = true; }
+        assert(refused, "un tableau verrouillé ne se supprime pas");
+        await projectServices.setT2PLocked(pid, i1.id, false);
+        // ── Rapports de délai R2Pi (comme les rapports de coût de Cost) ──
+        const rl = await loadModule<typeof import("../src/lib/fgf/rapports-delai")>("../src/lib/fgf/rapports-delai.ts");
+        const reps = rl.getRepresentativeTables(tables);
+        const rep1 = reps.find((t) => t.numero === 1)!;
+        assert(rep1.tableKind === "i-2", "le rapport du B2P1 se rattache au T2P1-2 retenu");
+        const rapport = await projectServices.createRapportDelai(pid, rep1.id);
+        assert(rapport.sections.length === 5 && rapport.sections[2].auto, "R2P : 5 sections, §3 pré-rempli");
+        assert(/Fin Prévisionnelle \(FP\)/.test(rapport.sections[2].contenu), "§3 contient la FP");
+        let dup = false;
+        try { await projectServices.createRapportDelai(pid, rep1.id); } catch { dup = true; }
+        assert(dup, "un seul R2P par B2P");
+        await projectServices.saveRapportDelai({ projectId: pid, rapportId: rapport.id, reference: "R2P-01", auteur: "Recette", sections: [{ id: rapport.sections[1].id, contenu: "Retard du lot Travaux." }] });
+        await projectServices.setRapportDelaiStatut(pid, rapport.id, true);
+        let blocked = false;
+        try { await projectServices.saveRapportDelai({ projectId: pid, rapportId: rapport.id, reference: "x", auteur: "x", sections: [] }); } catch { blocked = true; }
+        assert(blocked, "un rapport diffusé ne se modifie pas");
+        const { buildRapportDelaiPdf } = await loadModule<typeof import("../src/services/rapport-delai-pdf")>("../src/services/rapport-delai-pdf.ts");
+        const vr = await projectServices.getProjectView(pid);
+        const saved = vr.aggregate.project.rapportsDelai!.find((x) => x.id === rapport.id)!;
+        assert(saved.reference === "R2P-01" && saved.statut === "diffuse", "rapport enregistré puis diffusé");
+        assert(buildRapportDelaiPdf(vr, saved).subarray(0, 5).toString() === "%PDF-", "PDF du rapport");
+        assert(buildRapportDelaiPdf(vr, null).subarray(0, 5).toString() === "%PDF-", "PDF du modèle vierge");
+        console.log("✓ Rapport de délai R2P1 (pré-rempli, unique par B2P, diffusé et figé, PDF + modèle vierge)");
+        // ── Journal d'audit et versions (comme Cheetah Cost) ──
+        {
+          const h1 = await projectServices.getProjectHistory(pid);
+          const actions = new Set(h1.auditTrail.map((e) => e.action));
+          for (const a of ["project_created", "plan_updated", "b2p_created", "b2p_saved", "b2p_promoted", "b2p_locked", "rapport_created", "rapport_diffused"] as const) {
+            assert(actions.has(a), `journal : événement ${a} attendu`);
+          }
+          assert(h1.auditTrail[0].at >= h1.auditTrail[h1.auditTrail.length - 1].at, "journal trié du plus récent au plus ancien");
+          const before = (await projectServices.getProjectView(pid)).aggregate.project.b2pDates ?? [];
+          const ver = await projectServices.saveProjectSnapshot(pid, "Avant modification des dates");
+          await projectServices.setProjectB2PDates({ projectId: pid, dates: [before[0] ?? "2026-01-05"] });
+          assert(((await projectServices.getProjectView(pid)).aggregate.project.b2pDates ?? []).length === 1, "dates modifiées");
+          await projectServices.restoreProjectSnapshot(pid, ver.id);
+          const restored = (await projectServices.getProjectView(pid)).aggregate.project.b2pDates ?? [];
+          assert(JSON.stringify(restored) === JSON.stringify(before), "restauration : dates d'origine retrouvées");
+          const h2 = await projectServices.getProjectHistory(pid);
+          assert(h2.auditTrail[0].action === "version_restored", "restauration journalisée");
+          assert(h2.snapshots.length === 1 && h2.snapshots[0].sizeKb > 0, "version conservée après restauration");
+          await projectServices.deleteProjectSnapshot(pid, ver.id);
+          assert((await projectServices.getProjectHistory(pid)).snapshots.length === 0, "version supprimée");
+          const light = (await projectServices.getProjectView(pid)).aggregate.project;
+          assert((light.snapshots ?? []).every((x) => x.payload === "") && (light.auditTrail ?? []).length <= 20, "la vue ne transporte pas l'historique lourd");
+          console.log(`✓ Journal d'audit (${h2.auditTrail.length} événements) et versions (enregistrer → modifier → restaurer → supprimer)`);
+        }
+        console.log(`✓ Tableaux B2P délai (B2P0 · T2P1-1 requise · T2P1-21 → T2P1-2 retenu · rétrogradation · verrou) — ${tables.length} tableaux`);
+      }
+      // Ré-import : l'historique des Tableaux B2P est conservé.
+      const re2 = await projectServices.importSuiteProject(JSON.stringify(file2));
+      const v4 = await projectServices.getProjectView(re2.projectId);
+      assert(v4.aggregate.project.b2pSnapshots?.[b2pDate]?.ecart === snap.ecart, "ré-import : retard du B2P conservé");
+      assert(v4.aggregate.project.statusDate === b2pDate, "ré-import : date d'état conservée");
+      // Un fichier 1.0.0 (sans bloc délai) reste lisible.
+      const legacy = JSON.parse(JSON.stringify(file2));
+      delete legacy.project.lentilleDelai;
+      // (fichier Cheetah Cost pur, sans l'extension délai)
+      await projectServices.importSuiteProject(JSON.stringify(legacy));
+      console.log(`✓ Lentille délai partagée (B2P ${b2pDate} : écart ${snap.ecart} ${delai0.uniteTemps}, action requise · ré-import OK · fichier 1.0.0 toujours lisible)`);
+    }
     console.log(
       `✓ Interop suite (export .cheetahcost.json → ré-import : ${lots3.length} lots, ${view3.aggregate.project.b2pDates?.length} dates B2P, phase conservée)`,
     );

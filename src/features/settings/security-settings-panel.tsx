@@ -35,9 +35,9 @@ export function SecuritySettingsPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base text-[#1a4a20]">Securite et acces</CardTitle>
+        <CardTitle className="text-base text-[#1a4a20]">Sécurité et accès</CardTitle>
         <p className="text-xs text-slate-500">
-          Authentification MFA TOTP, verrouillage apres echecs et base RBAC pour la beta fermee.
+          Authentification MFA TOTP, verrouillage après echecs et base RBAC pour la beta fermee.
         </p>
       </CardHeader>
       <CardContent className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
@@ -87,7 +87,7 @@ export function SecuritySettingsPanel({
               <Input name="mfaCode" inputMode="numeric" maxLength={6} className="h-9" />
             </label>
             <p className={enableState.status === "error" ? "text-xs text-rose-600" : "text-xs text-slate-500"}>
-              {enableState.message || "Active le MFA apres verification du code courant."}
+              {enableState.message || "Active le MFA après verification du code courant."}
             </p>
             <Button type="submit" disabled={enablePending} size="sm">
               {enablePending ? "Activation..." : "Activer MFA"}

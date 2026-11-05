@@ -146,6 +146,40 @@ export interface Project {
   b2pScenarios?: Record<string, string>;
   /** Unité de temps choisie à la création (saisie/affichage des durées). */
   timeUnit?: TimeUnit | null;
+  /**
+   * Date d'état (data date) : le reste à faire n'est jamais replanifié avant
+   * cette date. Absente : date du jour dès que le PI est figé (suivi B2P).
+   */
+  statusDate?: ISODate | null;
+  /** Coefficient du chemin pseudo-critique (CdC p. 4, « au choix du planificateur »). Défaut 1,3. */
+  pseudoCriticalCoefficient?: number | null;
+  /** Tableaux de Pilotage du Temps (B2P0, T2Pi-1, T2Pi-2j, T2Pi-2) — comme les bilans de Cheetah Cost. */
+  t2pTables?: T2PTable[];
+  /** Tableaux verrouillés (comme lockedBilanIds de Cheetah Cost). */
+  lockedT2PIds?: string[];
+  /** Rapports de délai R2Pi (comme les rapports de coût de Cheetah Cost). */
+  rapportsDelai?: RapportDelai[];
+  /** Journal d'audit (500 derniers événements), comme auditTrail de Cheetah Cost. */
+  auditTrail?: AuditEvent[];
+  /** Versions enregistrées du projet (30 au plus), comme snapshots de Cheetah Cost. */
+  snapshots?: ProjectSnapshot[];
+  /**
+   * Instantanés « Prévision avant pilotage » par date de B2P (CdC p. 12) :
+   * FP, écart (unité projet), avancement et statut d'action de pilotage.
+   */
+  b2pSnapshots?: Record<
+    ISODate,
+    {
+      date: ISODate;
+      capturedAt: string;
+      finADate: ISODate | null;
+      finPrevisionnelle: ISODate | null;
+      ecart: number | null;
+      unit: string;
+      avancement: number;
+      actionRequise: boolean;
+    }
+  >;
   levelingStrategy: LevelingStrategy;
   levelingMaxDelayDays: number;
   archivedAt?: string | null;
@@ -155,6 +189,109 @@ export interface Project {
   declassedBy?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/* ── Tableaux de Pilotage du Temps (T2P) — transposition délai des tableaux B2P
+   de Cheetah Cost (même modèle : B2P0, T2Pi-1, T2Pi-2j, T2Pi-2). ── */
+export type T2PTableKind = "b2p0" | "i-1" | "i-2j" | "i-2";
+
+export interface T2PLine {
+  lotId: string;
+  code: string;
+  libelle: string;
+  /** Fin Initiale du lot (Planning Initial). */
+  finInitiale: ISODate | null;
+  /** Fin à Date du lot (planning de référence en vigueur). */
+  finADate: ISODate | null;
+  /** Avancement physique 0–100. */
+  avancement: number;
+  /** Reste à faire, dans l'unité du projet (à partir de la date d'état). */
+  resteAFaire: number;
+  /** Fin prévisionnelle du lot. Saisissable dans un scénario correctif. */
+  finPrevue: ISODate | null;
+  commentaire?: string;
+}
+
+export interface T2PTable {
+  id: string;
+  numero: number;
+  tableKind: T2PTableKind;
+  scenarioIndex?: number;
+  /** Date de déclenchement du B2P. */
+  date: ISODate;
+  createdAt: string;
+  updatedAt: string;
+  unit: TimeUnit;
+  lignes: T2PLine[];
+}
+
+/* ── Rapports de délai (R2Pi, partie délai) — même structure que les rapports
+   de coût de Cheetah Cost (RapportCout). ── */
+export type RapportDelaiStatut = "brouillon" | "diffuse";
+
+export interface RapportDelaiSection {
+  id: string;
+  titre: string;
+  contenu: string;
+  /** Section pré-remplie depuis le tableau B2P (régénérable). */
+  auto?: boolean;
+}
+
+export interface RapportDelai {
+  id: string;
+  /** Tableau T2P auquel le rapport se rattache. */
+  t2pId: string;
+  numero: number;
+  reference?: string;
+  auteur?: string;
+  statut: RapportDelaiStatut;
+  sections: RapportDelaiSection[];
+  createdAt: string;
+  updatedAt: string;
+  diffuseLe?: string;
+}
+
+/* ── Journal d'audit et versions du projet — même modèle que Cheetah Cost
+   (AuditEvent, ProjectSnapshot), stockés DANS le projet. ── */
+export type AuditAction =
+  | "project_created"
+  | "project_updated"
+  | "lots_updated"
+  | "plan_updated"
+  | "b2p_created"
+  | "b2p_deleted"
+  | "b2p_saved"
+  | "b2p_promoted"
+  | "b2p_locked"
+  | "b2p_unlocked"
+  | "export_created"
+  | "rapport_created"
+  | "rapport_updated"
+  | "rapport_diffused"
+  | "rapport_deleted"
+  | "version_saved"
+  | "version_restored"
+  | "version_deleted";
+
+export interface AuditEvent {
+  id: string;
+  at: string;
+  actor: string;
+  action: AuditAction;
+  label: string;
+  details?: string;
+  t2pId?: string;
+  taskId?: string;
+}
+
+export interface ProjectSnapshot {
+  id: string;
+  at: string;
+  label: string;
+  t2pCount: number;
+  lotsCount: number;
+  /** Contenu complet du projet (JSON), restaurable. */
+  payload: string;
 }
 
 export interface Task {
@@ -192,6 +329,8 @@ export interface Task {
   budgetAmount?: number | null;
   /** Code structuré (LT01, PTO01, TH01…) — vocabulaire FGF de la suite. */
   code?: string | null;
+  /** Durée saisie dans l'unité du projet (ex. 3 pour « 3 mois »). Prioritaire en mode mois. */
+  durationUnits?: number | null;
 }
 
 export interface Dependency {
@@ -203,6 +342,14 @@ export interface Dependency {
   successorTaskId: string;
   type: DependencyType;
   lagDays: number;
+  /** Délai saisi dans l'unité du projet (ex. −1 pour « −1 mois »). */
+  lagUnits?: number | null;
+  /**
+   * « RESOURCE » : lien ressource créé par le nivellement (FGF Q6/Q7). Ignoré
+   * par le Gantt « au plus tôt / avant nivellement », pris en compte par les
+   * marges après nivellement. Absent = lien logique saisi par le planificateur.
+   */
+  kind?: "LOGIC" | "RESOURCE";
   label?: string;
   createdAt: string;
 }
@@ -460,7 +607,12 @@ export interface ScheduledTask extends Task {
   latestFinishDate?: ISODate | null;
   totalSlackDays?: number | null;
   freeSlackDays?: number | null;
+  /** Marges exprimées dans l'unité du projet (mois calendaires exacts en mode mois). */
+  totalSlackUnits?: number | null;
+  freeSlackUnits?: number | null;
   isCritical: boolean;
+  /** Chemin pseudo-critique : 0 < MT ≤ coefficient × plus petite marge positive. */
+  isPseudoCritical?: boolean;
 }
 
 export interface ScheduleResult {
@@ -470,6 +622,8 @@ export interface ScheduleResult {
   tasksById: Record<string, ScheduledTask>;
   criticalPathTaskIds: string[];
   issues: ScheduleIssue[];
+  /** Date d'état appliquée au calcul (null = planification pure, sans suivi). */
+  statusDate?: ISODate | null;
 }
 
 export interface BaselineVariance {

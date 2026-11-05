@@ -1,5 +1,6 @@
 "use client";
 
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import { useActionState, useEffect, useState } from "react";
 
 import {
@@ -48,7 +49,7 @@ function scoreBand(score: number): ScoreBand {
 const CATEGORY_LABELS: Record<RiskCategory, string> = {
   TECHNICAL: "Technique",
   SCHEDULE: "Planning",
-  COST: "Cout",
+  COST: "Coût",
   RESOURCE: "Ressource",
   EXTERNAL: "Externe",
   LEGAL: "Juridique",
@@ -66,7 +67,7 @@ const STATUS_LABELS: Record<RiskStatus, string> = {
   OPEN: "Ouvert",
   MITIGATED: "Attenuation",
   ACCEPTED: "Accepte",
-  CLOSED: "Ferme",
+  CLOSED: "Fermé",
   ESCALATED: "Escalade",
 };
 
@@ -306,7 +307,7 @@ function DrawerFormBody({ risk, pending, state, projectId }: DrawerFormBodyProps
         <Textarea
           name="mitigation"
           defaultValue={risk?.mitigation ?? ""}
-          placeholder="Actions preventives pour reduire la probabilite ou l'impact"
+          placeholder="Actions preventives pour reduire la probabilité ou l'impact"
           className="min-h-[80px]"
         />
       </label>
@@ -326,20 +327,12 @@ function DrawerFormBody({ risk, pending, state, projectId }: DrawerFormBodyProps
       <div className="grid grid-cols-2 gap-4">
         <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
           Date d&apos;identification
-          <Input
-            type="date"
-            name="identifiedDate"
-            defaultValue={risk?.identifiedDate ?? today}
-          />
+          <FrenchDateInput name="identifiedDate" defaultValue={risk?.identifiedDate ?? today} />
         </label>
 
         <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
           Date cible
-          <Input
-            type="date"
-            name="targetDate"
-            defaultValue={risk?.targetDate ?? ""}
-          />
+          <FrenchDateInput name="targetDate" defaultValue={risk?.targetDate ?? ""} />
         </label>
       </div>
 
@@ -363,8 +356,8 @@ function DrawerFormBody({ risk, pending, state, projectId }: DrawerFormBodyProps
           {pending
             ? "Enregistrement..."
             : risk
-              ? "Mettre a jour"
-              : "Creer le risque"}
+              ? "Mettre à jour"
+              : "Créer le risque"}
         </Button>
       </div>
     </div>
@@ -467,7 +460,7 @@ function RiskDrawer({ open, mode, risk, projectId, onClose }: DrawerProps) {
         )}
         aria-modal="true"
         role="dialog"
-        aria-label={mode === "create" ? "Creer un risque" : "Modifier le risque"}
+        aria-label={mode === "create" ? "Créer un risque" : "Modifier le risque"}
       >
         {/* Header */}
         <div

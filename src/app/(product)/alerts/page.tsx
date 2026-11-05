@@ -37,7 +37,7 @@ export default async function AlertsPage() {
         </CardHeader>
         <CardContent className="space-y-2">
           {alerts.map((alert) => (
-            <Link
+            <Link prefetch={false}
               key={alert.id}
               href={`/projects/${alert.projectId}/planning`}
               className="block rounded-lg border bg-white p-4 transition hover:bg-slate-50"

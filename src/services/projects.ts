@@ -1,12 +1,14 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 
 import {
   buildSchedule,
   type ExternalScheduledTaskReference,
 } from "@/lib/planning/schedule-engine";
-import { buildRecommendedB2PDates } from "@/lib/fgf/b2p";
+import { getProjectB2PDates } from "@/lib/fgf/b2p";
 import {
   DEFAULT_HOURS_PER_DAY,
+  fromWorkingDays,
   toSignedWorkingDays,
   toWorkingDays,
 } from "@/lib/planning/time-unit";
@@ -16,6 +18,7 @@ import {
 } from "@/lib/interop/suite-bridge";
 import {
   addWorkingDays,
+  normalizeWorkingDate,
   compareIsoDates,
   countWorkingDaysInclusive,
   formatIsoDate,
@@ -88,7 +91,11 @@ import type {
   DependencyType,
   ISODate,
   LevelingStrategy,
+  AuditEvent,
   Project,
+  ProjectSnapshot,
+  RapportDelai,
+  T2PTable,
   ProjectAggregate,
   ProjectMetrics,
   ProjectView,
@@ -110,6 +117,8 @@ import {
 export interface CreateProjectLotInput {
   name: string;
   budgetAmount: number;
+  /** Code du lot reçu de Cheetah Cost (LT01…), conservé pour l'aller-retour. */
+  code?: string;
 }
 
 // ── Création structurée (spec FGF complète) ─────────────────────────────────
@@ -403,20 +412,45 @@ export interface DuplicateProjectInput {
   duplicatedBy: string;
 }
 
+
+/* ══ Journal d'audit (même modèle que Cheetah Cost : appendAuditEvent) ══ */
+
+/** Auteur des événements de la requête en cours (renseigné par les actions serveur). */
+export const auditActor = new AsyncLocalStorage<string>();
+
+function pushAudit(
+  aggregate: ProjectAggregate,
+  action: AuditEvent["action"],
+  label: string,
+  options: { details?: string; t2pId?: string; taskId?: string } = {},
+) {
+  const event: AuditEvent = {
+    id: `audit_${randomUUID().slice(0, 12)}`,
+    at: nowIso(),
+    actor: auditActor.getStore() ?? "Utilisateur local",
+    action,
+    label,
+    ...(options.details ? { details: options.details.slice(0, 300) } : {}),
+    ...(options.t2pId ? { t2pId: options.t2pId } : {}),
+    ...(options.taskId ? { taskId: options.taskId } : {}),
+  };
+  aggregate.project.auditTrail = [event, ...(aggregate.project.auditTrail ?? [])].slice(0, 500);
+}
+
 function validateProjectInputs(
   input: Omit<CreateProjectInput, "budgetAmount"> & { budgetAmount: number },
 ) {
-  const name = ensureText(input.name, "Project name", { maxLength: 120 });
-  const clientName = ensureText(input.clientName, "Client name", {
+  const name = ensureText(input.name, "Nom du projet", { maxLength: 120 });
+  const clientName = ensureText(input.clientName, "Maître d'ouvrage", {
     maxLength: 120,
   });
-  const ownerName = ensureText(input.ownerName, "Project owner", {
+  const ownerName = ensureText(input.ownerName, "Responsable", {
     maxLength: 120,
   });
-  const sponsorName = ensureText(input.sponsorName, "Project sponsor", {
+  const sponsorName = ensureText(input.sponsorName, "Commanditaire", {
     maxLength: 120,
   });
-  const portfolio = ensureText(input.portfolio, "Portfolio", {
+  const portfolio = ensureText(input.portfolio, "Portefeuille", {
     maxLength: 120,
   });
   const targetStartDate = ensureIsoDate(
@@ -438,17 +472,17 @@ function validateProjectInputs(
   }
 
   return {
-    workspaceId: ensureOptionalText(input.workspaceId ?? null, "Workspace id", 120) ?? "workspace-cheetah-time",
+    workspaceId: ensureOptionalText(input.workspaceId ?? null, "Espace de travail", 120) ?? "workspace-cheetah-time",
     name,
     clientName,
-    ownerUserId: ensureOptionalText(input.ownerUserId ?? null, "Project owner user id", 120),
+    ownerUserId: ensureOptionalText(input.ownerUserId ?? null, "Responsable (identifiant)", 120),
     ownerName,
-    sponsorUserId: ensureOptionalText(input.sponsorUserId ?? null, "Project sponsor user id", 120),
+    sponsorUserId: ensureOptionalText(input.sponsorUserId ?? null, "Commanditaire (identifiant)", 120),
     sponsorName,
     portfolio,
     targetStartDate,
     targetFinishDate,
-    budgetAmount: ensureNumber(input.budgetAmount, "Budget amount", {
+    budgetAmount: ensureNumber(input.budgetAmount, "Budget", {
       min: 0,
       max: 1_000_000_000,
     }),
@@ -462,17 +496,17 @@ function validateProjectMetadataInput(input: UpdateProjectInput) {
   return {
     ...validated,
     description:
-      ensureOptionalText(input.description, "Project description", 4000) ?? "",
+      ensureOptionalText(input.description, "Description du projet", 4000) ?? "",
     status: ensureProjectStatus(input.status),
     health: ensureProjectHealth(input.health),
   };
 }
 
 function validateTaskInput(input: SaveTaskInput) {
-  const name = ensureText(input.name, "Task name", { maxLength: 160 });
+  const name = ensureText(input.name, "Nom du LT", { maxLength: 160 });
   const description =
-    ensureOptionalText(input.description, "Task description", 4000) ?? "";
-  const notes = ensureOptionalText(input.notes, "Task notes", 4000) ?? "";
+    ensureOptionalText(input.description, "Description du LT", 4000) ?? "";
+  const notes = ensureOptionalText(input.notes, "Notes du LT", 4000) ?? "";
   const type = ensureTaskType(input.type);
   const status = ensureTaskStatus(input.status);
   const priority = ensureTaskPriority(input.priority);
@@ -480,7 +514,7 @@ function validateTaskInput(input: SaveTaskInput) {
   const workFormula = ensureTaskWorkFormula(input.workFormula);
   const calendarMode = ensureTaskCalendarMode(input.calendarMode ?? "PROJECT");
   const constraintType = ensureTaskConstraintType(input.constraintType);
-  const sortOrder = ensureInteger(input.sortOrder, "Task sort order", {
+  const sortOrder = ensureInteger(input.sortOrder, "Ordre du LT", {
     min: 0,
     max: 100_000,
   });
@@ -497,7 +531,7 @@ function validateTaskInput(input: SaveTaskInput) {
   const effortHours =
     input.effortHours == null
       ? null
-      : ensureNumber(input.effortHours, "Task work", {
+      : ensureNumber(input.effortHours, "Charge du LT", {
           min: 0,
           max: 100_000,
         });
@@ -524,7 +558,7 @@ function validateTaskInput(input: SaveTaskInput) {
     "Constraint date",
     { required: false },
   );
-  const deadlineDate = ensureIsoDate(input.deadlineDate ?? null, "Deadline date", {
+  const deadlineDate = ensureIsoDate(input.deadlineDate ?? null, "Échéance", {
     required: false,
   });
   const manualStartDate = ensureIsoDate(
@@ -550,14 +584,14 @@ function validateTaskInput(input: SaveTaskInput) {
   const actualWorkHours =
     input.actualWorkHours == null
       ? null
-      : ensureNumber(input.actualWorkHours, "Actual work", {
+      : ensureNumber(input.actualWorkHours, "Travail réel", {
           min: 0,
           max: 100_000,
         });
   const remainingWorkHours =
     input.remainingWorkHours == null
       ? null
-      : ensureNumber(input.remainingWorkHours, "Remaining work", {
+      : ensureNumber(input.remainingWorkHours, "Reste à faire", {
           min: 0,
           max: 100_000,
         });
@@ -567,7 +601,7 @@ function validateTaskInput(input: SaveTaskInput) {
     { min: 0, max: 1000 },
   );
   if (constraintType !== "ASAP" && !constraintDate) {
-    throw validationError("This constraint requires a constraint date.");
+    throw validationError("Cette contrainte nécessite une date.");
   }
 
   if (schedulingMode === "MANUAL") {
@@ -578,12 +612,12 @@ function validateTaskInput(input: SaveTaskInput) {
     }
 
     if (compareIsoDates(manualFinishDate, manualStartDate) < 0) {
-      throw validationError("Manual finish date cannot be earlier than manual start date.");
+      throw validationError("La fin manuelle ne peut pas précéder le début manuel.");
     }
   }
 
   if (actualFinishDate && !actualStartDate) {
-    throw validationError("Actual finish date requires an actual start date.");
+    throw validationError("Une fin réelle nécessite un début réel.");
   }
 
   if (
@@ -591,7 +625,7 @@ function validateTaskInput(input: SaveTaskInput) {
     actualFinishDate &&
     compareIsoDates(actualFinishDate, actualStartDate) < 0
   ) {
-    throw validationError("Actual finish date cannot be earlier than actual start date.");
+    throw validationError("La fin réelle ne peut pas précéder le début réel.");
   }
 
   if (status === "NOT_STARTED") {
@@ -608,7 +642,7 @@ function validateTaskInput(input: SaveTaskInput) {
   }
 
   if (actualFinishDate && status !== "DONE") {
-    throw validationError("Only completed tasks can carry an actual finish date.");
+    throw validationError("Seul un LT terminé peut avoir une date de fin réelle.");
   }
 
   return {
@@ -648,18 +682,18 @@ function validateCreateTaskInput(input: CreateTaskInput) {
     sortOrder:
       input.sortOrder === undefined
         ? undefined
-        : ensureInteger(input.sortOrder, "Task sort order", {
+        : ensureInteger(input.sortOrder, "Ordre du LT", {
             min: 0,
             max: 100_000,
           }),
-    name: ensureOptionalText(input.name, "Task name", 160) ?? "New task",
+    name: ensureOptionalText(input.name, "Nom du LT", 160) ?? "New task",
     type: input.type ? ensureTaskType(input.type) : "TASK",
   };
 }
 
 function validateMoveTaskInput(input: MoveTaskInput) {
   return {
-    taskId: ensureText(input.taskId, "Task id", { maxLength: 120 }),
+    taskId: ensureText(input.taskId, "Identifiant du LT", { maxLength: 120 }),
     direction: ensureEnum(
       input.direction,
       taskMoveDirections,
@@ -730,7 +764,7 @@ function validateDependencyInput(input: SaveDependencyInput) {
       "Predecessor project",
       { maxLength: 120 },
     ),
-    predecessorTaskId: ensureText(input.predecessorTaskId, "Predecessor task", {
+    predecessorTaskId: ensureText(input.predecessorTaskId, "Prédécesseur", {
       maxLength: 120,
     }),
     successorProjectId: ensureText(
@@ -738,11 +772,11 @@ function validateDependencyInput(input: SaveDependencyInput) {
       "Successor project",
       { maxLength: 120 },
     ),
-    successorTaskId: ensureText(input.successorTaskId, "Successor task", {
+    successorTaskId: ensureText(input.successorTaskId, "Successeur", {
       maxLength: 120,
     }),
     type: ensureDependencyType(input.type),
-    lagDays: ensureInteger(Math.round(input.lagDays), "Dependency lag", {
+    lagDays: ensureInteger(Math.round(input.lagDays), "Délai sur lien", {
       min: -3650,
       max: 3650,
     }),
@@ -754,11 +788,11 @@ function validateResourceInput(
   fallbackColor = "#0f766e",
 ) {
   return {
-    name: ensureText(input.name, "Resource name", { maxLength: 120 }),
-    role: ensureText(input.role, "Resource role", { maxLength: 120 }),
+    name: ensureText(input.name, "Nom de la ressource", { maxLength: 120 }),
+    role: ensureText(input.role, "Rôle", { maxLength: 120 }),
     type: ensureResourceType(input.type),
     location:
-      ensureOptionalText(input.location, "Resource location", 120) ??
+      ensureOptionalText(input.location, "Lieu", 120) ??
       "Unassigned",
     availabilityPct: ensureInteger(
       Math.round(input.availabilityPct),
@@ -793,18 +827,18 @@ function validateResourceInput(
     costRate:
       input.costRate == null
         ? null
-        : ensureNumber(input.costRate, "Cost rate", {
+        : ensureNumber(input.costRate, "Taux horaire", {
             min: 0,
             max: 1_000_000,
           }),
-    color: ensureHexColor(input.color ?? null, "Resource color", fallbackColor),
+    color: ensureHexColor(input.color ?? null, "Couleur de la ressource", fallbackColor),
   };
 }
 
 function validateAssignmentInput(input: SaveAssignmentInput) {
   return {
-    taskId: ensureText(input.taskId, "Assignment task", { maxLength: 120 }),
-    resourceId: ensureText(input.resourceId, "Assignment resource", {
+    taskId: ensureText(input.taskId, "LT affecté", { maxLength: 120 }),
+    resourceId: ensureText(input.resourceId, "Ressource affectée", {
       maxLength: 120,
     }),
     allocationPct: ensureInteger(
@@ -812,16 +846,16 @@ function validateAssignmentInput(input: SaveAssignmentInput) {
       "Assignment allocation",
       { min: 0, max: 400 },
     ),
-    notes: ensureOptionalText(input.notes, "Assignment notes", 2000) ?? undefined,
+    notes: ensureOptionalText(input.notes, "Notes d'affectation", 2000) ?? undefined,
   };
 }
 
 function validateProjectCalendarInput(input: UpdateProjectCalendarInput) {
-  const name = ensureText(input.name, "Calendar name", { maxLength: 120 });
+  const name = ensureText(input.name, "Nom du calendrier", { maxLength: 120 });
   const timezone = ensureTimezone(input.timezone);
   const hoursPerDay = ensureInteger(
     Math.round(input.hoursPerDay),
-    "Hours per day",
+    "Heures par jour",
     { min: 1, max: 24 },
   );
   const normalizedWorkingDays = validateWorkingDays(
@@ -850,23 +884,23 @@ function validateProjectCalendarInput(input: UpdateProjectCalendarInput) {
 function validateTimesheetEntryInput(input: SaveTimesheetEntryInput) {
   return {
     entryId:
-      ensureOptionalText(input.entryId ?? null, "Timesheet entry id", 120) ?? null,
-    taskId: ensureText(input.taskId, "Timesheet task", { maxLength: 120 }),
+      ensureOptionalText(input.entryId ?? null, "Identifiant de saisie", 120) ?? null,
+    taskId: ensureText(input.taskId, "LT", { maxLength: 120 }),
     resourceId:
-      ensureOptionalText(input.resourceId ?? null, "Timesheet resource", 120) ?? null,
-    entryDate: ensureIsoDate(input.entryDate, "Timesheet date")!,
-    workHours: ensureNumber(input.workHours, "Timesheet work", {
+      ensureOptionalText(input.resourceId ?? null, "Ressource", 120) ?? null,
+    entryDate: ensureIsoDate(input.entryDate, "Date de saisie")!,
+    workHours: ensureNumber(input.workHours, "Heures saisies", {
       min: 0.25,
       max: 1000,
     }),
     costAmount:
       input.costAmount == null
         ? null
-        : ensureNumber(input.costAmount, "Timesheet actual cost", {
+        : ensureNumber(input.costAmount, "Coût réel", {
             min: 0,
             max: 10_000_000,
           }),
-    notes: ensureOptionalText(input.notes ?? null, "Timesheet notes", 2000) ?? "",
+    notes: ensureOptionalText(input.notes ?? null, "Notes de saisie", 2000) ?? "",
   };
 }
 
@@ -874,41 +908,41 @@ function validateActualCostEntryInput(input: SaveActualCostEntryInput) {
   const quantity =
     input.quantity == null
       ? null
-      : ensureNumber(input.quantity, "Actual cost quantity", {
+      : ensureNumber(input.quantity, "Quantité", {
           min: 0,
           max: 10_000_000,
         });
   const unitCost =
     input.unitCost == null
       ? null
-      : ensureNumber(input.unitCost, "Actual cost unit cost", {
+      : ensureNumber(input.unitCost, "Coût unitaire", {
           min: 0,
           max: 10_000_000,
         });
   const explicitAmount =
     input.amount == null
       ? null
-      : ensureNumber(input.amount, "Actual cost amount", {
+      : ensureNumber(input.amount, "Montant du coût réel", {
           min: 0,
           max: 10_000_000,
         });
 
   return {
     entryId:
-      ensureOptionalText(input.entryId ?? null, "Actual cost entry id", 120) ?? null,
-    taskId: ensureOptionalText(input.taskId ?? null, "Actual cost task", 120) ?? null,
+      ensureOptionalText(input.entryId ?? null, "Identifiant du coût réel", 120) ?? null,
+    taskId: ensureOptionalText(input.taskId ?? null, "LT du coût réel", 120) ?? null,
     resourceId:
-      ensureOptionalText(input.resourceId ?? null, "Actual cost resource", 120) ?? null,
-    entryDate: ensureIsoDate(input.entryDate, "Actual cost date")!,
+      ensureOptionalText(input.resourceId ?? null, "Ressource du coût réel", 120) ?? null,
+    entryDate: ensureIsoDate(input.entryDate, "Date du coût réel")!,
     source: ensureEnum("MANUAL", actualCostSources, "Actual cost source"),
     category: ensureEnum(input.category, actualCostCategories, "Actual cost category"),
     vendorName:
-      ensureOptionalText(input.vendorName ?? null, "Actual cost vendor", 160) ?? null,
+      ensureOptionalText(input.vendorName ?? null, "Fournisseur", 160) ?? null,
     referenceCode:
-      ensureOptionalText(input.referenceCode ?? null, "Actual cost reference", 120) ??
+      ensureOptionalText(input.referenceCode ?? null, "Référence du coût réel", 120) ??
       null,
     description:
-      ensureOptionalText(input.description ?? null, "Actual cost description", 2000) ??
+      ensureOptionalText(input.description ?? null, "Description du coût réel", 2000) ??
       "",
     quantity,
     unitCost,
@@ -1331,7 +1365,7 @@ function assertValidParent(tasks: Task[], taskId: string, parentId?: string | nu
 
   const parent = tasks.find((task) => task.id === parentId);
   if (!parent) {
-    throw notFoundError("Parent task not found.");
+    throw notFoundError("LT parent introuvable.");
   }
 
   const descendants = collectDescendantTaskIds(tasks, taskId);
@@ -1393,7 +1427,7 @@ function assertParentCanAcceptChildren(
 
   const parent = tasks.find((task) => task.id === parentId);
   if (!parent) {
-    throw notFoundError("Parent task not found.");
+    throw notFoundError("LT parent introuvable.");
   }
 
   if (
@@ -1811,21 +1845,27 @@ function buildDailyResourceLoadBuckets(
       continue;
     }
 
-    const dailyWorkHours = getAssignmentDailyWorkHours(assignment, task, aggregate);
-    let cursor = task.scheduledStartDate;
+    // Mode mois (FGF) : la charge journalière = intensité × capacité du jour
+    // (une durée en mois calendaires n'a pas un nombre fixe de jours ouvrés).
+    const intensityMode = aggregate.project.timeUnit === "mois";
+    const dailyWorkHours = intensityMode ? 0 : getAssignmentDailyWorkHours(assignment, task, aggregate);
     const taskCalendar = getTaskWorkingCalendar(aggregate, task);
+    let cursor = normalizeWorkingDate(task.scheduledStartDate, taskCalendar);
 
     while (compareIsoDates(cursor, task.scheduledFinishDate) <= 0) {
       const key = `${assignment.resourceId}:${cursor}`;
+      const capacityHours = getResourceCapacityHoursOnDate(aggregate, resource, cursor);
       const existing = buckets.get(key) ?? {
         resourceId: assignment.resourceId,
         date: cursor,
         allocatedHours: 0,
-        capacityHours: getResourceCapacityHoursOnDate(aggregate, resource, cursor),
+        capacityHours,
         taskIds: new Set<string>(),
       };
 
-      existing.allocatedHours += dailyWorkHours;
+      existing.allocatedHours += intensityMode
+        ? (assignment.allocationPct / 100) * resource.capacityHoursPerDay
+        : dailyWorkHours;
       existing.taskIds.add(task.id);
       buckets.set(key, existing);
 
@@ -1924,51 +1964,132 @@ function pickLevelingCandidate(
   return candidates[0] ?? null;
 }
 
+/**
+ * Nivellement par les charges (FGF, corrigé Q6/Q7).
+ *
+ * Ancien algorithme : décalage d'un jour à la fois, plafonné à
+ * `levelingMaxDelayDays` → il abandonnait et laissait des surcharges (B2/B3 du
+ * cas sportif restaient en parallèle à intensité 1 chacune).
+ *
+ * Nouvel algorithme : à chaque surcharge, le LT à décaler est placé APRÈS le LT
+ * concurrent par un LIEN RESSOURCE (FD, délai 0). Le moteur recalcule alors
+ * naturellement dates ET marges : après nivellement, la chaîne ressource
+ * devient critique (« toutes les tâches sont critiques » dans le corrigé).
+ */
+const LEVELING_LINK_LABEL = "Lien ressource (nivellement)";
+const LEVELING_TIME_BUDGET_MS = 15_000;
+
+function isLevelingLink(dependency: Dependency) {
+  return dependency.kind === "RESOURCE";
+}
+
+function reachable(dependencies: Dependency[], fromTaskId: string, toTaskId: string) {
+  const adjacency = new Map<string, string[]>();
+  for (const d of dependencies) {
+    const list = adjacency.get(d.predecessorTaskId) ?? [];
+    list.push(d.successorTaskId);
+    adjacency.set(d.predecessorTaskId, list);
+  }
+  const seen = new Set<string>();
+  const stack = [fromTaskId];
+  while (stack.length) {
+    const id = stack.pop()!;
+    if (id === toTaskId) return true;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    stack.push(...(adjacency.get(id) ?? []));
+  }
+  return false;
+}
+
 function calculateLevelingPlan(aggregate: ProjectAggregate) {
-  const delayByTaskId = new Map(aggregate.tasks.map((task) => [task.id, 0]));
-  const maxIterations = Math.max(
-    aggregate.assignments.length * Math.max(aggregate.project.levelingMaxDelayDays, 1),
-    100,
-  );
+  const logicLinks = aggregate.dependencies.filter((d) => !isLevelingLink(d));
+  const resourceLinks: Dependency[] = [];
+  const started = Date.now();
+  const maxIterations = Math.max(200, aggregate.tasks.length * 4);
   let stabilized = false;
+  let remainingOverloads = 0;
 
   for (let iteration = 0; iteration < maxIterations; iteration += 1) {
-    const tasksWithDelay = aggregate.tasks.map((task) => ({
-      ...task,
-      levelingDelayDays: delayByTaskId.get(task.id) ?? 0,
-    }));
+    const dependencies = [...logicLinks, ...resourceLinks];
     const leveledAggregate = {
       ...aggregate,
-      tasks: tasksWithDelay,
+      tasks: aggregate.tasks.map((task) => ({ ...task, levelingDelayDays: 0 })),
+      dependencies,
     } satisfies ProjectAggregate;
     const schedule = buildSchedule(leveledAggregate);
-    const overload = buildDailyResourceLoadBuckets(
-      leveledAggregate,
-      schedule.tasksById,
-    ).find((bucket) => bucket.allocatedHours - bucket.capacityHours > 0.05);
-
-    if (!overload) {
+    const overloads = buildDailyResourceLoadBuckets(leveledAggregate, schedule.tasksById).filter(
+      (bucket) => bucket.allocatedHours - bucket.capacityHours > 0.05,
+    );
+    remainingOverloads = overloads.length;
+    if (!overloads.length) {
       stabilized = true;
       break;
     }
+    if (Date.now() - started > LEVELING_TIME_BUDGET_MS) break;
 
-    const candidate = pickLevelingCandidate(
-      overload.taskIds,
-      schedule.tasksById,
-      aggregate,
-      delayByTaskId,
-    );
-    if (!candidate) {
-      break;
+    let linked = false;
+    for (const overload of overloads) {
+      const tasksInBucket = [...overload.taskIds]
+        .map((id) => schedule.tasksById[id])
+        .filter((task): task is ScheduledTask => Boolean(task) && isLevelableTask(task));
+      if (tasksInBucket.length < 2) continue;
+
+      // Le LT décalé : choisi par la stratégie du projet (priorité, marge…).
+      const ordered = [...tasksInBucket];
+      const first = pickLevelingCandidate(
+        ordered.map((t) => t.id),
+        schedule.tasksById,
+        { ...aggregate, project: { ...aggregate.project, levelingMaxDelayDays: Number.MAX_SAFE_INTEGER } },
+        new Map(),
+      );
+      const candidates = first ? [first, ...ordered.filter((t) => t.id !== first.id)] : ordered;
+
+      for (const candidate of candidates) {
+        // Bloqueur : le concurrent qui libère la ressource le plus tôt, sans créer de cycle.
+        const blockers = tasksInBucket
+          .filter((t) => t.id !== candidate.id)
+          .filter((t) => !reachable(dependencies, candidate.id, t.id))
+          .sort((a, b) => compareIsoDates(a.scheduledFinishDate ?? null, b.scheduledFinishDate ?? null));
+        const blocker = blockers[0];
+        if (!blocker) continue;
+        resourceLinks.push({
+          id: `lvl-${aggregate.project.id}-${resourceLinks.length + 1}-${blocker.id}-${candidate.id}`,
+          projectId: aggregate.project.id,
+          predecessorProjectId: aggregate.project.id,
+          predecessorTaskId: blocker.id,
+          successorProjectId: aggregate.project.id,
+          successorTaskId: candidate.id,
+          type: "FS",
+          lagDays: 0,
+          lagUnits: 0,
+          kind: "RESOURCE",
+          label: LEVELING_LINK_LABEL,
+          createdAt: nowIso(),
+        });
+        linked = true;
+        break;
+      }
+      if (linked) break;
     }
-
-    delayByTaskId.set(candidate.id, (delayByTaskId.get(candidate.id) ?? 0) + 1);
+    if (!linked) break;
   }
 
-  return {
-    delayByTaskId,
-    stabilized,
-  };
+  return { resourceLinks, stabilized, remainingOverloads };
+}
+
+/** Surcharges ressources restantes (jour par jour) d'une vue — recette Q6 et alertes. */
+export function findResourceOverloads(view: ProjectView) {
+  const names = new Map(view.aggregate.resources.map((r) => [r.id, r.name]));
+  return buildDailyResourceLoadBuckets(view.aggregate, view.schedule.tasksById)
+    .filter((bucket) => bucket.allocatedHours - bucket.capacityHours > 0.05)
+    .map((bucket) => ({
+      resourceId: bucket.resourceId,
+      resourceName: names.get(bucket.resourceId) ?? bucket.resourceId,
+      date: bucket.date,
+      load: Math.round((bucket.allocatedHours / Math.max(bucket.capacityHours, 0.01)) * 100) / 100,
+      taskIds: [...bucket.taskIds],
+    }));
 }
 
 function buildBaselineFromStore(
@@ -2163,7 +2284,7 @@ function createProjectSkeleton(projectId: string) {
       projectId,
       parentId: `${projectId}-phase-1`,
       sortOrder: 11,
-      name: "Kickoff complete",
+      name: "Kickoff complète",
       description: "Confirm objectives, scope, and decision rights.",
       notes: "",
       type: "MILESTONE",
@@ -2331,6 +2452,7 @@ function createLotSkeleton(
       projectId,
       parentId: null,
       sortOrder: (index + 1) * 10,
+      code: lot.code ?? null,
       name: lot.name?.trim() || `Lot ${index + 1}`,
       description: "",
       notes: "",
@@ -2631,25 +2753,25 @@ function deriveProjectHealth(input: {
   if (input.scheduleSlipDays > 0) {
     severity = Math.max(severity, input.scheduleSlipDays > 5 ? 3 : 2);
     reasons.push(
-      `La fin previsionnelle depasse la cible de ${input.scheduleSlipDays} jour(s) ouvres.`,
+      `La fin prévisionnelle dépasse la cible de ${input.scheduleSlipDays} jour(s) ouvres.`,
     );
   }
 
   if (input.overdueCriticalCount > 0) {
     severity = Math.max(severity, 3);
     reasons.push(
-      `${input.overdueCriticalCount} tache(s) critique(s) ont deja depasse leur date de fin.`,
+      `${input.overdueCriticalCount} tâche(s) critique(s) ont déjà dépasse leur date de fin.`,
     );
   }
 
   if (input.deadlineMissCount > 0) {
     severity = Math.max(severity, input.deadlineMissCount > 1 ? 3 : 2);
-    reasons.push(`${input.deadlineMissCount} echeance(s) de tache sont deja depassees.`);
+    reasons.push(`${input.deadlineMissCount} échéance(s) de tâche sont déjà depassees.`);
   }
 
   if (input.delayedTaskCount > 0) {
     severity = Math.max(severity, input.delayedTaskCount > 3 ? 2 : 1);
-    reasons.push(`${input.delayedTaskCount} tache(s) sont actuellement en retard.`);
+    reasons.push(`${input.delayedTaskCount} tâche(s) sont actuellement en retard.`);
   }
 
   if (input.overloadedResourceCount > 0) {
@@ -2667,19 +2789,19 @@ function deriveProjectHealth(input: {
   if (input.externalDependencyCount > 0) {
     severity = Math.max(severity, input.externalPredecessorCount > 0 ? 2 : 1);
     reasons.push(
-      `${input.externalDependencyCount} lien(s) de dependance inter-projets influencent le plan.`,
+      `${input.externalDependencyCount} lien(s) de dépendance inter-projets influencent le plan.`,
     );
   }
 
   if (input.maxBaselineSlip > 0) {
     severity = Math.max(severity, input.maxBaselineSlip > 5 ? 2 : 1);
-    reasons.push(`Le plus grand ecart de fin par rapport a la baseline est de ${input.maxBaselineSlip} jour(s).`);
+    reasons.push(`Le plus grand écart de fin par rapport à la baseline est de ${input.maxBaselineSlip} jour(s).`);
   }
 
   if (input.totalLevelingDelayDays > 0) {
     severity = Math.max(severity, input.totalLevelingDelayDays > 5 ? 2 : 1);
     reasons.push(
-      `Le lissage des ressources ajoute actuellement ${input.totalLevelingDelayDays} jour(s) ouvres de retard.`,
+      `Le lissage des ressources ajouté actuellement ${input.totalLevelingDelayDays} jour(s) ouvres de retard.`,
     );
   }
 
@@ -2699,7 +2821,7 @@ function deriveProjectHealth(input: {
       (input.costPerformanceIndex ?? 1) < 0.9 ? 2 : 1,
     );
     reasons.push(
-      `L'indice de performance cout en valeur acquise est de ${(input.costPerformanceIndex ?? 0).toFixed(2)}.`,
+      `L'indice de performance coût en valeur acquise est de ${(input.costPerformanceIndex ?? 0).toFixed(2)}.`,
     );
   }
 
@@ -2728,7 +2850,20 @@ function buildDashboardMetrics(
   dependencyNetwork: DependencyNetworkEntry[],
 ) {
   const executableTasks = tasks.filter((task) => !task.isSummary);
-  const leveledTasks = executableTasks.filter((task) => (task.levelingDelayDays ?? 0) > 0);
+  // Décalage dû au nivellement = écart entre « au plus tôt pur » et le planifié
+  // (couvre les délais historiques ET les liens ressources du nouveau nivellement).
+  const levelingShiftByTaskId = new Map<string, number>();
+  for (const task of executableTasks) {
+    if (task.earliestStartDate && task.scheduledStartDate && task.scheduledStartDate > task.earliestStartDate) {
+      levelingShiftByTaskId.set(
+        task.id,
+        workingDayDistance(task.earliestStartDate, task.scheduledStartDate, aggregate.calendar),
+      );
+    } else if ((task.levelingDelayDays ?? 0) > 0) {
+      levelingShiftByTaskId.set(task.id, task.levelingDelayDays);
+    }
+  }
+  const leveledTasks = executableTasks.filter((task) => (levelingShiftByTaskId.get(task.id) ?? 0) > 0);
   const totalPlannedWorkHours = roundWorkHours(
     executableTasks.reduce((total, task) => total + (task.effortHours ?? 0), 0),
   );
@@ -2750,7 +2885,7 @@ function buildDashboardMetrics(
   const totalActualCost = roundCurrency(getProjectActualCost(aggregate));
   const actualCostBreakdown = getProjectActualCostBreakdown(aggregate);
   const totalLevelingDelayDays = leveledTasks.reduce(
-    (total, task) => total + (task.levelingDelayDays ?? 0),
+    (total, task) => total + (levelingShiftByTaskId.get(task.id) ?? 0),
     0,
   );
   const baselineBudgetAtCompletion = Object.keys(baselineVarianceByTaskId).length
@@ -2882,9 +3017,6 @@ function buildDashboardMetrics(
   const overloadedResourceCount = resourceSummaries.filter(
     (summary) => summary.overloadedWeeks > 0,
   ).length;
-  const finishVarianceHint = aggregate.project.targetFinishDate
-    ? `${aggregate.project.targetFinishDate} target`
-    : undefined;
   const finishValue =
     maxIsoDate(executableTasks.map((task) => task.scheduledFinishDate ?? null)) ?? "Unscheduled";
   const scheduleSlipDays =
@@ -2913,49 +3045,46 @@ function buildDashboardMetrics(
     costPerformanceIndex,
   });
 
+  // Indicateurs de délai (la FP et l'indice délai sont dans le bandeau et le cockpit :
+  // on ne les répète pas ici). Unité = unité du projet.
+  const metricUnit = aggregate.project.timeUnit ?? "jours";
+  const metricUnitLabel = metricUnit === "mois" ? "mois" : metricUnit === "semaines" ? "sem." : metricUnit === "heures" ? "h" : "j";
+  const inUnit = (days: number) => {
+    const v = fromWorkingDays(days, metricUnit, aggregate.calendar.hoursPerDay);
+    return `${v.toLocaleString("fr-FR", { maximumFractionDigits: 2 })} ${metricUnitLabel}`;
+  };
   const dashboardMetrics: DashboardMetric[] = [
     {
-      label: "Avancement du plan",
-      value: `${overallProgress}%`,
+      label: "Avancement",
+      value: `${overallProgress} %`,
       tone: overallProgress >= 70 ? "positive" : overallProgress >= 40 ? "watch" : "neutral",
-      hint: `${executableTasks.length} tache(s) executables`,
+      hint: `${executableTasks.length} LT exécutables`,
     },
     {
-      label: "Fin previsionnelle",
-      value: finishValue,
-      tone:
-        aggregate.project.targetFinishDate &&
-        finishValue !== "Unscheduled" &&
-        compareIsoDates(finishValue, aggregate.project.targetFinishDate) > 0
-          ? "danger"
-          : "neutral",
-      hint: finishVarianceHint,
-    },
-    {
-      label: "Chaine critique",
-      value: `${criticalTasks.length}`,
+      label: "Chemin critique",
+      value: `${criticalTasks.length} LT`,
       tone: criticalTasks.length > 5 ? "danger" : criticalTasks.length > 2 ? "watch" : "neutral",
-      hint: "Taches a marge nulle",
+      hint: "LT à marge totale nulle ou négative",
     },
     {
-      label: "Ecart baseline",
-      value: `${maxBaselineSlip}d`,
+      label: "Écart au PI (plus grand)",
+      value: inUnit(maxBaselineSlip),
       tone: maxBaselineSlip > 5 ? "danger" : maxBaselineSlip > 0 ? "watch" : "positive",
-      hint: "Plus grand ecart de fin",
+      hint: "Plus grand écart de fin d'un LT",
     },
     {
       label: "Charge ressources",
-      value: hotResource ? `${hotResource.maxAllocationPct}%` : "0%",
+      value: hotResource ? `${hotResource.maxAllocationPct} %` : "0 %",
       tone:
         hotResource && hotResource.maxAllocationPct > 100
           ? "danger"
         : hotResource && hotResource.maxAllocationPct > 85
             ? "watch"
             : "positive",
-      hint: hotResource ? hotResource.resource.name : "Aucune affectation",
+      hint: hotResource ? `Pic : ${hotResource.resource.name}` : "Aucune affectation",
     },
     {
-      label: "Inter-projets",
+      label: "Liens inter-projets",
       value: `${externalDependencies.length}`,
       tone:
         externalPredecessorCount > 0
@@ -2965,32 +3094,19 @@ function buildDashboardMetrics(
             : "positive",
       hint:
         externalDependencies.length > 0
-          ? `${externalPredecessorCount} incoming / ${externalSuccessorCount} outgoing`
+          ? `${externalPredecessorCount} entrant(s) / ${externalSuccessorCount} sortant(s)`
           : "Aucun lien logique externe",
     },
-    // KPI de COÛT retirés (Cheetah Time = outil de délai — spec François) : Coût planifié,
-    // Coût réel, Valeur acquise. On ne garde que l'indice de délai (SPI / Earned Schedule).
     {
-      label: "SPI (délai)",
-      value: schedulePerformanceIndex != null ? schedulePerformanceIndex.toFixed(2) : "--",
-      tone:
-        schedulePerformanceIndex == null
-          ? "neutral"
-          : schedulePerformanceIndex < 0.95
-            ? "danger"
-            : "positive",
-      hint: "Indice de performance planning (Earned Schedule)",
-    },
-    {
-      label: "Retard de lissage",
-      value: `${totalLevelingDelayDays}d`,
+      label: "Décalage de nivellement",
+      value: inUnit(totalLevelingDelayDays),
       tone:
         totalLevelingDelayDays > 5
           ? "danger"
           : totalLevelingDelayDays > 0
             ? "watch"
             : "positive",
-      hint: `${leveledTasks.length} tache(s) lissees`,
+      hint: `${leveledTasks.length} LT décalé(s) pour les capacités`,
     },
   ];
 
@@ -3369,8 +3485,16 @@ function buildProjectViewFromAggregate(
     dependencyNetwork,
   );
 
+  // La vue ne transporte ni le contenu des versions (instantanés complets) ni tout
+  // le journal : ils resteraient sinon sérialisés vers chaque page. L'historique
+  // complet se lit avec getProjectHistory().
+  const lightProject = {
+    ...effectiveAggregate.project,
+    auditTrail: (effectiveAggregate.project.auditTrail ?? []).slice(0, 20),
+    snapshots: (effectiveAggregate.project.snapshots ?? []).map((snap) => ({ ...snap, payload: "" })),
+  };
   return {
-    aggregate: effectiveAggregate,
+    aggregate: { ...effectiveAggregate, project: lightProject },
     schedule,
     tasks,
     activeBaseline,
@@ -3382,10 +3506,49 @@ function buildProjectViewFromAggregate(
   };
 }
 
-function buildProjectViewFromStore(store: AppDataStore, projectId: string) {
+/* ── Cache du contexte portefeuille ─────────────────────────────────────────
+   Chaque onglet recalculait tout le portefeuille (~1 s). Le contexte est
+   désormais mis en cache tant que le store n'a pas changé (même révision,
+   même jour — la date d'état intervient dans le calcul). */
+const portfolioContextCache = new Map<string, PortfolioScheduleContext>();
+const PORTFOLIO_CACHE_LIMIT = 6;
+
+function getPortfolioScheduleContext(store: AppDataStore, scope = "*"): PortfolioScheduleContext {
+  const key = [
+    scope,
+    store.metadata?.lastUpdatedAt ?? "",
+    store.projects.length,
+    store.projects.reduce((n, p) => n + p.tasks.length, 0),
+    todayIso(),
+  ].join("|");
+  const cached = portfolioContextCache.get(key);
+  if (cached) return cached;
   const context = buildPortfolioScheduleContext(store);
+  portfolioContextCache.set(key, context);
+  while (portfolioContextCache.size > PORTFOLIO_CACHE_LIMIT) {
+    const oldest = portfolioContextCache.keys().next().value;
+    if (oldest === undefined) break;
+    portfolioContextCache.delete(oldest);
+  }
+  return context;
+}
+
+const projectViewCache = new Map<string, ProjectView>();
+
+function buildProjectViewFromStore(store: AppDataStore, projectId: string) {
+  const key = `${store.metadata?.lastUpdatedAt ?? ""}|${store.projects.length}|${todayIso()}|${projectId}`;
+  const cachedView = projectViewCache.get(key);
+  if (cachedView) return cachedView;
+  const context = getPortfolioScheduleContext(store);
   const aggregate = getAggregateOrThrow(store, projectId);
-  return buildProjectViewFromAggregate(aggregate, context);
+  const view = buildProjectViewFromAggregate(aggregate, context);
+  projectViewCache.set(key, view);
+  while (projectViewCache.size > 12) {
+    const oldest = projectViewCache.keys().next().value;
+    if (oldest === undefined) break;
+    projectViewCache.delete(oldest);
+  }
+  return view;
 }
 
 export async function listProjectViews(options: ListProjectViewsOptions = {}) {
@@ -3397,12 +3560,15 @@ export async function listProjectViews(options: ListProjectViewsOptions = {}) {
       (!workspaceId || aggregate.project.workspaceId === workspaceId) &&
       (includeArchived || !aggregate.project.archivedAt),
   );
-  const context = buildPortfolioScheduleContext({
-    ...store,
-    projects: workspaceId
-      ? store.projects.filter((aggregate) => aggregate.project.workspaceId === workspaceId)
-      : store.projects,
-  });
+  const context = getPortfolioScheduleContext(
+    {
+      ...store,
+      projects: workspaceId
+        ? store.projects.filter((aggregate) => aggregate.project.workspaceId === workspaceId)
+        : store.projects,
+    },
+    workspaceId ?? "*",
+  );
   return aggregates.map((aggregate) => buildProjectViewFromAggregate(aggregate, context));
 }
 
@@ -3422,20 +3588,45 @@ export async function listProjectSummaries(options: { workspaceId?: string } = {
     }));
 }
 
+/**
+ * Vue allégée pour les composants client du planning : chaque LT n'est
+ * sérialisé qu'une fois (au lieu d'environ 5 : agrégat, planning indexé,
+ * liste ordonnée, métriques « en retard » / « critiques »). Les tâches de
+ * l'agrégat sont remplacées par les tâches planifiées (même forme, sur-ensemble).
+ */
+export function toClientPlanningView(view: ProjectView): ProjectView {
+  return {
+    ...view,
+    aggregate: { ...view.aggregate, tasks: view.tasks, timesheetEntries: [], actualCostEntries: [] },
+    schedule: { ...view.schedule, tasksById: {} },
+    metrics: { ...view.metrics, delayedTasks: [], criticalTasks: [] },
+    resourceSummaries: [],
+  };
+}
+
 export async function getProjectView(projectId: string, options: { workspaceId?: string } = {}) {
   const store = await readStore();
   const view = buildProjectViewFromStore(store, projectId);
   if (options.workspaceId && view.aggregate.project.workspaceId !== options.workspaceId) {
-    throw notFoundError("Project not found in this workspace.");
+    throw notFoundError("Projet introuvable dans cet espace de travail.");
   }
   return view;
+}
+
+/** Journal d'audit complet et versions (sans leur contenu) d'un projet. */
+export async function getProjectHistory(projectId: string, options: { workspaceId?: string } = {}) {
+  const aggregate = await getProjectAggregate(projectId, options);
+  return {
+    auditTrail: aggregate.project.auditTrail ?? [],
+    snapshots: (aggregate.project.snapshots ?? []).map(({ payload, ...rest }) => ({ ...rest, sizeKb: Math.round(payload.length / 1024) })),
+  };
 }
 
 export async function getProjectAggregate(projectId: string, options: { workspaceId?: string } = {}) {
   const store = await readStore();
   const aggregate = getAggregateOrThrow(store, projectId);
   if (options.workspaceId && aggregate.project.workspaceId !== options.workspaceId) {
-    throw notFoundError("Project not found in this workspace.");
+    throw notFoundError("Projet introuvable dans cet espace de travail.");
   }
   return aggregate;
 }
@@ -3594,6 +3785,8 @@ function buildStructuredAggregate(
       priority: "MEDIUM",
       progressPercent: 0,
       durationDays,
+      // Valeur saisie dans l'unité du projet (mois calendaires exacts en mode mois).
+      durationUnits: durationDays > 0 ? durationUnitValue : null,
       schedulingMode: "AUTO",
       workFormula: "FIXED_DURATION",
       effortHours,
@@ -3680,6 +3873,7 @@ function buildStructuredAggregate(
         successorTaskId,
         type: ensureDependencyType(pred.type ?? "FS"),
         lagDays: toSignedWorkingDays(pred.lag ?? 0, unit, hoursPerDay),
+        lagUnits: Number(pred.lag) || 0,
         createdAt: nowIso(),
       });
     }
@@ -3807,6 +4001,7 @@ export async function createProject(input: CreateProjectInput) {
       timesheetEntries: [],
       actualCostEntries: [],
     });
+    pushAudit(draft.projects[0], "project_created", "Projet créé", { details: validated.name });
   });
 
   return projectId;
@@ -3832,6 +4027,34 @@ export async function importSuiteProject(text: string, importedBy = "Import suit
     b2pDates: data.b2pDates,
     lots: data.lots,
   });
+  // Fichier 1.1.0 venant de Cheetah Time : on reprend l'unité de temps, la date
+  // d'état et l'historique des prévisions avant pilotage (Tableaux B2P).
+  const delai = data.lentilleDelai;
+  if (delai) {
+    const units = ["heures", "jours", "semaines", "mois"] as const;
+    await mutateStore((draft) => {
+      const aggregate = getAggregateOrThrow(draft, projectId);
+      if ((units as readonly string[]).includes(delai.uniteTemps)) {
+        aggregate.project.timeUnit = delai.uniteTemps as (typeof units)[number];
+      }
+      aggregate.project.statusDate = delai.dateEtat;
+      aggregate.project.b2pSnapshots = Object.fromEntries(
+        delai.parB2P.map((s) => [
+          s.date,
+          {
+            date: s.date,
+            capturedAt: nowIso(),
+            finADate: s.finADate,
+            finPrevisionnelle: s.finPrevisionnelle,
+            ecart: s.ecart,
+            unit: delai.uniteTemps,
+            avancement: s.avancement,
+            actionRequise: s.actionPilotageRequise,
+          },
+        ]),
+      );
+    });
+  }
   return { projectId };
 }
 
@@ -3839,15 +4062,64 @@ export async function importSuiteProject(text: string, importedBy = "Import suit
 export async function buildSuiteExport(projectId: string) {
   const view = await getProjectView(projectId);
   const p = view.aggregate.project;
-  const lots = view.aggregate.tasks
-    .filter((t) => t.type === "SUMMARY" && !t.parentId)
-    .map((t) => ({ name: t.name, budgetAmount: t.budgetAmount ?? 0 }));
-  const dateFin = p.targetFinishDate ?? view.schedule.projectFinishDate ?? p.targetStartDate;
-  const b2pDates =
-    p.b2pDates && p.b2pDates.length
-      ? p.b2pDates
-      : buildRecommendedB2PDates({ dateDebut: p.targetStartDate, dateFin });
+  // Lots exportés = le premier niveau de la structure (tâches hamac ET LT non
+  // regroupés), comme la « Structure budgétaire » de Cheetah Cost. Auparavant un
+  // planning sans tâche hamac exportait 0 lot.
+  const lots = view.tasks
+    .filter((t) => !t.parentId && t.type !== "MILESTONE")
+    .map((t) => ({ name: t.name, budgetAmount: t.budgetAmount ?? 0, code: t.code ?? undefined }));
+  const b2pDates = getProjectB2PDates(p, view.schedule.projectFinishDate);
+
+  // ── Lentille délai : le retard mesuré à chaque B2P, pour Cheetah Cost ──
+  const { computeDelayBanner } = await import("@/lib/fgf/delay-banner");
+  const { buildB2PPlanningReview } = await import("@/lib/fgf/b2p-review");
+  const banner = computeDelayBanner(view);
+  const unit = p.timeUnit ?? "jours";
+  const round2 = (v: number) => Math.round(v * 100) / 100;
+  const review = buildB2PPlanningReview(view);
+  const reviewByName = new Map(review.lots.map((l) => [l.name, l]));
+  const parB2P = Object.values(p.b2pSnapshots ?? {})
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((snap) => {
+      const index = b2pDates.indexOf(snap.date);
+      return {
+        date: snap.date,
+        indexB2P: index >= 0 ? index : null,
+        finADate: snap.finADate,
+        finPrevisionnelle: snap.finPrevisionnelle,
+        ecart: snap.ecart,
+        avancement: snap.avancement,
+        actionPilotageRequise: snap.actionRequise,
+      };
+    });
+  const lentilleDelai = {
+    module: "CheetahTime" as const,
+    uniteTemps: unit,
+    dateEtat: view.schedule.statusDate ?? null,
+    finInitiale: banner.finInitiale,
+    finADate: banner.finADate,
+    finPrevisionnelle: banner.finPrevisionnelle,
+    ecart: banner.ecart,
+    ecartJours: banner.ecartJours,
+    avancement: banner.avancement,
+    actionPilotageRequise: banner.hasPI && banner.actionRequise,
+    piFige: banner.hasPI,
+    parB2P,
+    lots: lots.map((lot, i) => {
+      const row = reviewByName.get(lot.name);
+      const days = row?.glissementJours ?? 0;
+      return {
+        code: lot.code ?? `LT${String(i + 1).padStart(2, "0")}`,
+        libelle: lot.name,
+        finPrevue: row?.finPrevue ?? null,
+        glissement: round2(fromWorkingDays(days, unit, view.aggregate.calendar.hoursPerDay)),
+        glissementJours: days,
+        avancement: Math.round(row?.avancement ?? 0),
+      };
+    }),
+  };
   return buildSuiteProjectFile({
+    lentilleDelai,
     id: p.id,
     code: p.code,
     name: p.name,
@@ -3858,6 +4130,29 @@ export async function buildSuiteExport(projectId: string) {
     lots,
     b2pDates,
   });
+}
+
+/**
+ * Dates des B2P (onglet « Dates des B2P », comportement identique à Cheetah Cost) :
+ * enregistre la liste, triée et dédoublonnée. Une date au-delà de la fin
+ * contractuelle étend cette fin (retard projet), comme dans Cheetah Cost.
+ */
+export async function setProjectB2PDates(input: { projectId: string; dates: string[] }) {
+  const dates = [...new Set(input.dates.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort();
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "plan_updated", "Dates des B2P modifiées", { details: `${dates.length} dates (B2P0 + ${Math.max(0, dates.length - 1)} B2P)` });
+    if (dates.length && dates[0] < aggregate.project.targetStartDate) {
+      throw validationError("Une date de B2P ne peut pas précéder le début du projet.");
+    }
+    aggregate.project.b2pDates = dates;
+    const last = dates[dates.length - 1];
+    if (last && aggregate.project.targetFinishDate && last > aggregate.project.targetFinishDate) {
+      aggregate.project.targetFinishDate = last;
+    }
+    aggregate.project.updatedAt = nowIso();
+  });
+  return dates;
 }
 
 /** Enregistre (ou efface) la note de bilan planning d'un B2P donné. */
@@ -3903,11 +4198,535 @@ export async function setProjectB2PScenario(input: {
   });
 }
 
+/** Paramètres de pilotage du temps (date d'état, coefficient pseudo-critique). */
+export async function updateProjectPilotageSettings(input: {
+  projectId: string;
+  statusDate: string | null;
+  pseudoCriticalCoefficient: number | null;
+}) {
+  if (input.statusDate && !/^\d{4}-\d{2}-\d{2}$/.test(input.statusDate)) {
+    throw validationError("La date d'état doit être une date valide (AAAA-MM-JJ).");
+  }
+  if (
+    input.pseudoCriticalCoefficient != null &&
+    (!Number.isFinite(input.pseudoCriticalCoefficient) ||
+      input.pseudoCriticalCoefficient < 1 ||
+      input.pseudoCriticalCoefficient > 5)
+  ) {
+    throw validationError("Le coefficient pseudo-critique doit être compris entre 1 et 5.");
+  }
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "project_updated", "Paramètres de pilotage modifiés", { details: `Date d'état ${input.statusDate ?? "auto"} · coefficient ${input.pseudoCriticalCoefficient ?? 1.3}` });
+    aggregate.project.statusDate = input.statusDate;
+    aggregate.project.pseudoCriticalCoefficient = input.pseudoCriticalCoefficient;
+    aggregate.project.updatedAt = nowIso();
+  });
+}
+
+export interface B2PAdvanceRowInput {
+  taskId: string;
+  /** NOT_STARTED | STARTED | DONE */
+  etat: "NOT_STARTED" | "STARTED" | "DONE";
+  actualStartDate?: string | null;
+  forecastFinishDate?: string | null;
+  actualFinishDate?: string | null;
+  /** Nouvelle durée (unité projet) — pour les Provisions de Temps non franchies. */
+  newDurationUnits?: number | null;
+}
+
+export interface B2PSnapshot {
+  date: string;
+  capturedAt: string;
+  finADate: string | null;
+  finPrevisionnelle: string | null;
+  ecart: number | null;
+  unit: string;
+  avancement: number;
+  actionRequise: boolean;
+}
+
+/**
+ * Passage guidé au B2P suivant (CdC B1) : saisie, en une fois, des LT
+ * commencés (début réel + prévision de fin), des LT finis (fin réelle), des
+ * nouvelles durées des PT ; la date d'état passe à la date du B2P ; un
+ * instantané « Prévision avant pilotage T2Pi-1 » est enregistré.
+ */
+export async function advanceToB2P(input: {
+  projectId: string;
+  b2pDate: string;
+  rows: B2PAdvanceRowInput[];
+}) {
+  const isDate = (v?: string | null) => Boolean(v && /^\d{4}-\d{2}-\d{2}$/.test(v));
+  if (!isDate(input.b2pDate)) throw validationError("Date de B2P invalide.");
+
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "b2p_saved", `Saisie de l'avancement au B2P du ${input.b2pDate}`, { details: `${input.rows.length} LT saisis` });
+    const unit = aggregate.project.timeUnit ?? "jours";
+    const hoursPerDay = aggregate.calendar.hoursPerDay;
+    const byId = new Map(aggregate.tasks.map((t) => [t.id, t]));
+
+    for (const row of input.rows) {
+      const task = byId.get(row.taskId);
+      if (!task || task.type === "SUMMARY") continue;
+
+      if (row.newDurationUnits != null && Number.isFinite(row.newDurationUnits) && row.newDurationUnits >= 0) {
+        task.durationUnits = row.newDurationUnits;
+        task.durationDays = row.newDurationUnits === 0 ? 0 : toWorkingDays(row.newDurationUnits, unit, hoursPerDay);
+        task.effortHours = task.durationDays * hoursPerDay;
+      }
+
+      if (row.etat === "DONE") {
+        const start = isDate(row.actualStartDate) ? row.actualStartDate! : task.actualStartDate ?? null;
+        const finish = isDate(row.actualFinishDate) ? row.actualFinishDate! : input.b2pDate;
+        if (start && finish < start) {
+          throw validationError(`« ${task.name} » : la fin réelle précède le début réel.`);
+        }
+        task.actualStartDate = start ?? finish;
+        task.actualFinishDate = finish;
+        task.status = "DONE";
+        task.progressPercent = 100;
+      } else if (row.etat === "STARTED") {
+        const start = isDate(row.actualStartDate) ? row.actualStartDate! : task.actualStartDate ?? input.b2pDate;
+        if (start > input.b2pDate) {
+          throw validationError(`« ${task.name} » : un LT commencé ne peut pas débuter après la date du B2P.`);
+        }
+        task.actualStartDate = start;
+        task.actualFinishDate = null;
+        task.status = "IN_PROGRESS";
+        if (isDate(row.forecastFinishDate)) {
+          const forecast = row.forecastFinishDate!;
+          if (forecast < start) throw validationError(`« ${task.name} » : la prévision de fin précède le début.`);
+          // Durée totale = début réel → prévision de fin ; avancement = part écoulée à la date du B2P.
+          const totalDays = Math.max(1, workingDayDistance(start, forecast, aggregate.calendar) + 1);
+          const elapsedDays = Math.min(totalDays, Math.max(0, workingDayDistance(start, input.b2pDate, aggregate.calendar)));
+          task.durationDays = totalDays;
+          task.durationUnits = null;
+          task.effortHours = totalDays * hoursPerDay;
+          task.progressPercent = Math.min(99, Math.max(1, Math.round((elapsedDays / totalDays) * 100)));
+        } else if (task.progressPercent <= 0) {
+          task.progressPercent = 1;
+        }
+      } else {
+        // Non commencé : on efface un éventuel réel saisi par erreur.
+        if (task.status !== "DONE") {
+          task.actualStartDate = null;
+          task.actualFinishDate = null;
+          task.progressPercent = 0;
+          task.status = "NOT_STARTED";
+        }
+      }
+    }
+
+    aggregate.project.statusDate = input.b2pDate;
+    aggregate.project.updatedAt = nowIso();
+  });
+
+  // Instantané « Prévision avant pilotage » (calculé après saisie, avant tout scénario).
+  const view = await getProjectView(input.projectId);
+  const { computeDelayBanner } = await import("@/lib/fgf/delay-banner");
+  const banner = computeDelayBanner(view);
+  const snapshot: B2PSnapshot = {
+    date: input.b2pDate,
+    capturedAt: nowIso(),
+    finADate: banner.finADate,
+    finPrevisionnelle: banner.finPrevisionnelle,
+    ecart: banner.ecart,
+    unit: banner.unit,
+    avancement: banner.avancement,
+    actionRequise: banner.actionRequise,
+  };
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, input.projectId);
+    aggregate.project.b2pSnapshots = { ...(aggregate.project.b2pSnapshots ?? {}), [input.b2pDate]: snapshot };
+  });
+  // Démarrer le B2Pi, c'est créer le tableau T2Pi-1 (comme dans Cheetah Cost).
+  await upsertT2PI1(input.projectId, input.b2pDate);
+  return snapshot;
+}
+
+/* ══ Tableaux de Pilotage du Temps (T2P) — même cycle de vie que les tableaux
+   B2P de Cheetah Cost : B2P0 → T2Pi-1 → scénarios T2Pi-2j → T2Pi-2 retenu. ══ */
+
+function t2pId() {
+  return `t2p_${randomUUID().slice(0, 12)}`;
+}
+
+function assertT2PUnlocked(project: Project, tableId: string) {
+  if ((project.lockedT2PIds ?? []).includes(tableId)) {
+    throw validationError("Ce tableau est verrouillé : déverrouillez-le pour le modifier.");
+  }
+}
+
+/** « Créer le tableau B2P0 » : la référence initiale (Planning Initial). */
+export async function createT2PB2P0(projectId: string) {
+  const view = await getProjectView(projectId);
+  if (!view.activeBaseline) throw validationError("Figez d'abord le Planning Initial (PI) : le B2P0 en est la photographie.");
+  const { buildT2PLinesFromView } = await import("@/lib/fgf/t2p");
+  const lines = buildT2PLinesFromView(view, "reference");
+  const dates = getProjectB2PDates(view.aggregate.project, view.schedule.projectFinishDate);
+  let created: T2PTable | null = null;
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "b2p_created", "B2P0 démarré");
+    const tables = aggregate.project.t2pTables ?? [];
+    if (tables.some((t) => t.tableKind === "b2p0")) throw validationError("Le tableau B2P0 existe déjà.");
+    const now = nowIso();
+    created = {
+      id: t2pId(),
+      numero: 0,
+      tableKind: "b2p0",
+      date: dates[0] ?? aggregate.project.targetStartDate,
+      createdAt: now,
+      updatedAt: now,
+      unit: aggregate.project.timeUnit ?? "jours",
+      lignes: lines,
+    };
+    aggregate.project.t2pTables = [created, ...tables];
+    aggregate.project.updatedAt = now;
+  });
+  return created!;
+}
+
+/** T2Pi-1 « Prévision avant pilotage » : calculé par le moteur après la saisie du B2Pi. */
+async function upsertT2PI1(projectId: string, b2pDate: string) {
+  const view = await getProjectView(projectId);
+  const { buildT2PLinesFromView } = await import("@/lib/fgf/t2p");
+  const lines = buildT2PLinesFromView(view, "current");
+  const dates = getProjectB2PDates(view.aggregate.project, view.schedule.projectFinishDate);
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const project = aggregate.project;
+    const tables = [...(project.t2pTables ?? [])];
+    const now = nowIso();
+    // B2P0 implicite si le PI est figé et qu'il n'a pas encore été créé.
+    if (!tables.some((t) => t.tableKind === "b2p0") && view.activeBaseline) {
+      tables.unshift({
+        id: t2pId(),
+        numero: 0,
+        tableKind: "b2p0",
+        date: dates[0] ?? project.targetStartDate,
+        createdAt: now,
+        updatedAt: now,
+        unit: project.timeUnit ?? "jours",
+        lignes: buildT2PLinesFromView(view, "reference"),
+      });
+    }
+    const indexInPlan = dates.indexOf(b2pDate);
+    const existing = tables.find((t) => t.tableKind === "i-1" && t.date === b2pDate);
+    const numero =
+      existing?.numero ??
+      (indexInPlan > 0 ? indexInPlan : Math.max(0, ...tables.filter((t) => t.tableKind !== "b2p0").map((t) => t.numero)) + 1);
+    if (existing) {
+      assertT2PUnlocked(project, existing.id);
+      const comments = new Map(existing.lignes.map((l) => [l.lotId, l.commentaire ?? ""]));
+      existing.lignes = lines.map((l) => ({ ...l, commentaire: comments.get(l.lotId) ?? "" }));
+      existing.updatedAt = now;
+    } else {
+      tables.push({ id: t2pId(), numero, tableKind: "i-1", date: b2pDate, createdAt: now, updatedAt: now, unit: project.timeUnit ?? "jours", lignes: lines });
+    }
+    project.t2pTables = tables;
+    project.updatedAt = now;
+  });
+}
+
+/** « Nouveau scénario correctif » : T2Pi-2j, copie du T2Pi-1 (comme buildI2JTable). */
+export async function createT2PScenario(projectId: string, numero: number) {
+  let created: T2PTable | null = null;
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "b2p_created", `Scénario correctif créé au B2P${numero}`);
+    const tables = aggregate.project.t2pTables ?? [];
+    const base = tables.find((t) => t.numero === numero && t.tableKind === "i-1");
+    if (!base || numero <= 0) throw validationError("Démarrez d'abord ce B2P (tableau T2Pi-1) avant d'étudier un scénario.");
+    const next = Math.max(0, ...tables.filter((t) => t.numero === numero && t.tableKind === "i-2j").map((t) => t.scenarioIndex ?? 0)) + 1;
+    const now = nowIso();
+    created = { ...base, id: t2pId(), tableKind: "i-2j", scenarioIndex: next, createdAt: now, updatedAt: now, lignes: base.lignes.map((l) => ({ ...l })) };
+    aggregate.project.t2pTables = [...tables, created];
+    aggregate.project.updatedAt = now;
+  });
+  return created!;
+}
+
+/** Saisie dans un tableau : fins prévues et reste à faire (scénarios), commentaires (tous). */
+export async function updateT2PLines(input: {
+  projectId: string;
+  tableId: string;
+  lines: { lotId: string; finPrevue?: string | null; resteAFaire?: number | null; commentaire?: string | null }[];
+}) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "b2p_saved", "Tableau B2P enregistré");
+    const table = (aggregate.project.t2pTables ?? []).find((t) => t.id === input.tableId);
+    if (!table) throw notFoundError("Tableau introuvable.");
+    assertT2PUnlocked(aggregate.project, table.id);
+    const editablePlan = table.tableKind === "i-2j" || table.tableKind === "i-2";
+    const byLot = new Map(input.lines.map((l) => [l.lotId, l]));
+    table.lignes = table.lignes.map((line) => {
+      const patch = byLot.get(line.lotId);
+      if (!patch) return line;
+      const next = { ...line, commentaire: (patch.commentaire ?? line.commentaire ?? "").slice(0, 500) };
+      if (editablePlan) {
+        if (patch.finPrevue && /^\d{4}-\d{2}-\d{2}$/.test(patch.finPrevue)) next.finPrevue = patch.finPrevue;
+        if (patch.resteAFaire != null && Number.isFinite(patch.resteAFaire) && patch.resteAFaire >= 0) next.resteAFaire = patch.resteAFaire;
+      }
+      return next;
+    });
+    table.updatedAt = nowIso();
+    aggregate.project.updatedAt = table.updatedAt;
+  });
+}
+
+/**
+ * « Retenir i-2 » — même règle que promoteToI2 (Cost) : le scénario choisi est
+ * CONSERVÉ et DUPLIQUÉ en T2Pi-2 ; un T2Pi-2 déjà retenu redescend en scénario.
+ */
+export async function promoteT2PScenario(projectId: string, tableId: string) {
+  let retained: T2PTable | null = null;
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "b2p_promoted", "Scénario correctif retenu (T2Pi-2)");
+    const tables = aggregate.project.t2pTables ?? [];
+    const chosen = tables.find((t) => t.id === tableId);
+    if (!chosen || chosen.tableKind !== "i-2j") throw validationError("Seul un scénario correctif (T2Pi-2j) peut être retenu.");
+    let nextScenario = Math.max(0, ...tables.filter((t) => t.numero === chosen.numero && t.tableKind === "i-2j").map((t) => t.scenarioIndex ?? 0)) + 1;
+    const now = nowIso();
+    const demoted = tables.map((t) => {
+      if (t.numero === chosen.numero && t.tableKind === "i-2") {
+        const d = { ...t, tableKind: "i-2j" as const, scenarioIndex: nextScenario };
+        nextScenario += 1;
+        return d;
+      }
+      return t;
+    });
+    retained = { ...chosen, id: t2pId(), tableKind: "i-2", scenarioIndex: undefined, createdAt: now, updatedAt: now, lignes: chosen.lignes.map((l) => ({ ...l })) };
+    aggregate.project.t2pTables = [...demoted, retained];
+    aggregate.project.updatedAt = now;
+  });
+  return retained!;
+}
+
+export async function setT2PLocked(projectId: string, tableId: string, locked: boolean) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "b2p_locked", locked ? "Tableau B2P verrouillé" : "Tableau B2P déverrouillé");
+    const ids = new Set(aggregate.project.lockedT2PIds ?? []);
+    if (locked) ids.add(tableId);
+    else ids.delete(tableId);
+    aggregate.project.lockedT2PIds = [...ids];
+    aggregate.project.updatedAt = nowIso();
+  });
+}
+
+/** Suppression d'un tableau (pas le B2P0, jamais un tableau verrouillé). */
+export async function deleteT2PTable(projectId: string, tableId: string) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "b2p_deleted", "Tableau B2P supprimé");
+    const tables = aggregate.project.t2pTables ?? [];
+    const table = tables.find((t) => t.id === tableId);
+    if (!table) throw notFoundError("Tableau introuvable.");
+    if (table.tableKind === "b2p0") throw validationError("Le tableau B2P0 (référence initiale) ne se supprime pas.");
+    assertT2PUnlocked(aggregate.project, tableId);
+    aggregate.project.t2pTables = tables.filter((t) => t.id !== tableId);
+    aggregate.project.updatedAt = nowIso();
+  });
+}
+
+/* ══ Rapports de délai (R2Pi) — même cycle de vie que les rapports de coût de Cheetah Cost ══ */
+
+/** « Rédiger le R2Pi » : un rapport par B2P, pré-rempli depuis son tableau représentatif. */
+export async function createRapportDelai(projectId: string, t2pId: string) {
+  const view = await getProjectView(projectId);
+  const table = (view.aggregate.project.t2pTables ?? []).find((t) => t.id === t2pId);
+  if (!table) throw notFoundError("Tableau B2P introuvable.");
+  const { buildDefaultSectionsDelai } = await import("@/lib/fgf/rapports-delai");
+  const now = nowIso();
+  const rapport: RapportDelai = {
+    id: `r2p_${randomUUID().slice(0, 12)}`,
+    t2pId,
+    numero: table.numero,
+    reference: "",
+    auteur: "",
+    statut: "brouillon",
+    sections: buildDefaultSectionsDelai(view, table),
+    createdAt: now,
+    updatedAt: now,
+  };
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "rapport_created", `R2P${table.numero} créé`);
+    const existing = aggregate.project.rapportsDelai ?? [];
+    if (existing.some((r) => r.numero === table.numero)) {
+      throw validationError(`Le rapport R2P${table.numero} existe déjà : ouvrez-le dans l'archive.`);
+    }
+    aggregate.project.rapportsDelai = [...existing, rapport];
+    aggregate.project.updatedAt = now;
+  });
+  return rapport;
+}
+
+export async function saveRapportDelai(input: {
+  projectId: string;
+  rapportId: string;
+  reference: string;
+  auteur: string;
+  sections: { id: string; contenu: string }[];
+}) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "rapport_updated", "Rapport de délai enregistré");
+    const rapport = (aggregate.project.rapportsDelai ?? []).find((r) => r.id === input.rapportId);
+    if (!rapport) throw notFoundError("Rapport introuvable.");
+    if (rapport.statut === "diffuse") throw validationError("Rapport diffusé : repassez-le en brouillon pour le modifier.");
+    const byId = new Map(input.sections.map((sec) => [sec.id, sec.contenu]));
+    rapport.reference = input.reference.slice(0, 120);
+    rapport.auteur = input.auteur.slice(0, 120);
+    rapport.sections = rapport.sections.map((sec) => (byId.has(sec.id) ? { ...sec, contenu: String(byId.get(sec.id)).slice(0, 20_000) } : sec));
+    rapport.updatedAt = nowIso();
+    aggregate.project.updatedAt = rapport.updatedAt;
+  });
+}
+
+/** §3 auto : régénère la synthèse depuis le tableau (les autres sections sont conservées). */
+export async function regenerateRapportDelaiSynthese(projectId: string, rapportId: string) {
+  const view = await getProjectView(projectId);
+  const { buildSyntheseDelai } = await import("@/lib/fgf/rapports-delai");
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "rapport_updated", "§3 du rapport régénéré");
+    const rapport = (aggregate.project.rapportsDelai ?? []).find((r) => r.id === rapportId);
+    if (!rapport) throw notFoundError("Rapport introuvable.");
+    if (rapport.statut === "diffuse") throw validationError("Rapport diffusé : repassez-le en brouillon pour le modifier.");
+    const table = (view.aggregate.project.t2pTables ?? []).find((t) => t.id === rapport.t2pId);
+    if (!table) throw notFoundError("Le tableau B2P de ce rapport n'existe plus.");
+    rapport.sections = rapport.sections.map((sec) => (sec.auto ? { ...sec, contenu: buildSyntheseDelai(view, table) } : sec));
+    rapport.updatedAt = nowIso();
+  });
+}
+
+export async function setRapportDelaiStatut(projectId: string, rapportId: string, diffuse: boolean) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "rapport_diffused", diffuse ? "Rapport de délai diffusé" : "Rapport repassé en brouillon");
+    const rapport = (aggregate.project.rapportsDelai ?? []).find((r) => r.id === rapportId);
+    if (!rapport) throw notFoundError("Rapport introuvable.");
+    rapport.statut = diffuse ? "diffuse" : "brouillon";
+    rapport.diffuseLe = diffuse ? nowIso() : undefined;
+    rapport.updatedAt = nowIso();
+  });
+}
+
+export async function deleteRapportDelai(projectId: string, rapportId: string) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "rapport_deleted", "Rapport de délai supprimé");
+    const rapports = aggregate.project.rapportsDelai ?? [];
+    const rapport = rapports.find((r) => r.id === rapportId);
+    if (!rapport) throw notFoundError("Rapport introuvable.");
+    if (rapport.statut === "diffuse") throw validationError("Un rapport diffusé ne se supprime pas : repassez-le d'abord en brouillon.");
+    aggregate.project.rapportsDelai = rapports.filter((r) => r.id !== rapportId);
+  });
+}
+
+/* ══ Versions du projet — même modèle que Cheetah Cost (ProjectSnapshot) :
+   instantané complet du CONTENU, restaurable ; le journal et les versions
+   elles-mêmes ne sont pas écrasés par une restauration. ══ */
+const SNAPSHOT_LIMIT = 30;
+
+function snapshotContent(aggregate: ProjectAggregate) {
+  const p = aggregate.project;
+  return {
+    project: {
+      name: p.name,
+      clientName: p.clientName,
+      description: p.description,
+      phase: p.phase ?? null,
+      timeUnit: p.timeUnit ?? null,
+      targetStartDate: p.targetStartDate,
+      targetFinishDate: p.targetFinishDate ?? null,
+      b2pDates: p.b2pDates ?? [],
+      b2pNotes: p.b2pNotes ?? {},
+      b2pScenarios: p.b2pScenarios ?? {},
+      b2pSnapshots: p.b2pSnapshots ?? {},
+      statusDate: p.statusDate ?? null,
+      pseudoCriticalCoefficient: p.pseudoCriticalCoefficient ?? null,
+      t2pTables: p.t2pTables ?? [],
+      lockedT2PIds: p.lockedT2PIds ?? [],
+      rapportsDelai: p.rapportsDelai ?? [],
+    },
+    calendar: aggregate.calendar,
+    tasks: aggregate.tasks,
+    dependencies: aggregate.dependencies,
+    resources: aggregate.resources,
+    assignments: aggregate.assignments,
+    baselines: aggregate.baselines,
+  };
+}
+
+/** Trace un export dans le journal (comme « export_created » de Cheetah Cost). Ne bloque jamais l'export. */
+export async function recordProjectExport(projectId: string, label: string, actor?: string | null) {
+  const write = () =>
+    mutateStore((draft) => {
+      const aggregate = getAggregateOrThrow(draft, projectId);
+      pushAudit(aggregate, "export_created", label);
+    }).catch(() => undefined);
+  await (actor ? auditActor.run(actor, write) : write());
+}
+
+export async function saveProjectSnapshot(projectId: string, label: string) {
+  let snap: ProjectSnapshot | null = null;
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const now = nowIso();
+    snap = {
+      id: `ver_${randomUUID().slice(0, 12)}`,
+      at: now,
+      label: label.slice(0, 120) || `Version du ${new Date().toLocaleDateString("fr-FR")}`,
+      t2pCount: aggregate.project.t2pTables?.length ?? 0,
+      lotsCount: aggregate.tasks.length,
+      payload: JSON.stringify(snapshotContent(aggregate)),
+    };
+    aggregate.project.snapshots = [snap, ...(aggregate.project.snapshots ?? [])].slice(0, SNAPSHOT_LIMIT);
+    pushAudit(aggregate, "version_saved", `Version enregistrée : ${snap.label}`);
+  });
+  return snap!;
+}
+
+export async function restoreProjectSnapshot(projectId: string, snapshotId: string) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const snap = (aggregate.project.snapshots ?? []).find((s) => s.id === snapshotId);
+    if (!snap) throw notFoundError("Version introuvable.");
+    const content = JSON.parse(snap.payload) as ReturnType<typeof snapshotContent>;
+    aggregate.project = { ...aggregate.project, ...content.project, updatedAt: nowIso() };
+    aggregate.calendar = content.calendar;
+    aggregate.tasks = content.tasks;
+    aggregate.dependencies = content.dependencies;
+    aggregate.resources = content.resources;
+    aggregate.assignments = content.assignments;
+    aggregate.baselines = content.baselines;
+    pushAudit(aggregate, "version_restored", `Version restaurée : ${snap.label}`);
+  });
+}
+
+export async function deleteProjectSnapshot(projectId: string, snapshotId: string) {
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+    const snap = (aggregate.project.snapshots ?? []).find((s) => s.id === snapshotId);
+    if (!snap) throw notFoundError("Version introuvable.");
+    aggregate.project.snapshots = (aggregate.project.snapshots ?? []).filter((s) => s.id !== snapshotId);
+    pushAudit(aggregate, "version_deleted", `Version supprimée : ${snap.label}`);
+  });
+}
+
 export async function updateProjectMetadata(input: UpdateProjectInput) {
   const validated = validateProjectMetadataInput(input);
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "project_updated", "Informations du projet modifiées", { details: input.name });
     aggregate.project = {
       ...aggregate.project,
       name: validated.name,
@@ -3932,10 +4751,11 @@ export async function setProjectArchived(
   archived: boolean,
   actor: string,
 ) {
-  const archivedBy = ensureText(actor, "Archive actor", { maxLength: 120 });
+  const archivedBy = ensureText(actor, "Auteur de l'archivage", { maxLength: 120 });
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "project_updated", "Archivage du projet modifié");
     aggregate.project.archivedAt = archived ? nowIso() : null;
     aggregate.project.archivedBy = archived ? archivedBy : null;
     aggregate.project.updatedAt = nowIso();
@@ -3948,10 +4768,11 @@ export async function setProjectDeclassed(
   declassed: boolean,
   actor: string,
 ) {
-  const declassedBy = ensureText(actor, "Declass actor", { maxLength: 120 });
+  const declassedBy = ensureText(actor, "Auteur du déclassement", { maxLength: 120 });
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "project_updated", "Déclassement du projet modifié");
     aggregate.project.declassedAt = declassed ? nowIso() : null;
     aggregate.project.declassedBy = declassed ? declassedBy : null;
     aggregate.project.updatedAt = nowIso();
@@ -3965,7 +4786,7 @@ export async function duplicateProject(input: DuplicateProjectInput) {
     "Duplicate project name",
     120,
   );
-  const duplicatedBy = ensureText(input.duplicatedBy, "Duplicated by", {
+  const duplicatedBy = ensureText(input.duplicatedBy, "Dupliqué par", {
     maxLength: 120,
   });
 
@@ -4088,7 +4909,7 @@ export async function importProjectDocument(
   importedBy: string,
 ) {
   let importedProjectId = "";
-  const actor = ensureText(importedBy, "Imported by", { maxLength: 120 });
+  const actor = ensureText(importedBy, "Importé par", { maxLength: 120 });
 
   await mutateStore((draft) => {
     const importedAt = nowIso();
@@ -4329,9 +5150,10 @@ export async function saveTask(input: SaveTaskInput) {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "lots_updated", `LT modifié : ${input.name}`);
     const task = aggregate.tasks.find((entry) => entry.id === input.taskId);
     if (!task) {
-      throw notFoundError("Task not found.");
+      throw notFoundError("LT introuvable.");
     }
 
     assertValidParent(aggregate.tasks, task.id, validated.parentId);
@@ -4394,6 +5216,8 @@ export async function saveTask(input: SaveTaskInput) {
         validated.remainingWorkHours ?? task.remainingWorkHours ?? null,
     });
 
+    // La durée en unité projet n'est conservée que si la durée n'a pas changé.
+    const keepDurationUnits = task.durationDays === normalizedPlanningState.durationDays;
     Object.assign(task, {
       name: validated.name,
       description: validated.description,
@@ -4405,6 +5229,7 @@ export async function saveTask(input: SaveTaskInput) {
       priority: validated.priority,
       progressPercent: normalizedExecutionState.progressPercent,
       durationDays: normalizedPlanningState.durationDays,
+      durationUnits: keepDurationUnits ? task.durationUnits ?? null : null,
       schedulingMode: normalizedPlanningState.schedulingMode,
       workFormula: normalizedPlanningState.workFormula,
       effortHours: normalizedPlanningState.effortHours,
@@ -4428,10 +5253,10 @@ export async function saveTask(input: SaveTaskInput) {
 }
 
 export async function rescheduleTaskFromGantt(input: RescheduleTaskFromGanttInput) {
-  const startDate = ensureIsoDate(input.startDate, "Gantt start date", {
+  const startDate = ensureIsoDate(input.startDate, "Début", {
     required: true,
   });
-  const finishDate = ensureIsoDate(input.finishDate, "Gantt finish date", {
+  const finishDate = ensureIsoDate(input.finishDate, "Fin", {
     required: true,
   });
 
@@ -4443,15 +5268,15 @@ export async function rescheduleTaskFromGantt(input: RescheduleTaskFromGanttInpu
   const aggregate = getAggregateOrThrow(store, input.projectId);
   const task = aggregate.tasks.find((entry) => entry.id === input.taskId);
   if (!task) {
-    throw notFoundError("Task not found.");
+    throw notFoundError("LT introuvable.");
   }
   if (task.type === "SUMMARY") {
-    throw validationError("Une tache recapitulitative se pilote par ses enfants, pas par glisser-deposer direct.");
+    throw validationError("Une tâche hamac se pilote par ses LT, pas par glisser-déposer direct.");
   }
 
   const normalizedFinishDate = task.type === "MILESTONE" ? startDate : finishDate;
   if (compareIsoDates(normalizedFinishDate, startDate) < 0) {
-    throw validationError("La fin Gantt ne peut pas etre anterieure au debut.");
+    throw validationError("La fin ne peut pas être antérieure au début.");
   }
 
   const taskCalendar = getTaskWorkingCalendar(aggregate, task);
@@ -4498,6 +5323,7 @@ export async function createTask(input: CreateTaskInput) {
   const validated = validateCreateTaskInput(input);
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "lots_updated", "LT ajouté", { details: input.name });
     assertParentCanAcceptChildren(
       aggregate.tasks,
       aggregate.dependencies,
@@ -4562,9 +5388,10 @@ export async function moveTask(input: MoveTaskInput) {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "lots_updated", "LT déplacé dans la structure");
     const task = aggregate.tasks.find((entry) => entry.id === validated.taskId);
     if (!task) {
-      throw notFoundError("Task not found.");
+      throw notFoundError("LT introuvable.");
     }
 
     const currentParentId = task.parentId ?? null;
@@ -4632,7 +5459,7 @@ export async function moveTask(input: MoveTaskInput) {
 
         const parent = aggregate.tasks.find((entry) => entry.id === currentParentId);
         if (!parent) {
-          throw notFoundError("Parent task not found.");
+          throw notFoundError("LT parent introuvable.");
         }
 
         const newParentId = parent.parentId ?? null;
@@ -4660,6 +5487,7 @@ export async function saveDependency(input: SaveDependencyInput) {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "lots_updated", "Lien entre LT enregistré");
     const predecessorRecord = findTaskInStore(
       draft,
       validated.predecessorProjectId,
@@ -4672,7 +5500,7 @@ export async function saveDependency(input: SaveDependencyInput) {
     );
 
     if (!predecessorRecord || !successorRecord) {
-      throw notFoundError("Dependency tasks must exist in their referenced projects.");
+      throw notFoundError("Les LT liés doivent exister dans leurs projets.");
     }
 
     if (
@@ -4732,6 +5560,7 @@ export async function saveDependency(input: SaveDependencyInput) {
       existing.predecessorProjectId = validated.predecessorProjectId;
       existing.successorProjectId = validated.successorProjectId;
       existing.type = validated.type;
+      if (existing.lagDays !== validated.lagDays) existing.lagUnits = null;
       existing.lagDays = validated.lagDays;
     } else {
       aggregate.dependencies.push({
@@ -4756,6 +5585,7 @@ export async function createResource(input: CreateResourceInput) {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "lots_updated", "Ressource ajoutée");
     const validated = validateResourceInput(input, getNextResourceColor(aggregate));
     aggregate.resources.push({
       id: resourceId,
@@ -4781,10 +5611,11 @@ export async function createResource(input: CreateResourceInput) {
 export async function updateResource(input: UpdateResourceInput) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "lots_updated", "Ressource modifiée");
     const resource = aggregate.resources.find((entry) => entry.id === input.resourceId);
 
     if (!resource) {
-      throw notFoundError("Resource not found.");
+      throw notFoundError("Ressource introuvable.");
     }
 
     const validated = validateResourceInput(input, resource.color);
@@ -4823,7 +5654,7 @@ export async function setResourceAvailability(input: {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
     const resource = aggregate.resources.find((entry) => entry.id === input.resourceId);
-    if (!resource) throw notFoundError("Resource not found.");
+    if (!resource) throw notFoundError("Ressource introuvable.");
     // Nettoyage : ne garde que des clés "YYYY-MM" avec une intensité >= 0.
     const clean: Record<string, number> = {};
     for (const [k, v] of Object.entries(input.availabilityByMonth)) {
@@ -4841,21 +5672,22 @@ export async function saveAssignment(input: SaveAssignmentInput) {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "lots_updated", "Affectation de ressource enregistrée");
     const task = aggregate.tasks.find((entry) => entry.id === validated.taskId);
     const resource = aggregate.resources.find(
       (entry) => entry.id === validated.resourceId,
     );
 
     if (!task) {
-      throw notFoundError("Task not found for assignment.");
+      throw notFoundError("LT introuvable pour cette affectation.");
     }
 
     if (!resource) {
-      throw notFoundError("Resource not found for assignment.");
+      throw notFoundError("Ressource introuvable pour cette affectation.");
     }
 
     if (task.type === "SUMMARY" || taskHasChildren(aggregate.tasks, task.id)) {
-      throw conflictError("Assignments can only be placed on executable tasks.");
+      throw conflictError("Assignments can only be placed on exécutable tasks.");
     }
 
     const existing = aggregate.assignments.find(
@@ -4897,15 +5729,15 @@ export async function saveTimesheetEntry(input: SaveTimesheetEntryInput) {
       : null;
 
     if (!task) {
-      throw notFoundError("Task not found for timesheet entry.");
+      throw notFoundError("LT introuvable pour cette saisie de temps.");
     }
 
     if (task.type === "SUMMARY" || taskHasChildren(aggregate.tasks, task.id)) {
-      throw conflictError("Timesheet actuals can only be logged against executable tasks.");
+      throw conflictError("Timesheet actuals can only be logged against exécutable tasks.");
     }
 
     if (validated.resourceId && !resource) {
-      throw notFoundError("Resource not found for timesheet entry.");
+      throw notFoundError("Ressource introuvable pour cette saisie de temps.");
     }
 
     const persistedCostAmount =
@@ -4955,7 +5787,7 @@ export async function deleteTimesheetEntry(projectId: string, entryId: string) {
     const entry = aggregate.timesheetEntries.find((item) => item.id === entryId);
 
     if (!entry) {
-      throw notFoundError("Timesheet entry not found.");
+      throw notFoundError("Saisie de temps introuvable.");
     }
 
     aggregate.timesheetEntries = aggregate.timesheetEntries.filter(
@@ -4981,16 +5813,16 @@ export async function saveActualCostEntry(input: SaveActualCostEntryInput) {
       : null;
 
     if (validated.taskId && !task) {
-      throw notFoundError("Actual cost task not found.");
+      throw notFoundError("LT introuvable pour ce coût réel.");
     }
 
     if (validated.resourceId && !resource) {
-      throw notFoundError("Actual cost resource not found.");
+      throw notFoundError("Ressource introuvable pour ce coût réel.");
     }
 
     if (task && (task.type === "SUMMARY" || taskHasChildren(aggregate.tasks, task.id))) {
       throw conflictError(
-        "Manual actual costs can only be posted against executable tasks or the project ledger.",
+        "Manual actual costs can only be posted against exécutable tasks or the project ledger.",
       );
     }
 
@@ -5034,7 +5866,7 @@ export async function deleteActualCostEntry(projectId: string, entryId: string) 
     const entry = aggregate.actualCostEntries.find((item) => item.id === entryId);
 
     if (!entry) {
-      throw notFoundError("Actual cost entry not found.");
+      throw notFoundError("Coût réel introuvable.");
     }
 
     if (entry.source === "TIMESHEET" && entry.timesheetEntryId) {
@@ -5053,10 +5885,11 @@ export async function deleteActualCostEntry(projectId: string, entryId: string) 
 export async function deleteTask(projectId: string, taskId: string) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "lots_updated", "LT supprimé");
     const task = aggregate.tasks.find((entry) => entry.id === taskId);
 
     if (!task) {
-      throw notFoundError("Task not found.");
+      throw notFoundError("LT introuvable.");
     }
 
     const taskIdsToDelete = new Set([taskId, ...collectDescendantTaskIds(aggregate.tasks, taskId)]);
@@ -5107,12 +5940,13 @@ export async function deleteDependency(projectId: string, dependencyId: string) 
     );
 
     if (!ownerAggregate) {
-      throw notFoundError("Dependency not found.");
+      throw notFoundError("Lien introuvable.");
     }
 
     ownerAggregate.dependencies = ownerAggregate.dependencies.filter(
       (dependency) => dependency.id !== dependencyId,
     );
+    pushAudit(ownerAggregate, "lots_updated", "Lien entre LT supprimé");
     ownerAggregate.project.updatedAt = nowIso();
   });
 }
@@ -5120,6 +5954,7 @@ export async function deleteDependency(projectId: string, dependencyId: string) 
 export async function deleteResource(projectId: string, resourceId: string) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "lots_updated", "Ressource supprimée");
     const resourceCount = aggregate.resources.length;
     const affectedTaskIds = aggregate.assignments
       .filter((assignment) => assignment.resourceId === resourceId)
@@ -5127,7 +5962,7 @@ export async function deleteResource(projectId: string, resourceId: string) {
 
     aggregate.resources = aggregate.resources.filter((resource) => resource.id !== resourceId);
     if (aggregate.resources.length === resourceCount) {
-      throw notFoundError("Resource not found.");
+      throw notFoundError("Ressource introuvable.");
     }
 
     aggregate.assignments = aggregate.assignments.filter(
@@ -5159,10 +5994,11 @@ export async function deleteResource(projectId: string, resourceId: string) {
 export async function deleteAssignment(projectId: string, assignmentId: string) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "lots_updated", "Affectation de ressource supprimée");
     const assignment = aggregate.assignments.find((entry) => entry.id === assignmentId);
 
     if (!assignment) {
-      throw notFoundError("Assignment not found.");
+      throw notFoundError("Affectation introuvable.");
     }
 
     aggregate.assignments = aggregate.assignments.filter(
@@ -5178,7 +6014,7 @@ export async function deleteAssignment(projectId: string, assignmentId: string) 
 }
 
 export async function deleteProject(projectId: string, confirmationName: string) {
-  const expectedName = ensureText(confirmationName, "Project confirmation name", {
+  const expectedName = ensureText(confirmationName, "Nom de confirmation", {
     maxLength: 160,
   });
 
@@ -5209,13 +6045,14 @@ export async function deleteProject(projectId: string, confirmationName: string)
 }
 
 export async function captureBaseline(projectId: string, name: string, capturedBy: string) {
-  const baselineName = ensureText(name, "Baseline name", { maxLength: 120 });
-  const baselineOwner = ensureText(capturedBy, "Baseline captured by", {
+  const baselineName = ensureText(name, "Référentiel name", { maxLength: 120 });
+  const baselineOwner = ensureText(capturedBy, "Référentiel captured by", {
     maxLength: 120,
   });
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "plan_updated", `Planning figé : ${name}`);
     const baselineId = randomUUID().slice(0, 8);
 
     for (const baseline of aggregate.baselines) {
@@ -5240,10 +6077,11 @@ export async function captureBaseline(projectId: string, name: string, capturedB
 export async function setActiveBaseline(projectId: string, baselineId: string) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "plan_updated", "Planning Initial (PI) désigné");
     const baseline = aggregate.baselines.find((entry) => entry.id === baselineId);
 
     if (!baseline) {
-      throw notFoundError("Baseline not found.");
+      throw notFoundError("Référentiel introuvable.");
     }
 
     for (const entry of aggregate.baselines) {
@@ -5255,19 +6093,23 @@ export async function setActiveBaseline(projectId: string, baselineId: string) {
 }
 
 export async function levelProjectResources(projectId: string) {
+  let result = { stabilized: true, remainingOverloads: 0, links: 0 };
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
-    const { delayByTaskId } = calculateLevelingPlan(aggregate);
+    pushAudit(aggregate, "lots_updated", "Nivellement par les charges");
+    const plan = calculateLevelingPlan(aggregate);
 
+    aggregate.dependencies = [
+      ...aggregate.dependencies.filter((d) => !isLevelingLink(d)),
+      ...plan.resourceLinks,
+    ];
     for (const task of aggregate.tasks) {
-      task.levelingDelayDays = delayByTaskId.get(task.id) ?? 0;
-      if (task.schedulingMode === "MANUAL" || task.type === "SUMMARY") {
-        task.levelingDelayDays = 0;
-      }
+      task.levelingDelayDays = 0;
     }
-
+    result = { stabilized: plan.stabilized, remainingOverloads: plan.remainingOverloads, links: plan.resourceLinks.length };
     aggregate.project.updatedAt = nowIso();
   });
+  return result;
 }
 
 /**
@@ -5283,6 +6125,7 @@ export async function stretchProjectResources(projectId: string) {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "lots_updated", "Nivellement par allongement");
     const schedule = buildSchedule(aggregate);
     const summaries = buildResourceSummaries(aggregate, schedule.tasksById);
 
@@ -5477,10 +6320,12 @@ export async function levelWorkspaceResources(workspaceId: string) {
 export async function clearProjectLeveling(projectId: string) {
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, projectId);
+    pushAudit(aggregate, "lots_updated", "Nivellement annulé");
 
     for (const task of aggregate.tasks) {
       task.levelingDelayDays = 0;
     }
+    aggregate.dependencies = aggregate.dependencies.filter((d) => !isLevelingLink(d));
 
     aggregate.project.updatedAt = nowIso();
   });
@@ -5491,6 +6336,7 @@ export async function updateProjectCalendar(input: UpdateProjectCalendarInput) {
 
   await mutateStore((draft) => {
     const aggregate = getAggregateOrThrow(draft, input.projectId);
+    pushAudit(aggregate, "project_updated", "Calendrier du projet modifié");
     aggregate.calendar = {
       ...aggregate.calendar,
       name: validated.name,

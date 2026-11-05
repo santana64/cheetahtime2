@@ -35,7 +35,7 @@ function revalidateEverything() {
 }
 
 /** Crée immédiatement un snapshot manuel de l'état courant. */
-export async function manualSnapshotAction(_formData: FormData) {
+export async function manualSnapshotAction() {
   await guard();
   const raw = await readMainRaw();
   await writeSnapshot(raw, "manual");
@@ -65,7 +65,7 @@ export async function setExternalFolderAction(formData: FormData) {
 }
 
 /** Recopie immédiate dans le dossier externe. */
-export async function backupNowAction(_formData: FormData) {
+export async function backupNowAction() {
   await guard();
   await backupNowToExternal();
   revalidatePath("/backup");

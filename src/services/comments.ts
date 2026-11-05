@@ -73,7 +73,7 @@ export async function addTaskComment(input: {
 }): Promise<TaskComment> {
   const content = input.content.trim();
   if (!content) {
-    throw new Error("Le commentaire ne peut pas etre vide.");
+    throw new Error("Le commentaire ne peut pas être vide.");
   }
 
   if (getResolvedPersistenceMode() === "prisma") {
@@ -99,7 +99,7 @@ export async function addTaskComment(input: {
       entityType: "comment",
       entityId: r.id,
       title: "Mention dans un commentaire",
-      body: `${input.authorName} vous a mentionne dans une tache.`,
+      body: `${input.authorName} vous a mentionne dans une tâche.`,
       content,
     });
     await recordActivity({
@@ -109,7 +109,7 @@ export async function addTaskComment(input: {
       action: "commented",
       entityType: "comment",
       entityId: r.id,
-      entityName: "Commentaire de tache",
+      entityName: "Commentaire de tâche",
       fieldName: null,
       oldValue: null,
       newValue: content.slice(0, 160),
@@ -129,7 +129,7 @@ export async function addTaskComment(input: {
     action: "commented",
     entityType: "comment",
     entityId: comment.id,
-    entityName: "Commentaire de tache",
+    entityName: "Commentaire de tâche",
     fieldName: null,
     oldValue: null,
     newValue: content.slice(0, 160),
