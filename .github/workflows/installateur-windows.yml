@@ -85,18 +85,25 @@ jobs:
         shell: pwsh
         run: |
           $exe = Join-Path $env:LOCALAPPDATA "Programs\Cheetah Time\Cheetah Time.exe"
-          $app = Start-Process -FilePath $exe -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP\app.out" -RedirectStandardError "$env:RUNNER_TEMP\app.err"
-          # Le serveur interne crée le fichier de données dès que la fenêtre charge la première page.
-          $store = $null
-          for ($i = 0; $i -lt 60 -and -not $store; $i++) {
+          $out = "$env:RUNNER_TEMP\app.out"
+          $app = Start-Process -FilePath $exe -PassThru -RedirectStandardOutput $out -RedirectStandardError "$env:RUNNER_TEMP\app.err"
+          # L'application démarre son serveur interne sur un port libre et l'annonce dans son journal.
+          $port = $null
+          for ($i = 0; $i -lt 60 -and -not $port; $i++) {
             Start-Sleep -Seconds 2
-            $store = Get-ChildItem $env:APPDATA, $env:LOCALAPPDATA -Recurse -Filter "cheetah-time.local.json" -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notlike "*ct-test*" } | Select-Object -First 1
+            $m = Select-String -Path $out -Pattern "Local:\s+http://127\.0\.0\.1:(\d+)" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($m) { $port = $m.Matches[0].Groups[1].Value }
           }
+          $code = 0
+          if ($port) { try { $code = (Invoke-WebRequest "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 30).StatusCode } catch { $code = -1 } }
+          Start-Sleep -Seconds 5
           $alive = -not $app.HasExited
           Get-Process -Name "Cheetah Time" -ErrorAction SilentlyContinue | Stop-Process -Force
-          "--- journal de l'application ---"; Get-Content "$env:RUNNER_TEMP\app.out", "$env:RUNNER_TEMP\app.err" -ErrorAction SilentlyContinue | Select-Object -Last 60
-          if (-not $store) { throw "L'application n'a pas créé ses données en 2 minutes (processus vivant : $alive)" }
-          "Données créées : $($store.FullName) ($($store.Length) octets)"
+          "--- journal de l'application ---"; Get-Content $out, "$env:RUNNER_TEMP\app.err" -ErrorAction SilentlyContinue | Select-Object -Last 40
+          if (-not $port) { throw "Le serveur interne de l'application n'a pas démarré" }
+          if ($code -ne 200) { throw "L'accueil de l'application ne répond pas (HTTP $code)" }
+          if (-not $alive) { throw "L'application s'est fermée toute seule" }
+          "Application OK : serveur interne sur le port $port, accueil HTTP $code, fenêtre toujours ouverte"
 
       - name: SHA-256
         shell: pwsh
