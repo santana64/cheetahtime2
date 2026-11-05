@@ -1,0 +1,89 @@
+# Construit l'installateur Windows de Cheetah Time sur une vraie machine Windows,
+# l'installe en silence, lance l'application pour vérifier qu'elle démarre,
+# puis publie le .exe :
+#  - à chaque exécution : en « artifact » téléchargeable depuis l'onglet Actions ;
+#  - sur un tag v* (ex. v0.1.0) : en pièce jointe d'une Release GitHub.
+name: Installateur Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, "claude/**"]
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: installateur-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false" # pas de certificat : installateur non signé
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Construction de l'installateur
+        run: npm run desktop
+
+      - name: Installation silencieuse
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist-desktop -Filter "Cheetah-Time-Setup-*.exe" | Select-Object -First 1
+          if (-not $setup) { throw "Installateur introuvable dans dist-desktop" }
+          "Installateur : $($setup.Name) ($([math]::Round($setup.Length / 1MB)) Mo)"
+          $p = Start-Process -FilePath $setup.FullName -ArgumentList "/S" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "L'installation a échoué (code $($p.ExitCode))" }
+          $exe = Join-Path $env:LOCALAPPDATA "Programs\Cheetah Time\Cheetah Time.exe"
+          if (-not (Test-Path $exe)) { throw "Application non installée : $exe" }
+          if (-not (Test-Path (Join-Path $env:LOCALAPPDATA "Programs\Cheetah Time\resources\app\server.js"))) { throw "Serveur interne absent" }
+          "Installée : $exe"
+
+      - name: Premier lancement de l'application
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:LOCALAPPDATA "Programs\Cheetah Time\Cheetah Time.exe"
+          $app = Start-Process -FilePath $exe -PassThru
+          # Le serveur interne crée le fichier de données au premier démarrage.
+          $store = $null
+          for ($i = 0; $i -lt 90 -and -not $store; $i++) {
+            Start-Sleep -Seconds 2
+            $store = Get-ChildItem $env:APPDATA -Recurse -Filter "cheetah-time.local.json" -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+          $alive = -not $app.HasExited
+          Get-Process -Name "Cheetah Time" -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (-not $store) { throw "L'application n'a pas créé ses données en 3 minutes (processus vivant : $alive)" }
+          "Données créées : $($store.FullName) ($($store.Length) octets)"
+          if ($store.Length -lt 1000) { throw "Fichier de données anormalement petit" }
+
+      - name: SHA-256
+        shell: pwsh
+        run: Get-ChildItem dist-desktop -Filter "Cheetah-Time-Setup-*.exe" | Get-FileHash -Algorithm SHA256 | Format-List
+
+      - name: Publier l'installateur (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cheetah-Time-Setup-windows
+          path: dist-desktop/Cheetah-Time-Setup-*.exe
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Publier dans une Release (tags v*)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-desktop/Cheetah-Time-Setup-*.exe
+          draft: false
+          prerelease: true
