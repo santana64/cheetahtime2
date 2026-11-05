@@ -12,7 +12,7 @@
     "desktop:icon": "node scripts/make-icon.mjs",
     "desktop:build": "cross-env CHEETAH_DESKTOP=1 NODE_OPTIONS=--max-old-space-size=4096 next build",
     "desktop:assemble": "node scripts/assemble-standalone.mjs",
-    "desktop:dist": "electron-builder --win nsis --config electron-builder.yml",
+    "desktop:dist": "electron-builder --win nsis --config electron-builder.yml --publish never",
     "desktop:run": "electron .",
     "desktop": "npm run desktop:icon && npm run desktop:build && npm run desktop:assemble && npm run desktop:dist",
     "lint": "eslint",
