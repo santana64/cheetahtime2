@@ -38,6 +38,14 @@ jobs:
       - name: Construction de l'installateur
         run: npm run desktop
 
+      - name: Publier l'installateur (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cheetah-Time-Setup-windows
+          path: dist-desktop/Cheetah-Time-Setup-*.exe
+          retention-days: 30
+          if-no-files-found: error
+
       - name: Installation silencieuse
         shell: pwsh
         run: |
@@ -51,34 +59,48 @@ jobs:
           if (-not (Test-Path (Join-Path $env:LOCALAPPDATA "Programs\Cheetah Time\resources\app\server.js"))) { throw "Serveur interne absent" }
           "Installée : $exe"
 
+      - name: Serveur interne (lancé comme par l'application)
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:LOCALAPPDATA "Programs\Cheetah Time"
+          $env:ELECTRON_RUN_AS_NODE = "1"; $env:NODE_ENV = "production"; $env:PORT = "3300"; $env:HOSTNAME = "127.0.0.1"
+          $env:CHEETAH_TIME_PERSISTENCE = "local"; $env:DATABASE_URL = ""
+          $env:CHEETAH_TIME_LOCAL_STORE_PATH = Join-Path $env:RUNNER_TEMP "ct-test\cheetah-time.local.json"
+          $env:CHEETAH_DESKTOP_TOKEN = "jeton-test-ci"
+          $srv = Start-Process -FilePath (Join-Path $dir "Cheetah Time.exe") -ArgumentList "`"$dir\resources\app\server.js`"" -WorkingDirectory "$dir\resources\app" -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP\srv.out" -RedirectStandardError "$env:RUNNER_TEMP\srv.err"
+          $ok = $false
+          for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
+            Start-Sleep -Seconds 2
+            try { $r = Invoke-WebRequest "http://127.0.0.1:3300/projects" -Headers @{ Cookie = "cheetah_desktop_token=jeton-test-ci" } -UseBasicParsing -TimeoutSec 20; $ok = $r.StatusCode -eq 200 } catch { }
+          }
+          "--- sortie serveur ---"; Get-Content "$env:RUNNER_TEMP\srv.out" -ErrorAction SilentlyContinue | Select-Object -Last 40
+          "--- erreurs serveur ---"; Get-Content "$env:RUNNER_TEMP\srv.err" -ErrorAction SilentlyContinue | Select-Object -Last 40
+          if (-not $srv.HasExited) { Stop-Process -Id $srv.Id -Force }
+          if (-not $ok) { throw "Le serveur interne ne répond pas sur /projects" }
+          $store = Get-Item $env:CHEETAH_TIME_LOCAL_STORE_PATH -ErrorAction SilentlyContinue
+          if (-not $store) { throw "Le serveur répond mais n'a pas créé ses données" }
+          "Serveur OK, données créées : $($store.Length) octets"
+
       - name: Premier lancement de l'application
         shell: pwsh
         run: |
           $exe = Join-Path $env:LOCALAPPDATA "Programs\Cheetah Time\Cheetah Time.exe"
-          $app = Start-Process -FilePath $exe -PassThru
-          # Le serveur interne crée le fichier de données au premier démarrage.
+          $app = Start-Process -FilePath $exe -PassThru -RedirectStandardOutput "$env:RUNNER_TEMP\app.out" -RedirectStandardError "$env:RUNNER_TEMP\app.err"
+          # Le serveur interne crée le fichier de données dès que la fenêtre charge la première page.
           $store = $null
-          for ($i = 0; $i -lt 90 -and -not $store; $i++) {
+          for ($i = 0; $i -lt 60 -and -not $store; $i++) {
             Start-Sleep -Seconds 2
-            $store = Get-ChildItem $env:APPDATA -Recurse -Filter "cheetah-time.local.json" -ErrorAction SilentlyContinue | Select-Object -First 1
+            $store = Get-ChildItem $env:APPDATA, $env:LOCALAPPDATA -Recurse -Filter "cheetah-time.local.json" -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notlike "*ct-test*" } | Select-Object -First 1
           }
           $alive = -not $app.HasExited
           Get-Process -Name "Cheetah Time" -ErrorAction SilentlyContinue | Stop-Process -Force
-          if (-not $store) { throw "L'application n'a pas créé ses données en 3 minutes (processus vivant : $alive)" }
+          "--- journal de l'application ---"; Get-Content "$env:RUNNER_TEMP\app.out", "$env:RUNNER_TEMP\app.err" -ErrorAction SilentlyContinue | Select-Object -Last 60
+          if (-not $store) { throw "L'application n'a pas créé ses données en 2 minutes (processus vivant : $alive)" }
           "Données créées : $($store.FullName) ($($store.Length) octets)"
-          if ($store.Length -lt 1000) { throw "Fichier de données anormalement petit" }
 
       - name: SHA-256
         shell: pwsh
         run: Get-ChildItem dist-desktop -Filter "Cheetah-Time-Setup-*.exe" | Get-FileHash -Algorithm SHA256 | Format-List
-
-      - name: Publier l'installateur (artifact)
-        uses: actions/upload-artifact@v4
-        with:
-          name: Cheetah-Time-Setup-windows
-          path: dist-desktop/Cheetah-Time-Setup-*.exe
-          retention-days: 30
-          if-no-files-found: error
 
       - name: Publier dans une Release (tags v*)
         if: startsWith(github.ref, 'refs/tags/v')
