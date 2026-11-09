@@ -164,6 +164,17 @@ Raccourci:
 npm run verify:all
 ```
 
+Installateur Windows (Electron + NSIS):
+
+```bash
+npm run desktop
+```
+
+Sortie: `dist-desktop/Cheetah-Time-Setup-<version>.exe`. Le depot doit etre clone
+dans un chemin court (ex. `C:\ct\repo`): `makensis.exe` n'est pas long-path aware
+et l'etape `desktop:dist` echoue au-dela de 260 caracteres. Details, stockage des
+donnees et notes SmartScreen: `docs/DESKTOP.md`.
+
 ## Architecture
 
 - `src/app/`: App Router, pages, layouts, API handlers et proxy.

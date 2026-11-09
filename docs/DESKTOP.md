@@ -33,7 +33,10 @@ la clé de base distante n'est **pas** embarquée).
 
 ## Reconstruire l'installateur
 
-Prérequis : Node 20+ et les dépendances installées (`npm install`).
+Prérequis :
+
+- Node 20+ et les dépendances installées (`npm install`) ;
+- **le dépôt doit être cloné dans un chemin court** — voir la contrainte ci-dessous.
 
 ```bash
 npm run desktop
@@ -51,6 +54,44 @@ Pour tester la fenêtre en local sans installer (après les étapes 1–3) :
 ```bash
 npm run desktop:run
 ```
+
+## Contrainte : construire depuis un chemin court (MAX_PATH)
+
+**Clonez le dépôt dans un chemin court**, par exemple `C:\ct\repo` ou `C:\dev\cheetah`.
+Les étapes 1 à 3 fonctionnent depuis n'importe quel dossier, mais l'étape 4
+(`desktop:dist`) échoue si le chemin du projet est trop long :
+
+```
+⨯ makensis.exe process failed ERR_ELECTRON_BUILDER_CANNOT_EXECUTE
+!include: could not open file: "…\node_modules\app-builder-lib\templates\nsis\include\allowOnlyOneInstallerInstance.nsh"
+Error in script "<stdin>" on line 88 -- aborting creation process
+```
+
+Le fichier existe bel et bien : `makensis.exe` n'est pas *long-path aware* et
+plafonne à la limite Windows historique de **260 caractères**. Le chemin ci-dessus
+ajoute environ **85 caractères** à la racine du projet, donc tout dossier projet
+dépassant ~175 caractères casse le build.
+
+Diagnostic en une commande (PowerShell, à la racine du projet) :
+
+```powershell
+"$((Get-Location).Path)\node_modules\app-builder-lib\templates\nsis\include\allowOnlyOneInstallerInstance.nsh".Length
+```
+
+Au-delà de 260, relancez le build depuis un chemin plus court.
+
+Points à connaître :
+
+- **Une jonction de répertoire ne suffit pas.** `New-Item -ItemType Junction -Path C:\ct2
+  -Target <chemin long>` ne corrige rien : electron-builder résout le chemin réel
+  avant d'appeler `makensis.exe`, qui reçoit donc à nouveau le chemin long.
+- **N'attendez rien de `LongPathsEnabled`** (chemins longs Windows) : l'opt-in
+  registre n'agit que sur les binaires qui déclarent le manifeste `longPathAware`,
+  ce que `makensis.exe` ne fait pas. *Non verifie sur ce poste — le contournement
+  ci-dessous, lui, est verifie.*
+- La solution fiable est donc de **déplacer ou recopier le projet** dans un chemin
+  court, puis d'y relancer `npm run desktop:dist`. Le `node_modules` doit suivre ;
+  en recopie, `robocopy <source> C:\ct\repo /E /MT:16 /XD dist-desktop` fait le travail.
 
 ## Pièces du montage
 
