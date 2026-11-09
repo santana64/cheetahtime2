@@ -92,6 +92,9 @@ export default async function ProjectLayout({
                 Responsable : <strong className="text-slate-700">{project.ownerName}</strong>
               </span>
               {/* Comme Cheetah Cost : « Nouveau B2P » en action principale, puis « Fichier ». */}
+              <Link prefetch={false} href={`/projects/${project.id}/modifier`} className="toolbar-btn" title="Corriger la saisie : durées, liens, délais, ressources, Tâches Hamac…">
+                Modifier la saisie
+              </Link>
               <Link prefetch={false} href={`/projects/${project.id}/b2p#saisie-b2p`} className="toolbar-btn toolbar-btn-primary">
                 Nouveau B2P
               </Link>

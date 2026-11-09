@@ -6383,3 +6383,252 @@ export async function exportProjectData(projectId: string) {
     schedule: view.schedule,
   };
 }
+
+/* ── Correction de la saisie d'un projet ───────────────────────────────────
+   L'assistant de création est rouvert pré-rempli avec l'état actuel du projet
+   (identité, ressources, LT, liens, affectations, jalons, Tâches Hamac). À
+   l'enregistrement, la structure est reconstruite comme à la création, en
+   conservant les identifiants et le suivi (avancement, dates réelles) des
+   éléments dont le code est inchangé. Une version est enregistrée juste avant,
+   pour pouvoir revenir en arrière depuis l'Historique du projet. */
+
+export interface ProjectEditData {
+  name: string;
+  clientName: string;
+  phase: string | null;
+  targetStartDate: string;
+  targetFinishDate: string | null;
+  structure: CreateProjectStructureInput;
+  /** Le projet contient des liens ressources issus d'un nivellement. */
+  hasLeveling: boolean;
+}
+
+const EDIT_IMPOSED_KIND: Partial<Record<Task["constraintType"], StructuredImposedDate["kind"]>> = {
+  START_NO_EARLIER_THAN: "SNET",
+  START_NO_LATER_THAN: "SNLT",
+  FINISH_NO_EARLIER_THAN: "FNET",
+  FINISH_NO_LATER_THAN: "FNLT",
+};
+
+export async function getProjectEditData(
+  projectId: string,
+  options: { workspaceId?: string } = {},
+): Promise<ProjectEditData> {
+  const aggregate = await getProjectAggregate(projectId, options);
+  const project = aggregate.project;
+  const unit = project.timeUnit ?? "jours";
+  const hpd = aggregate.calendar.hoursPerDay;
+  const round = (v: number) => Math.round(v * 100) / 100;
+
+  // Codes : on garde ceux saisis ; un élément sans code en reçoit un (LT, TH, J).
+  const codeById = new Map<string, string>();
+  const used = new Set<string>();
+  for (const t of aggregate.tasks) {
+    const c = t.code?.trim();
+    if (c && !used.has(c)) {
+      codeById.set(t.id, c);
+      used.add(c);
+    }
+  }
+  const sorted = [...aggregate.tasks].sort((a, b) => a.sortOrder - b.sortOrder);
+  const isSummary = (t: Task) => t.type === "SUMMARY" || aggregate.tasks.some((c) => c.parentId === t.id);
+  const isJalon = (t: Task) => t.type === "MILESTONE" && /^J\d+$/i.test(codeById.get(t.id) ?? "");
+  for (const t of sorted) {
+    if (codeById.has(t.id)) continue;
+    const prefix = isSummary(t) ? "TH" : "LT";
+    let i = 1;
+    let c = `${prefix}${String(i).padStart(2, "0")}`;
+    while (used.has(c)) c = `${prefix}${String(++i).padStart(2, "0")}`;
+    codeById.set(t.id, c);
+    used.add(c);
+  }
+
+  const logicDeps = aggregate.dependencies.filter(
+    (d) => d.kind !== "RESOURCE" && d.successorProjectId === projectId && d.predecessorProjectId === projectId,
+  );
+  const predsOf = (taskId: string): StructuredPredecessorInput[] =>
+    logicDeps
+      .filter((d) => d.successorTaskId === taskId && codeById.has(d.predecessorTaskId))
+      .map((d) => ({
+        code: codeById.get(d.predecessorTaskId)!,
+        type: d.type,
+        lag: round(d.lagUnits ?? fromWorkingDays(d.lagDays, unit, hpd)),
+      }));
+  const resCode = new Map(aggregate.resources.map((r, i) => [r.id, r.code?.trim() || `R${String(i + 1).padStart(2, "0")}`]));
+
+  const summaries = sorted.filter(isSummary);
+  const leaves = sorted.filter((t) => !isSummary(t));
+  const hasPreds = (t: Task) => logicDeps.some((d) => d.successorTaskId === t.id);
+
+  return {
+    name: project.name,
+    clientName: project.clientName,
+    phase: project.phase ?? null,
+    targetStartDate: project.targetStartDate,
+    targetFinishDate: project.targetFinishDate ?? null,
+    hasLeveling: aggregate.dependencies.some((d) => d.kind === "RESOURCE"),
+    structure: {
+      timeUnit: unit,
+      resources: aggregate.resources.map((r) => ({
+        code: resCode.get(r.id)!,
+        name: r.name,
+        hoursPerDay: r.calendarHoursPerDay ?? r.capacityHoursPerDay ?? hpd,
+        workingDays: r.calendarWorkingDays?.length ? r.calendarWorkingDays : [1, 2, 3, 4, 5],
+      })),
+      hammocks: summaries.map((th) => ({
+        code: codeById.get(th.id)!,
+        name: th.name,
+        lotCodes: leaves.filter((t) => t.parentId === th.id && !isJalon(t)).map((t) => codeById.get(t.id)!),
+      })),
+      jalons: leaves.filter(isJalon).map((j) => ({ code: codeById.get(j.id)!, name: j.name, predecessors: predsOf(j.id) })),
+      lots: leaves
+        .filter((t) => !isJalon(t))
+        .map((t) => {
+          const code = codeById.get(t.id)!;
+          const kind = EDIT_IMPOSED_KIND[t.constraintType];
+          // L'ancrage automatique au démarrage (LT sans prédécesseur) n'est pas une date imposée.
+          const defaultAnchor =
+            t.constraintType === "START_NO_EARLIER_THAN" && !hasPreds(t) && t.constraintDate === project.targetStartDate;
+          const imposed =
+            kind && t.constraintDate && !defaultAnchor ? { kind, date: t.constraintDate.slice(0, 10) } : null;
+          return {
+            code,
+            name: t.name,
+            duration:
+              t.type === "MILESTONE" ? 0 : round(t.durationUnits ?? fromWorkingDays(t.durationDays, unit, hpd)),
+            budgetAmount: t.budgetAmount ?? 0,
+            isPto: /^PTO?\d/i.test(code),
+            lotType: "DUREE" as const,
+            imposed,
+            predecessors: predsOf(t.id),
+            assignments: aggregate.assignments
+              .filter((a) => a.taskId === t.id && resCode.has(a.resourceId))
+              .map((a) => ({ resourceCode: resCode.get(a.resourceId)!, intensity: round(a.allocationPct / 100) })),
+          };
+        }),
+    },
+  };
+}
+
+export async function updateProjectStructure(
+  projectId: string,
+  input: {
+    name: string;
+    clientName: string;
+    phase: import("@/types/planning").ProjetPhase | null;
+    targetStartDate: string;
+    targetFinishDate: string | null;
+    structure: CreateProjectStructureInput;
+  },
+) {
+  if (!input.name.trim()) throw new Error("Le nom du projet est obligatoire.");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.targetStartDate)) throw new Error("Date de début invalide.");
+  if (!input.structure.lots.length) throw new Error("Le projet doit garder au moins un lot de tâches.");
+  const codes = [
+    ...input.structure.lots.map((l) => l.code),
+    ...input.structure.hammocks.map((h) => h.code),
+    ...(input.structure.jalons ?? []).map((j) => j.code),
+  ].map((c) => c.trim());
+  const dup = codes.find((c, i) => codes.indexOf(c) !== i);
+  if (dup) throw new Error(`Le code « ${dup} » est utilisé deux fois.`);
+
+  await mutateStore((draft) => {
+    const aggregate = getAggregateOrThrow(draft, projectId);
+
+    // 1. Version de sécurité : la correction est réversible depuis l'Historique.
+    const backup: ProjectSnapshot = {
+      id: `ver_${randomUUID().slice(0, 12)}`,
+      at: nowIso(),
+      label: `Avant correction de la saisie (${new Date().toLocaleDateString("fr-FR")})`,
+      t2pCount: aggregate.project.t2pTables?.length ?? 0,
+      lotsCount: aggregate.tasks.length,
+      payload: JSON.stringify(snapshotContent(aggregate)),
+    };
+    aggregate.project.snapshots = [backup, ...(aggregate.project.snapshots ?? [])].slice(0, SNAPSHOT_LIMIT);
+
+    // 2. Reconstruction comme à la création.
+    const built = buildStructuredAggregate(projectId, input.targetStartDate, input.structure);
+
+    // 3. Identifiants et suivi conservés pour les codes inchangés.
+    const oldTaskByCode = new Map(aggregate.tasks.filter((t) => t.code).map((t) => [t.code!.trim(), t]));
+    const taskIdMap = new Map<string, string>();
+    const tasks = built.tasks.map((t) => {
+      const old = t.code ? oldTaskByCode.get(t.code.trim()) : undefined;
+      if (!old || (old.type === "SUMMARY") !== (t.type === "SUMMARY")) return t;
+      taskIdMap.set(t.id, old.id);
+      return {
+        ...t,
+        id: old.id,
+        description: old.description,
+        notes: old.notes,
+        status: old.status,
+        priority: old.priority,
+        progressPercent: old.progressPercent,
+        actualStartDate: old.actualStartDate ?? null,
+        actualFinishDate: old.actualFinishDate ?? null,
+        actualWorkHours: old.actualWorkHours,
+        levelingPriority: old.levelingPriority,
+      };
+    });
+    const mapTask = (id: string) => taskIdMap.get(id) ?? id;
+    for (const t of tasks) if (t.parentId) t.parentId = mapTask(t.parentId);
+
+    const oldResByCode = new Map(aggregate.resources.filter((r) => r.code).map((r) => [String(r.code).trim(), r]));
+    const resIdMap = new Map<string, string>();
+    const resources = built.resources.map((r) => {
+      const old = r.code ? oldResByCode.get(String(r.code).trim()) : undefined;
+      if (!old) return r;
+      resIdMap.set(r.id, old.id);
+      return { ...old, name: r.name, role: old.role || r.role, capacityHoursPerDay: r.capacityHoursPerDay, calendarHoursPerDay: r.calendarHoursPerDay, calendarWorkingDays: r.calendarWorkingDays, code: r.code };
+    });
+
+    // Les liens vers d'autres projets sont conservés ; les liens ressources du
+    // nivellement sont retirés (la logique a changé : il faut niveler de nouveau).
+    const keptExternal = aggregate.dependencies.filter(
+      (d) => d.kind !== "RESOURCE" && (d.predecessorProjectId !== projectId || d.successorProjectId !== projectId),
+    );
+    const dependencies = [
+      ...built.dependencies.map((d) => ({
+        ...d,
+        predecessorTaskId: mapTask(d.predecessorTaskId),
+        successorTaskId: mapTask(d.successorTaskId),
+      })),
+      ...keptExternal,
+    ];
+    const assignments = built.assignments.map((a) => ({
+      ...a,
+      taskId: mapTask(a.taskId),
+      resourceId: resIdMap.get(a.resourceId) ?? a.resourceId,
+    }));
+
+    // Ancien défaut de l'assistant : il enregistrait une fin cible arbitraire
+    // (début + 45 jours) alors que la fin est calculée. On la retire, sinon les
+    // dates au plus tard et les marges sont calculées depuis une fausse échéance.
+    const plus45 = new Date(`${aggregate.project.targetStartDate}T12:00:00Z`);
+    plus45.setUTCDate(plus45.getUTCDate() + 45);
+    const wizardArtefact =
+      aggregate.project.origin === "CREATED" &&
+      aggregate.project.targetFinishDate === plus45.toISOString().slice(0, 10);
+
+    const before = aggregate.tasks.length;
+    aggregate.tasks = tasks;
+    aggregate.dependencies = dependencies;
+    aggregate.resources = resources;
+    aggregate.assignments = assignments;
+    aggregate.calendar = { ...aggregate.calendar, hoursPerDay: built.hoursPerDay };
+    aggregate.project = {
+      ...aggregate.project,
+      name: input.name.trim(),
+      clientName: input.clientName.trim() || aggregate.project.clientName,
+      phase: input.phase ?? aggregate.project.phase ?? null,
+      timeUnit: input.structure.timeUnit,
+      targetStartDate: input.targetStartDate,
+      targetFinishDate: input.targetFinishDate ?? (wizardArtefact ? null : aggregate.project.targetFinishDate ?? null),
+      budgetAmount: built.totalBudget || aggregate.project.budgetAmount,
+      updatedAt: nowIso(),
+    };
+    pushAudit(aggregate, "lots_updated", "Saisie du projet corrigée", {
+      details: `${input.structure.lots.length} LT, ${input.structure.hammocks.length} TH, ${(input.structure.jalons ?? []).length} jalons (avant : ${before} éléments)`,
+    });
+  });
+}

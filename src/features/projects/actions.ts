@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 
 import { type FormState } from "@/features/projects/form-state";
 import { getErrorMessage, validationError } from "@/lib/planning/errors";
@@ -15,6 +15,7 @@ import {
   captureBaseline,
   clearProjectLeveling,
   createProject,
+  updateProjectStructure,
   createResource,
   createTask,
   deleteTimesheetEntry,
@@ -247,6 +248,7 @@ export async function createProjectAction(
     revalidatePath("/projects");
     redirect(`/projects/${projectId}/dashboard`);
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible de créer le projet."),
@@ -321,11 +323,50 @@ export async function createGuidedProjectAction(
     // Après création : on ouvre directement le PLANNING du projet (demande François).
     redirect(`/projects/${projectId}/planning`);
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible de créer le projet."),
     };
   }
+}
+
+/** Correction de la saisie d'un projet (assistant rouvert pré-rempli). */
+export async function updateProjectStructureAction(
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const projectId = required(formData, "projectId");
+  try {
+    bindAuditActor(await requireProjectWriteAccess());
+    let structure: CreateProjectStructureInput;
+    try {
+      const parsed = JSON.parse(required(formData, "structure")) as CreateProjectStructureInput;
+      structure = {
+        timeUnit: parsed.timeUnit ?? "jours",
+        resources: Array.isArray(parsed.resources) ? parsed.resources : [],
+        lots: Array.isArray(parsed.lots) ? parsed.lots : [],
+        hammocks: Array.isArray(parsed.hammocks) ? parsed.hammocks : [],
+        jalons: Array.isArray(parsed.jalons) ? parsed.jalons.slice(0, 9) : [],
+      };
+    } catch {
+      return { status: "error", message: "Données de saisie invalides." };
+    }
+    const phaseRaw = optional(formData, "phase");
+    await updateProjectStructure(projectId, {
+      name: required(formData, "name"),
+      clientName: optional(formData, "clientName") || "",
+      phase: (phaseRaw as ProjetPhase) || null,
+      targetStartDate: required(formData, "targetStartDate"),
+      targetFinishDate: optional(formData, "targetFinishDate") || null,
+      structure,
+    });
+  } catch (error) {
+    unstable_rethrow(error);
+    return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer les corrections.") };
+  }
+  revalidatePath(`/projects/${projectId}`, "layout");
+  redirect(`/projects/${projectId}/planning`);
 }
 
 /** Crée le projet de recette « Cas complexe sportif » (corrigé FGF, données figées). */
@@ -368,6 +409,7 @@ export async function saveB2PNoteAction(
     revalidatePath(`/projects/${projectId}/dashboard`);
     return { status: "success", message: "Note de bilan enregistrée." };
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible d'enregistrer la note."),
@@ -390,6 +432,7 @@ export async function saveB2PScenarioAction(
     revalidatePath(`/projects/${projectId}/b2p`);
     return { status: "success", message: "Scénarios correctifs enregistrés." };
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible d'enregistrer les scénarios."),
@@ -430,6 +473,7 @@ export async function updateProjectMetadataAction(
       message: "Métadonnées du projet mises à jour.",
     };
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible de mettre à jour le projet."),
@@ -471,6 +515,7 @@ export async function updateProjectCalendarAction(
       message: "Calendrier projet mis à jour.",
     };
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible de mettre à jour le calendrier projet."),
@@ -540,6 +585,7 @@ export async function duplicateProjectAction(
     revalidatePath("/projects");
     redirect(`/projects/${duplicatedProjectId}/dashboard`);
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible de dupliquer le projet."),
@@ -568,6 +614,7 @@ export async function setProjectArchiveStateAction(
       message: archived ? "Projet archive." : "Projet restauré dans le portefeuille actif.",
     };
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible de mettre à jour le cycle de vie du projet."),
@@ -598,6 +645,7 @@ export async function deleteProjectAction(
     revalidatePath("/projects");
     redirect("/projects");
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible de supprimer le projet."),
@@ -665,6 +713,7 @@ export async function saveTaskAction(
       message: "Tâche mise à jour.",
     };
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible d'enregistrer la tâche."),
@@ -717,6 +766,7 @@ export async function moveTaskAction(
       message: "Plan de tâche mis à jour.",
     };
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible de déplacer la tâche."),
@@ -750,6 +800,7 @@ export async function rescheduleTaskFromGanttAction(
       message: "Dates Gantt appliquees en planification manuelle.",
     };
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible d'appliquer le changement Gantt."),
@@ -799,6 +850,7 @@ export async function saveDependencyAction(
       message: "Dépendance enregistrée.",
     };
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible d'enregistrer la dépendance."),
@@ -893,6 +945,7 @@ export async function createResourceAction(
       message: "Ressource ajoutée.",
     };
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible de créer la ressource."),
@@ -995,6 +1048,7 @@ export async function saveAssignmentAction(
       message: "Affectation enregistrée.",
     };
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible d'enregistrer l'affectation."),
@@ -1064,6 +1118,7 @@ export async function saveTimesheetEntryAction(
       message: "Imputation enregistrée.",
     };
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible d'enregistrer l'imputation."),
@@ -1136,6 +1191,7 @@ export async function saveActualCostEntryAction(
       message: "Coût réel enregistre.",
     };
   } catch (error) {
+    unstable_rethrow(error);
     return {
       status: "error",
       message: getErrorMessage(error, "Impossible d'enregistrer le coût réel."),
@@ -1205,6 +1261,7 @@ export async function createRiskAction(
 
     return { status: "success", message: "Risque créé." };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", message: getErrorMessage(error, "Impossible de créer le risque.") };
   }
 }
@@ -1238,6 +1295,7 @@ export async function updateRiskAction(
 
     return { status: "success", message: "Risque mis à jour." };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", message: getErrorMessage(error, "Impossible de mettre à jour le risque.") };
   }
 }
@@ -1273,6 +1331,7 @@ export async function addTaskCommentAction(
 
     return { status: "success", message: "Commentaire ajouté." };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", message: getErrorMessage(error, "Impossible d'ajouter le commentaire.") };
   }
 }
@@ -1328,6 +1387,7 @@ export async function addTaskAttachmentAction(
     revalidatePath(`/projects/${projectId}/planning`);
     return { status: "success", message: "Piece jointe ajoutée." };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", message: getErrorMessage(error, "Impossible d'ajouter la piece jointe.") };
   }
 }
@@ -1375,6 +1435,7 @@ export async function saveIssueAction(
     revalidatePath(`/projects/${projectId}/dashboard`);
     return { status: "success", message: "Incident enregistre." };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer l'incident.") };
   }
 }
@@ -1421,6 +1482,7 @@ export async function saveChangeRequestAction(
     revalidatePath(`/projects/${projectId}/dashboard`);
     return { status: "success", message: "Demande de changement enregistrée." };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer la demande de changement.") };
   }
 }
@@ -1459,6 +1521,7 @@ export async function saveProjectTemplateAction(
     revalidatePath(`/projects/${projectId}/settings`);
     return { status: "success", message: "Modèle projet enregistre." };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer le modèle.") };
   }
 }
@@ -1477,6 +1540,7 @@ export async function createProjectFromTemplateAction(
       actorName: session.name,
     });
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", message: getErrorMessage(error, "Impossible de créer le projet depuis le modèle.") };
   }
 
@@ -1501,6 +1565,7 @@ export async function createProjectFromBtpTemplateAction(
       clientName: optional(formData, "clientName") ?? "Client BTP",
     });
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", message: getErrorMessage(error, "Impossible de créer le projet BTP.") };
   }
 
@@ -1545,6 +1610,7 @@ export async function updatePilotageSettingsAction(
     revalidatePath(`/projects/${projectId}`, "layout");
     return { status: "success", message: "Paramètres de pilotage enregistrés." };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer les paramètres de pilotage.") };
   }
 }
@@ -1580,6 +1646,7 @@ export async function advanceB2PAction(
         : "B2P enregistré — action de pilotage non requise.",
     };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer le passage au B2P.") };
   }
 }
@@ -1617,6 +1684,7 @@ export async function saveB2PDatesAction(
             : "Dates des B2P enregistrées.",
     };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer les dates des B2P.") };
   }
 }
@@ -1690,6 +1758,7 @@ export async function saveT2PLinesAction(_prev: FormState, formData: FormData): 
     t2pRevalidate(projectId);
     return { status: "success", message: "Tableau enregistré." };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer le tableau.") };
   }
 }
@@ -1720,6 +1789,7 @@ export async function saveRapportDelaiAction(_prev: FormState, formData: FormDat
     revalidatePath(`/projects/${projectId}/rapports`);
     return { status: "success", message: "Rapport enregistré." };
   } catch (error) {
+    unstable_rethrow(error);
     return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer le rapport.") };
   }
 }

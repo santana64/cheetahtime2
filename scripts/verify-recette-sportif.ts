@@ -93,6 +93,32 @@ async function main() {
   assert(notCritical.length === 0, `Q7 : tâches non critiques après nivellement : ${notCritical.map((t) => `${t.code} (MT ${t.totalSlackUnits})`).join(", ")}`);
   console.log("✓ Q7 — après nivellement, toutes les tâches sont critiques");
 
+  // ── Correction de la saisie : aller-retour sans perte, puis correction réelle ──
+  const editId = await createRecipe();
+  const sig = (v: Awaited<ReturnType<typeof svc.getProjectView>>) =>
+    v.tasks.map((t) => `${t.code}:${t.id}:${t.scheduledStartDate}>${t.scheduledFinishDate}:${t.totalSlackUnits}`).join("|");
+  const before = sig(await svc.getProjectView(editId));
+  const ed = await svc.getProjectEditData(editId);
+  const save = (data: typeof ed) =>
+    svc.updateProjectStructure(editId, {
+      name: data.name,
+      clientName: data.clientName,
+      phase: data.phase as never,
+      targetStartDate: data.targetStartDate,
+      targetFinishDate: null,
+      structure: data.structure,
+    });
+  await save(ed);
+  assert(sig(await svc.getProjectView(editId)) === before, "Correction de saisie : un aller-retour sans modification change le planning");
+  const ed2 = await svc.getProjectEditData(editId);
+  ed2.structure.lots.find((l) => l.code === "B2")!.duration = 5;
+  await save(ed2);
+  const vEdit = await svc.getProjectView(editId);
+  const b2e = byCode(vEdit).get("B2");
+  assert(near(b2e?.totalSlackUnits, 1), `Correction B2 → 5 mois : MT attendue 1, obtenue ${b2e?.totalSlackUnits}`);
+  assert((vEdit.aggregate.project.snapshots ?? []).some((s) => s.label.startsWith("Avant correction de la saisie")), "Correction de saisie : version de sécurité absente");
+  console.log("✓ Correction de la saisie — aller-retour identique, B2 à 5 mois → MT 1 mois, version de sécurité");
+
   console.log("\nRecette « cas complexe sportif » : OK");
 }
 

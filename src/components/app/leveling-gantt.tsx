@@ -27,7 +27,7 @@ export function LevelingGantt({ view }: { view: ProjectView }) {
   const tasks = view.tasks.filter((t) => !t.isSummary);
   const allRows = tasks
     .map((t) => ({
-      code: t.wbsCode || t.code,
+      code: t.code || t.wbsCode,
       name: t.name,
       milestone: t.type === "MILESTONE",
       shifted:
@@ -70,10 +70,10 @@ export function LevelingGantt({ view }: { view: ProjectView }) {
   const max = Math.max(...vals);
   const totalShift = rows.filter((r) => r.shifted).length;
 
-  const LABEL_W = 128;
-  const rowH = 16;
+  const LABEL_W = 170;
+  const rowH = 18;
   const H = rows.length * rowH + 30;
-  const W = 460;
+  const W = 620;
   const x = (t: number) => LABEL_W + ((t - min) / Math.max(DAY, max - min)) * (W - LABEL_W - 12);
 
   function Panel({ title, kind }: { title: string; kind: "before" | "after" }) {
@@ -81,7 +81,7 @@ export function LevelingGantt({ view }: { view: ProjectView }) {
       <div className="rounded-2xl border border-white/70 bg-white/90 p-3">
         <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{title}</div>
         <div className="overflow-x-auto">
-          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 380, height: H }}
+          <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" style={{ minWidth: 420 }}
             role="img" aria-label={`Planning ${title}.`}>
             <rect width={W} height={H} fill={SURFACE} rx="6" />
             {/* ticks (début / milieu / fin) */}
@@ -105,7 +105,7 @@ export function LevelingGantt({ view }: { view: ProjectView }) {
               const bw = Math.max(r.milestone ? 8 : 4, x(e) - bx);
               return (
                 <g key={r.code}>
-                  <text x={4} y={y + 8} fontSize="8.5" fill="#334155">{(r.code + " " + r.name).slice(0, 22)}</text>
+                  <text x={4} y={y + 8} fontSize="8.5" fill="#334155">{(r.code + " " + r.name).slice(0, 30)}</text>
                   {r.milestone ? (
                     <rect x={bx - 4} y={y + 1} width={9} height={9} rx="1.5" transform={`rotate(45 ${bx} ${y + 5})`} fill={color} />
                   ) : (
