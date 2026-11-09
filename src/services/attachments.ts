@@ -16,7 +16,7 @@ function getMaxAttachmentBytes() {
 }
 
 function getAttachmentStorageRoot() {
-  return path.join(process.cwd(), "data", "attachments");
+  return path.join(/* turbopackIgnore: true */ process.cwd(), "data", "attachments");
 }
 
 function sanitizePathSegment(value: string) {
@@ -127,7 +127,7 @@ export async function addTaskAttachment(input: {
     throw new Error("Nom de piece jointe requis.");
   }
   if (!url) {
-    throw new Error("URL ou reference de fichier requise.");
+    throw new Error("URL ou référence de fichier requise.");
   }
 
   if (getResolvedPersistenceMode() === "prisma") {
@@ -215,7 +215,7 @@ export async function addBinaryTaskAttachment(input: {
     throw new Error("Le fichier transmis est vide.");
   }
   if (input.content.length > getMaxAttachmentBytes()) {
-    throw new Error("Le fichier depasse la taille maximale autorisee.");
+    throw new Error("Le fichier dépasse la taille maximale autorisee.");
   }
 
   const attachmentId = randomUUID();

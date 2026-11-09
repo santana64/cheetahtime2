@@ -19,7 +19,7 @@ export default async function ProjectLookAheadPage({
   return (
     <div className="space-y-5">
       <PageHeader
-        eyebrow="Look-ahead 4 semaines"
+        eyebrow="À venir 4 semaines"
         title={view.aggregate.project.name}
         description="Vue chantier imprimable : tâches à exécuter, responsables, et statut retard / risque / OK."
       />
@@ -33,8 +33,8 @@ export default async function ProjectLookAheadPage({
             <thead className="border-b bg-slate-50 text-[11px] uppercase tracking-[0.16em] text-slate-500">
               <tr>
                 <th className="px-4 py-3">WBS</th>
-                <th className="px-4 py-3">Tache</th>
-                <th className="px-4 py-3">Debut</th>
+                <th className="px-4 py-3">Tâche</th>
+                <th className="px-4 py-3">Début</th>
                 <th className="px-4 py-3">Fin</th>
                 <th className="px-4 py-3">Ressources</th>
                 <th className="px-4 py-3">Statut</th>
@@ -48,7 +48,7 @@ export default async function ProjectLookAheadPage({
                   <td className="px-4 py-3 font-medium text-slate-950">{entry.task.name}</td>
                   <td className="px-4 py-3">{formatDateLabel(entry.task.scheduledStartDate)}</td>
                   <td className="px-4 py-3">{formatDateLabel(entry.task.scheduledFinishDate)}</td>
-                  <td className="px-4 py-3">{entry.resourceNames.join(", ") || "Non affecte"}</td>
+                  <td className="px-4 py-3">{entry.resourceNames.join(", ") || "Non affecté"}</td>
                   <td className="px-4 py-3">
                     <span
                       className={cn(
@@ -69,7 +69,7 @@ export default async function ProjectLookAheadPage({
               {!lookAhead.length ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-10 text-center text-slate-500">
-                    Aucune tache planifiee sur les 4 prochaines semaines.
+                    Aucune tâche planifiée sur les 4 prochaines semaines.
                   </td>
                 </tr>
               ) : null}

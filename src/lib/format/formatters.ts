@@ -1,15 +1,17 @@
 import type { ISODate } from "@/types/planning";
 import { parseIsoDate } from "@/lib/planning/date-utils";
 
+/**
+ * Format de date UNIQUE de l'application, identique à Cheetah Cost
+ * (`formatDateFR`) : « 08/06/2026 ».
+ */
 export function formatDateLabel(date?: ISODate | null) {
   if (!date) {
-    return "Non planifié";
+    return "—";
   }
-
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "2-digit",
-    month: "short",
-  }).format(parseIsoDate(date));
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
+  if (!match) return String(date);
+  return `${match[3]}/${match[2]}/${match[1]}`;
 }
 
 export function formatLongDate(date?: ISODate | null) {

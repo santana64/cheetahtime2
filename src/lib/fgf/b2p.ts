@@ -200,3 +200,23 @@ export function getB2PPlanWarnings(
   });
   return warnings;
 }
+
+/**
+ * Dates de B2P d'un projet — SOURCE UNIQUE de Cheetah Time, identique à
+ * `getProjectPlannedB2PDates` de Cheetah Cost : les dates saisies (ou reçues
+ * par le fichier commun) priment ; sinon la règle FGF sur la durée réelle
+ * du projet (la plus tardive entre fin contractuelle et fin calculée).
+ */
+export function getProjectB2PDates(
+  project: { targetStartDate: string; targetFinishDate?: string | null; b2pDates?: string[] | null },
+  computedFinishDate?: string | null,
+): string[] {
+  const stored = uniqueSortedDates((project.b2pDates ?? []).filter(isValidISODate));
+  if (stored.length) return stored;
+  const dateFin =
+    [project.targetFinishDate ?? null, computedFinishDate ?? null]
+      .filter((d): d is string => Boolean(d))
+      .sort()
+      .at(-1) ?? null;
+  return dateFin ? buildRecommendedB2PDates({ dateDebut: project.targetStartDate, dateFin }) : [];
+}

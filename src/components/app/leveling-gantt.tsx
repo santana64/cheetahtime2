@@ -25,18 +25,35 @@ const DAY = 86_400_000;
 
 export function LevelingGantt({ view }: { view: ProjectView }) {
   const tasks = view.tasks.filter((t) => !t.isSummary);
-  const rows = tasks
+  const allRows = tasks
     .map((t) => ({
-      code: t.wbsCode || t.code,
+      code: t.code || t.wbsCode,
       name: t.name,
       milestone: t.type === "MILESTONE",
-      shifted: (t.levelingDelayDays ?? 0) > 0,
+      shifted:
+        (t.levelingDelayDays ?? 0) > 0 ||
+        Boolean(t.earliestStartDate && t.scheduledStartDate && t.scheduledStartDate > t.earliestStartDate),
       bStart: ms(t.earliestStartDate) ?? ms(t.scheduledStartDate),
       bEnd: ms(t.earliestFinishDate) ?? ms(t.scheduledFinishDate),
       aStart: ms(t.scheduledStartDate),
       aEnd: ms(t.scheduledFinishDate),
     }))
     .filter((r) => r.aStart != null && r.aEnd != null);
+  // Gros planning : on ne compare que les LT décalés (plafonné) — sinon des
+  // milliers de lignes SVG alourdissaient la page.
+  const MAX_ROWS = 60;
+  const rows =
+    allRows.length > MAX_ROWS ? allRows.filter((r) => r.shifted).slice(0, MAX_ROWS) : allRows;
+  const hiddenCount = allRows.length - rows.length;
+
+  if (rows.length < 1 && allRows.length > MAX_ROWS) {
+    return (
+      <div className="rounded-2xl border border-white/70 bg-white/85 p-6 text-sm text-slate-500">
+        <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Nivellement</div>
+        <p className="mt-2">Aucun LT décalé par le nivellement ({allRows.length} LT planifiés).</p>
+      </div>
+    );
+  }
 
   if (rows.length < 1) {
     return (
@@ -53,10 +70,10 @@ export function LevelingGantt({ view }: { view: ProjectView }) {
   const max = Math.max(...vals);
   const totalShift = rows.filter((r) => r.shifted).length;
 
-  const LABEL_W = 128;
-  const rowH = 16;
+  const LABEL_W = 170;
+  const rowH = 18;
   const H = rows.length * rowH + 30;
-  const W = 460;
+  const W = 620;
   const x = (t: number) => LABEL_W + ((t - min) / Math.max(DAY, max - min)) * (W - LABEL_W - 12);
 
   function Panel({ title, kind }: { title: string; kind: "before" | "after" }) {
@@ -64,7 +81,7 @@ export function LevelingGantt({ view }: { view: ProjectView }) {
       <div className="rounded-2xl border border-white/70 bg-white/90 p-3">
         <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">{title}</div>
         <div className="overflow-x-auto">
-          <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 380, height: H }}
+          <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" style={{ minWidth: 420 }}
             role="img" aria-label={`Planning ${title}.`}>
             <rect width={W} height={H} fill={SURFACE} rx="6" />
             {/* ticks (début / milieu / fin) */}
@@ -88,7 +105,7 @@ export function LevelingGantt({ view }: { view: ProjectView }) {
               const bw = Math.max(r.milestone ? 8 : 4, x(e) - bx);
               return (
                 <g key={r.code}>
-                  <text x={4} y={y + 8} fontSize="8.5" fill="#334155">{(r.code + " " + r.name).slice(0, 22)}</text>
+                  <text x={4} y={y + 8} fontSize="8.5" fill="#334155">{(r.code + " " + r.name).slice(0, 30)}</text>
                   {r.milestone ? (
                     <rect x={bx - 4} y={y + 1} width={9} height={9} rx="1.5" transform={`rotate(45 ${bx} ${y + 5})`} fill={color} />
                   ) : (
@@ -110,11 +127,12 @@ export function LevelingGantt({ view }: { view: ProjectView }) {
         <h2 className="mt-1 text-xl font-black tracking-tight text-[#1a4a20]">Planning avant / après nivellement</h2>
         <p className="mt-1 text-sm text-slate-500">
           « Avant » = dates au plus tôt ; « après » = dates nivelées. <strong style={{ color: SHIFTED }}>{totalShift}</strong> LT décalé·s (orange) pour résorber les surcharges.
+          {hiddenCount > 0 ? ` ${hiddenCount} LT non décalés ne sont pas affichés.` : ""}
         </p>
       </div>
       <div className="grid gap-4 xl:grid-cols-2">
-        <Panel title="Avant nivellement (au plus tôt)" kind="before" />
-        <Panel title="Après nivellement (planifié)" kind="after" />
+        {Panel({ title: "Avant nivellement (au plus tôt)", kind: "before" })}
+        {Panel({ title: "Après nivellement (planifié)", kind: "after" })}
       </div>
     </div>
   );

@@ -87,7 +87,7 @@ export function ResourceAdmin({ view }: { view: ProjectView }) {
             Type
             <Select name="type" defaultValue="PERSON">
               <option value="PERSON">Personne</option>
-              <option value="TEAM">Equipe</option>
+              <option value="TEAM">Équipe</option>
               <option value="EQUIPMENT">Equipement</option>
             </Select>
           </label>
@@ -104,7 +104,7 @@ export function ResourceAdmin({ view }: { view: ProjectView }) {
             <Input name="capacityHoursPerDay" type="number" min={1} defaultValue={8} className="h-8 text-sm" />
           </label>
           <label className="grid gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "rgba(0,0,0,0.45)" }}>
-            Taux de cout
+            Taux de coût
             <Input name="costRate" type="number" min={0} step="0.01" className="h-8 text-sm" />
           </label>
           <label className="grid gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] md:col-span-2" style={{ color: "rgba(0,0,0,0.45)" }}>
@@ -127,7 +127,7 @@ export function ResourceAdmin({ view }: { view: ProjectView }) {
               }}
             >
               {resourceState.message ||
-                "Les ressources s'integrent directement a l'analyse de charge et aux affectations."}
+                "Les ressources s'integrent directement à l'analyse de charge et aux affectations."}
             </div>
             <button
               type="submit"
@@ -146,14 +146,14 @@ export function ResourceAdmin({ view }: { view: ProjectView }) {
         </form>
       </PanelCard>
 
-      <PanelCard eyebrow="Affectations" title="Creer une affectation" accentColor="#f4a321">
+      <PanelCard eyebrow="Affectations" title="Créer une affectation" accentColor="#f4a321">
         <form action={assignmentAction} className="grid gap-3">
           <input type="hidden" name="projectId" value={view.aggregate.project.id} />
           <label className="grid gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: "rgba(0,0,0,0.45)" }}>
             Tache
             <Select name="taskId" defaultValue="" disabled={!canAssign}>
               <option value="" disabled>
-                Choisir une tache
+                Choisir une tâche
               </option>
               {executableTasks.map((task) => (
                 <option key={task.id} value={task.id}>
@@ -213,7 +213,7 @@ export function ResourceAdmin({ view }: { view: ProjectView }) {
               {assignmentState.message ||
                 (canAssign
                   ? "Les affectations actualisent immediatement les responsables et la chaleur des ressources."
-                  : "Ajoutez au moins une ressource pour creer des affectations.")}
+                  : "Ajoutez au moins une ressource pour créer des affectations.")}
             </div>
             <button
               type="submit"

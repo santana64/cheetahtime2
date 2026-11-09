@@ -1014,3 +1014,66 @@ html::after {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(15, 23, 42, 0.14); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(86, 164, 91, 0.5); background-clip: padding-box; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   SYSTÈME VISUEL « ÉCRAN D'ACCUEIL » — appliqué à toute l'application.
+   Canvas crème plat #f6f4ee, cartes blanches à bord 8 % et ombre verte
+   douce, titres font-black vert profond, labels uppercase espacés.
+   Ces règles (hors couche) priment sur les anciens styles de panneaux.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root {
+  --ct-canvas: #f6f4ee;
+  --ct-ink: #0d1f10;
+  --ct-green-deep: #1a4a20;
+  --ct-green: #56a45b;
+  --ct-green-2: #3f8f48;
+  --ct-orange: #f4a321;
+  --ct-card-border: rgba(0, 0, 0, 0.08);
+  --ct-card-shadow: 0 6px 22px -12px rgba(22, 101, 52, 0.18);
+  --ct-muted: #64748b;
+}
+body,
+.app-shell {
+  background: var(--ct-canvas) !important;
+}
+.panel,
+.panel-solid,
+.panel-soft {
+  background: #ffffff;
+  border: 1px solid var(--ct-card-border);
+  box-shadow: var(--ct-card-shadow);
+}
+.section-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ct-muted);
+}
+.ct-card {
+  background: #ffffff;
+  border: 1px solid var(--ct-card-border);
+  border-radius: 1rem;
+  box-shadow: var(--ct-card-shadow);
+}
+.ct-title {
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: var(--ct-green-deep);
+}
+.ct-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+:focus-visible {
+  outline: 2px solid var(--ct-green);
+  outline-offset: 2px;
+}
+/* Pas d'animation d'entrée floutée : le contenu est lisible immédiatement. */
+.animate-blur-reveal,
+.animate-velocity-enter {
+  animation: none !important;
+  filter: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}

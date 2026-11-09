@@ -2,6 +2,7 @@
 // Next.js "standalone" en fs BRUT dans resources/app (aucun filtre, donc
 // node_modules et .next sont bien inclus — contrairement à extraResources).
 "use strict";
+/* eslint-disable @typescript-eslint/no-require-imports -- hook electron-builder, CommonJS imposé */
 const fs = require("node:fs");
 const path = require("node:path");
 

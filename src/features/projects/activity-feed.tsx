@@ -101,24 +101,24 @@ function getAvatarColor(name: string): string {
 // ─── Helper: action label in French ──────────────────────────────────────────
 
 const ACTION_LABELS: Record<string, string> = {
-  created: "a cree",
-  updated: "a mis a jour",
-  deleted: "a supprime",
+  created: "a créé",
+  updated: "a mis à jour",
+  deleted: "a supprimé",
   commented: "a commente",
   archived: "a archive",
-  restored: "a restaure",
+  restored: "a restauré",
   assigned: "a assigne",
-  completed: "a complete",
+  completed: "a complète",
   approved: "a approuve",
   rejected: "a rejete",
   attached: "a joint",
 };
 
 const ENTITY_LABELS: Record<string, string> = {
-  task: "la tache",
+  task: "la tâche",
   risk: "le risque",
   comment: "le commentaire",
-  baseline: "le referentiel",
+  baseline: "le référentiel",
   project: "le projet",
   issue: "l'incident",
   change: "la demande de changement",
@@ -138,7 +138,7 @@ function describeAction(event: ActivityEvent): string {
     if (event.oldValue && event.newValue) {
       base += ` : ${field} : ${event.oldValue} \u2192 ${event.newValue}`;
     } else if (event.newValue) {
-      base += ` : ${field} defini a ${event.newValue}`;
+      base += ` : ${field} défini a ${event.newValue}`;
     }
   }
 
@@ -216,7 +216,7 @@ function EntityIcon({ entityType }: { entityType: string }) {
 
 const ENTITY_FILTER_META: { key: string; label: string }[] = [
   { key: "all", label: "Tout" },
-  { key: "task", label: "Taches" },
+  { key: "task", label: "LT" },
   { key: "risk", label: "Risques" },
   { key: "comment", label: "Commentaires" },
   { key: "issue", label: "Incidents" },
@@ -428,10 +428,10 @@ function ActivityEmptyState() {
 
       <div>
         <p className="text-[15px] font-semibold text-slate-700">
-          Aucune activite enregistree
+          Aucune activité enregistrée
         </p>
         <p className="mt-1 max-w-xs text-[13px] leading-5 text-slate-400">
-          Les evenements du projet apparaitront ici au fur et a mesure de leur creation.
+          Les événements du projet apparaitront ici au fur et a mesure de leur création.
         </p>
       </div>
     </div>

@@ -41,9 +41,9 @@ export function TaskCollaborationPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base text-[#1a4a20]">Collaboration tache</CardTitle>
+        <CardTitle className="text-base text-[#1a4a20]">Collaboration tâche</CardTitle>
         <p className="text-xs text-slate-500">
-          Commentaires, @mentions par e-mail, pieces jointes binaires et references documentaires sur une tache executable.
+          Commentaires, @mentions par e-mail, pieces jointes binaires et références documentaires sur une tâche exécutable.
         </p>
       </CardHeader>
       <CardContent className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
@@ -70,7 +70,7 @@ export function TaskCollaborationPanel({
                     name="content"
                     required
                     className="min-h-24"
-                    placeholder="Ex. @admin@cheetahtime.local merci de valider cette dependance."
+                    placeholder="Ex. @admin@cheetahtime.local merci de valider cette dépendance."
                   />
                 </label>
                 <div className="flex items-center justify-between gap-3">
@@ -96,7 +96,7 @@ export function TaskCollaborationPanel({
                   <Input name="file" type="file" className="h-9 bg-white" />
                 </label>
                 <label className="grid gap-1.5 text-xs font-semibold text-slate-600">
-                  URL ou reference fichier
+                  URL ou référence fichier
                   <Input name="url" className="h-9" placeholder="https://... ou reference documentaire" />
                 </label>
                 <label className="grid gap-1.5 text-xs font-semibold text-slate-600">
@@ -105,7 +105,7 @@ export function TaskCollaborationPanel({
                 </label>
                 <div className="flex items-center justify-between gap-3">
                   <p className={attachmentState.status === "error" ? "text-xs text-rose-600" : "text-xs text-slate-400"}>
-                    {attachmentState.message || "Ajoutez un fichier binaire, ou seulement une URL/reference documentaire."}
+                    {attachmentState.message || "Ajoutez un fichier binaire, ou seulement une URL/référence documentaire."}
                   </p>
                   <Button type="submit" disabled={attachmentPending} size="sm">
                     Joindre
@@ -115,7 +115,7 @@ export function TaskCollaborationPanel({
             </>
           ) : (
             <div className="rounded-xl border border-dashed border-slate-200 bg-white/60 p-6 text-sm text-slate-500">
-              Ajoutez une tache executable pour ouvrir la collaboration.
+              Ajoutez une tâche exécutable pour ouvrir la collaboration.
             </div>
           )}
         </div>
@@ -139,7 +139,7 @@ export function TaskCollaborationPanel({
               </div>
             )) : (
               <div className="rounded-xl border border-dashed border-slate-200 bg-white/60 p-6 text-sm text-slate-500">
-                Aucun commentaire sur cette tache.
+                Aucun commentaire sur cette tâche.
               </div>
             )}
           </div>
@@ -165,7 +165,7 @@ export function TaskCollaborationPanel({
               </div>
             )) : (
               <div className="rounded-xl border border-dashed border-slate-200 bg-white/60 p-6 text-sm text-slate-500">
-                Aucune piece jointe sur cette tache.
+                Aucune piece jointe sur cette tâche.
               </div>
             )}
           </div>

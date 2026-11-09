@@ -1,5 +1,6 @@
 "use client";
 
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import { useActionState } from "react";
 
 import { createProjectAction } from "@/features/projects/actions";
@@ -51,12 +52,12 @@ export function CreateProjectForm() {
             <Input name="sponsorName" placeholder="Commanditaire executif" required className="h-9 text-sm" />
           </label>
           <label className="grid gap-1.5 text-xs font-semibold text-slate-500">
-            Debut cible
-            <Input name="targetStartDate" type="date" required className="h-9 text-sm" />
+            Début cible
+            <FrenchDateInput name="targetStartDate" required={true} />
           </label>
           <label className="grid gap-1.5 text-xs font-semibold text-slate-500">
             Fin cible
-            <Input name="targetFinishDate" type="date" className="h-9 text-sm" />
+            <FrenchDateInput name="targetFinishDate" />
           </label>
           <label className="grid gap-1.5 text-xs font-semibold text-slate-500">
             Budget
@@ -78,10 +79,10 @@ export function CreateProjectForm() {
                   : "text-xs text-slate-400"
               }
             >
-              {state.message || "Vous arriverez directement sur le tableau de bord du projet apres sa creation."}
+              {state.message || "Vous arriverez directement sur le tableau de bord du projet après sa création."}
             </div>
             <Button type="submit" disabled={pending} className="shrink-0">
-              {pending ? "Creation en cours..." : "Creer le projet"}
+              {pending ? "Création en cours..." : "Créer le projet"}
             </Button>
           </div>
         </form>

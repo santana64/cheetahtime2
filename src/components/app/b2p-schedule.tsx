@@ -1,4 +1,4 @@
-import { buildRecommendedB2PDates, getB2PCadenceRule } from "@/lib/fgf/b2p";
+import { getProjectB2PDates, getB2PCadenceRule } from "@/lib/fgf/b2p";
 import { formatDateLabel } from "@/lib/format/formatters";
 import type { ProjectView } from "@/types/planning";
 
@@ -13,8 +13,7 @@ export function B2PSchedule({ view }: { view: ProjectView }) {
   const dateFin = project.targetFinishDate ?? view.schedule.projectFinishDate ?? null;
   if (!dateFin) return null;
 
-  const stored = (project.b2pDates ?? []).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
-  const dates = stored.length ? stored : buildRecommendedB2PDates({ dateDebut, dateFin });
+  const dates = getProjectB2PDates(project, view.schedule.projectFinishDate);
   if (!dates.length) return null;
 
   const cadence = getB2PCadenceRule(dateDebut, dateFin);

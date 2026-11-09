@@ -108,7 +108,7 @@ export async function updateWorkspaceSettings(input: {
   }
 
   if (input.fiscalYearStartMonth < 1 || input.fiscalYearStartMonth > 12) {
-    throw new Error("Le mois de debut d'exercice doit etre compris entre 1 et 12.");
+    throw new Error("Le mois de début d'exercice doit être compris entre 1 et 12.");
   }
 
   if (getResolvedPersistenceMode() === "prisma") {

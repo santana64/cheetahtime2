@@ -52,7 +52,7 @@ export async function saveProjectAsTemplate(input: {
 }) {
   const name = input.name.trim();
   if (!name) {
-    throw new Error("Nom du modele requis.");
+    throw new Error("Nom du modèle requis.");
   }
 
   const payload = await exportProjectData(input.projectId);
@@ -96,7 +96,7 @@ export async function createProjectFromTemplate(input: {
   const templates = await listProjectTemplates(input.workspaceId);
   const template = templates.find((entry) => entry.id === input.templateId);
   if (!template?.sourceProjectId) {
-    throw new Error("Modele introuvable ou sans projet source.");
+    throw new Error("Modèle introuvable ou sans projet source.");
   }
 
   const projectId = await duplicateProject({

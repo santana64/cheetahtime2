@@ -42,7 +42,7 @@ const STEPS = [
   {
     emoji: "👥",
     title: "Les Ressources",
-    desc: "Onglet « Ressources » → affecte des personnes aux tâches, visualise la charge, détecte les surcharges. Le nivellement auto réorganise les tâches.",
+    desc: "Onglet « Ressources » → affecté des personnes aux tâches, visualise la charge, détecte les surcharges. Le nivellement auto réorganise les tâches.",
     cta: "Suivant →",
     color: "#f4a321",
     hint: "Onglet « Ressources » dans un projet",

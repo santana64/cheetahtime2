@@ -92,11 +92,12 @@ async function main() {
   } = advancedPlanning;
   const { buildSmartAlerts } = smartAlerts;
   const {
-    buildExcelXml,
     buildGanttSvg,
-    buildSCurveSvg,
-    buildSoutenancePdf,
+    buildProjectXlsx,
   } = reportServices;
+  const { buildTimeReportPdf } = await loadModule<typeof import("../src/services/time-report")>(
+    "../src/services/time-report.ts",
+  );
   const { createProjectFromBtpTemplate, listBtpTemplates } = btpTemplates;
   const { parseXerFile } = xerInterop;
 
@@ -890,8 +891,9 @@ async function main() {
     const leveledTask = view.tasks.find((task) => task.id === levelingTaskId);
     assert(leveledTask, "Expected leveling candidate task to exist.");
     assert(
-      (leveledTask.levelingDelayDays ?? 0) > 0,
-      "Expected resource leveling to persist a working-day delay on the candidate task.",
+      view.aggregate.dependencies.some((d) => d.kind === "RESOURCE" && d.successorTaskId === levelingTaskId) ||
+        (leveledTask.scheduledStartDate ?? "") > (leveledTask.earliestStartDate ?? ""),
+      "Expected resource leveling to push the candidate task behind a resource link.",
     );
     assert(
       view.metrics.leveledTaskCount > 0 && view.metrics.totalLevelingDelayDays > 0,
@@ -902,8 +904,9 @@ async function main() {
     const clearedLevelingTask = view.tasks.find((task) => task.id === levelingTaskId);
     assert(clearedLevelingTask, "Expected leveling candidate task after clearing delay.");
     assert(
-      (clearedLevelingTask.levelingDelayDays ?? 0) === 0,
-      "Expected clearing leveling to remove persisted delay from the task.",
+      (clearedLevelingTask.levelingDelayDays ?? 0) === 0 &&
+        !view.aggregate.dependencies.some((d) => d.kind === "RESOURCE"),
+      "Expected clearing leveling to remove resource links and delays.",
     );
 
     summary.workModelLifecycle = true;
@@ -1155,10 +1158,9 @@ async function main() {
     summary.smartAlertsLifecycle = true;
 
     assert(
-      buildSCurveSvg(view).includes("<svg") &&
-        buildGanttSvg(view).includes("<svg") &&
-        buildExcelXml(view).includes("Worksheet") &&
-        buildSoutenancePdf(view).byteLength > 500,
+      buildGanttSvg(view).includes("<svg") &&
+        buildProjectXlsx(view).subarray(0, 2).toString() === "PK" &&
+        buildTimeReportPdf(view).subarray(0, 5).toString() === "%PDF-",
       "Expected soutenance and enriched exports to render concrete payloads.",
     );
     summary.soutenanceExportLifecycle = true;

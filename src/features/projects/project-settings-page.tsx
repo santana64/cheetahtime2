@@ -1,5 +1,6 @@
 "use client";
 
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import { useActionState, useState } from "react";
 
 import {
@@ -105,7 +106,7 @@ function MetadataSection({ view }: MetadataSectionProps) {
           Informations generales
         </CardTitle>
         <p className="text-xs text-slate-500">
-          Metadonnees du projet — repercutees immediatement sur le tableau de bord et le planning.
+          Métadonnées du projet — repercutees immediatement sur le tableau de bord et le planning.
         </p>
       </CardHeader>
       <CardContent className="pt-5">
@@ -165,7 +166,7 @@ function MetadataSection({ view }: MetadataSectionProps) {
               <option value="ACTIVE">Actif</option>
               <option value="AT_RISK">A risque</option>
               <option value="ON_HOLD">En pause</option>
-              <option value="COMPLETED">Termine</option>
+              <option value="COMPLETED">Terminé</option>
             </Select>
           </FieldLabel>
 
@@ -178,23 +179,12 @@ function MetadataSection({ view }: MetadataSectionProps) {
             </Select>
           </FieldLabel>
 
-          <FieldLabel label="Debut cible">
-            <Input
-              name="targetStartDate"
-              type="date"
-              defaultValue={proj.targetStartDate}
-              required
-              className="h-9 text-sm"
-            />
+          <FieldLabel label="Début cible">
+            <FrenchDateInput name="targetStartDate" defaultValue={proj.targetStartDate} required={true} />
           </FieldLabel>
 
           <FieldLabel label="Fin cible">
-            <Input
-              name="targetFinishDate"
-              type="date"
-              defaultValue={proj.targetFinishDate ?? ""}
-              className="h-9 text-sm"
-            />
+            <FrenchDateInput name="targetFinishDate" defaultValue={proj.targetFinishDate ?? ""} />
           </FieldLabel>
 
           {/* Cheetah Time = outil de délai : ni budget ni coût (spec François). Valeurs conservées en interne. */}
@@ -204,7 +194,7 @@ function MetadataSection({ view }: MetadataSectionProps) {
           <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-4">
             <Feedback
               state={state}
-              idleText="Les modifications sont enregistrees dans votre planning et votre tableau de bord."
+              idleText="Les modifications sont enregistrées dans votre planning et votre tableau de bord."
             />
             <Button type="submit" disabled={pending} className="shrink-0">
               {pending ? "Enregistrement..." : "Enregistrer les informations"}
@@ -250,7 +240,7 @@ function CalendarSection({ view }: CalendarSectionProps) {
           Calendrier du projet
         </CardTitle>
         <p className="text-xs text-slate-500">
-          Les jours ouvres et exceptions reconfigurent immediatement le planning, le chemin critique et les ecarts.
+          Les jours ouvres et exceptions reconfigurent immediatement le planning, le chemin critique et les écarts.
         </p>
       </CardHeader>
       <CardContent className="pt-5">
@@ -327,13 +317,13 @@ function CalendarSection({ view }: CalendarSectionProps) {
               defaultValue={proj.levelingStrategy}
               className="h-9 text-sm"
             >
-              <option value="PRIORITY_THEN_SLACK">Priorite puis marge</option>
-              <option value="SLACK_THEN_PRIORITY">Marge puis priorite</option>
-              <option value="MIN_DELAY">Delai minimal</option>
+              <option value="PRIORITY_THEN_SLACK">Priorité puis marge</option>
+              <option value="SLACK_THEN_PRIORITY">Marge puis priorité</option>
+              <option value="MIN_DELAY">Délai minimal</option>
             </Select>
           </FieldLabel>
 
-          <FieldLabel label="Delai maximum de nivellement (jours)">
+          <FieldLabel label="Délai maximum de nivellement (jours)">
             <Input
               name="levelingMaxDelayDays"
               type="number"
@@ -360,7 +350,7 @@ function CalendarSection({ view }: CalendarSectionProps) {
           <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-4">
             <Feedback
               state={state}
-              idleText="Les modifications reconfigurent le calendrier de planification en temps reel."
+              idleText="Les modifications reconfigurent le calendrier de planification en temps réel."
             />
             <Button type="submit" disabled={pending} className="shrink-0">
               {pending ? "Enregistrement..." : "Enregistrer le calendrier"}
@@ -471,7 +461,7 @@ function DangerZoneSection({ view }: DangerZoneSectionProps) {
               className="shrink-0"
             >
               {archivePending
-                ? "Mise a jour..."
+                ? "Mise à jour..."
                 : isArchived
                   ? "Restaurer"
                   : "Archiver"}
@@ -507,7 +497,7 @@ function DangerZoneSection({ view }: DangerZoneSectionProps) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Feedback
               state={duplicateState}
-              idleText="La duplication cree un scenario independant avec son propre historique."
+              idleText="La duplication créé un scenario independant avec son propre historique."
             />
             <Button
               type="submit"
@@ -529,7 +519,7 @@ function DangerZoneSection({ view }: DangerZoneSectionProps) {
 
           <div>
             <div className="text-sm font-semibold text-rose-900">
-              Supprimer definitivement le projet
+              Supprimer définitivement le projet
             </div>
             <p className="mt-1 text-xs text-rose-800/80">
               Cette operation supprime irrevocablement le projet entier de la base de donnees : taches, dependances, ressources, affectations, baselines et tout l'historique. Cette action ne peut pas etre annulee.
@@ -552,7 +542,7 @@ function DangerZoneSection({ view }: DangerZoneSectionProps) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <Feedback
               state={deleteState}
-              idleText="N'utilisez la suppression que si le projet doit etre retire completement de l'espace de travail."
+              idleText="N'utilisez la suppression que si le projet doit être retire completement de l'espace de travail."
             />
             <Button
               type="submit"
@@ -584,19 +574,19 @@ function TemplateSection({ view }: { view: ProjectView }) {
           Section 3
         </div>
         <CardTitle className="text-base font-bold text-[#1a4a20]">
-          Modele de projet
+          Modèle de projet
         </CardTitle>
         <p className="text-xs text-slate-500">
-          Capture la structure, le planning, les ressources et les controles pour reutilisation sur un nouveau projet.
+          Capture la structure, le planning, les ressources et les contrôles pour reutilisation sur un nouveau projet.
         </p>
       </CardHeader>
       <CardContent className="pt-5">
         <form action={action} className="grid gap-4 md:grid-cols-2">
           <input type="hidden" name="projectId" value={proj.id} />
-          <FieldLabel label="Nom du modele">
+          <FieldLabel label="Nom du modèle">
             <Input
               name="templateName"
-              defaultValue={`${proj.name} - Modele`}
+              defaultValue={`${proj.name} - Modèle`}
               required
               className="h-9 text-sm"
             />
@@ -604,17 +594,17 @@ function TemplateSection({ view }: { view: ProjectView }) {
           <FieldLabel label="Description">
             <Input
               name="templateDescription"
-              defaultValue={`Modele cree depuis ${proj.name}.`}
+              defaultValue={`Modèle créé depuis ${proj.name}.`}
               className="h-9 text-sm"
             />
           </FieldLabel>
           <div className="md:col-span-2 flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-4">
             <Feedback
               state={state}
-              idleText="Le modele sera disponible depuis la creation de projet."
+              idleText="Le modèle sera disponible depuis la création de projet."
             />
             <Button type="submit" disabled={pending} className="shrink-0">
-              {pending ? "Capture..." : "Enregistrer comme modele"}
+              {pending ? "Capture..." : "Enregistrer comme modèle"}
             </Button>
           </div>
         </form>
@@ -639,7 +629,7 @@ export function ProjectSettingsPage({ view }: { view: ProjectView }) {
           className="text-xl font-black tracking-tight"
           style={{ color: "#1a4a20" }}
         >
-          Parametres du projet
+          Paramètres du projet
         </h2>
         <p className="text-sm text-slate-500">
           Configurez les informations, le calendrier et le cycle de vie de votre projet.

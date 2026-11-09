@@ -2,7 +2,6 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
-import { CheetahSoftOfficialLogo } from "@/components/app/brand-mark";
 
 interface Message {
   role: "user" | "assistant";

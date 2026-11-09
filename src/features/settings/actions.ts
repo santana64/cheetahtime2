@@ -51,9 +51,9 @@ export async function updateWorkspaceSettingsAction(
 
     revalidatePath("/settings");
     revalidatePath("/projects");
-    return { status: "success", message: "Parametres de l'espace mis a jour." };
+    return { status: "success", message: "Paramètres de l'espace mis à jour." };
   } catch (error) {
-    return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer les parametres.") };
+    return { status: "error", message: getErrorMessage(error, "Impossible d'enregistrer les paramètres.") };
   }
 }
 

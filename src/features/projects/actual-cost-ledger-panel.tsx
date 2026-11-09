@@ -1,5 +1,6 @@
 "use client";
 
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import { useActionState } from "react";
 
 import {
@@ -83,11 +84,7 @@ export function ActualCostLedgerPanel({ view }: { view: ProjectView }) {
           <div className="grid gap-4 md:grid-cols-2">
             <label className="grid gap-2 text-sm font-medium text-slate-700">
               Entry date
-              <Input
-                type="date"
-                name="entryDate"
-                defaultValue={view.schedule.projectStartDate ?? view.aggregate.project.targetStartDate}
-              />
+              <FrenchDateInput name="entryDate" defaultValue={view.schedule.projectStartDate ?? view.aggregate.project.targetStartDate} />
             </label>
 
             <label className="grid gap-2 text-sm font-medium text-slate-700">

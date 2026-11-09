@@ -1,5 +1,6 @@
 "use client";
 
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,7 @@ export function BtpTemplateLauncher({
             </div>
             <div className="mt-3 grid gap-2 md:grid-cols-2">
               <Input name="projectName" placeholder={`${template.name} - Nouveau projet`} className="h-9" />
-              <Input name="targetStartDate" type="date" defaultValue={defaultStartDate} className="h-9" required />
+              <FrenchDateInput name="targetStartDate" defaultValue={defaultStartDate} required={true} />
               <Input name="clientName" placeholder="Client" className="h-9" />
               <Input name="sponsorName" placeholder="Sponsor" className="h-9" />
             </div>

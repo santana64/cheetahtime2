@@ -71,7 +71,7 @@ export function BrandMark({
   }
 
   return (
-    <Link
+    <Link prefetch={false}
       href={href}
       className="group inline-flex items-center gap-3 rounded-xl px-1.5 py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#56a45b]/60"
       onMouseEnter={handleMouseEnter}

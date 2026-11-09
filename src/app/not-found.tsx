@@ -73,7 +73,7 @@ export default function NotFound() {
           color: "white",
           border: "1px solid rgba(255,255,255,0.15)",
         }}>
-          <Link href="/projects">Revenir au portefeuille</Link>
+          <Link prefetch={false} href="/projects">Revenir au portefeuille</Link>
         </Button>
 
         {/* Brand footer */}

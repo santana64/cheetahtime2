@@ -4,15 +4,14 @@ import Link from "next/link";
 
 import {
   ProjectHealthBadge,
-  ProjectOriginBadge,
   ProjectStatusBadge,
 } from "@/components/app/status-badge";
+import { DelayBannerStrip } from "@/components/app/delay-banner-strip";
+import { computeDelayBanner } from "@/lib/fgf/delay-banner";
 import { ProjectTabs } from "@/components/app/project-tabs";
 import { AiAssistant } from "@/components/app/ai-assistant";
-import { formatDateLabel } from "@/lib/format/formatters";
 import { getProjectView } from "@/services/projects";
 import { notFound } from "next/navigation";
-import { cn } from "@/lib/utils";
 import { requireCurrentSession } from "@/services/auth";
 
 export async function generateMetadata({
@@ -22,7 +21,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { projectId } = await params;
   const view = await getProjectView(projectId).catch(() => null);
-  if (!view) return { title: "Project" };
+  if (!view) return { title: "Projet" };
   return {
     title: view.aggregate.project.name,
     description: `${view.aggregate.project.clientName} — ${view.aggregate.project.description}`,
@@ -41,91 +40,96 @@ export default async function ProjectLayout({
   const view = await getProjectView(projectId, { workspaceId: (await requireCurrentSession()).workspaceId }).catch(() => notFound());
   const isArchived = Boolean(view.aggregate.project.archivedAt);
 
+  const banner = computeDelayBanner(view);
+  const project = view.aggregate.project;
+  const exports: { label: string; href: string; internal?: boolean }[] = [
+    { label: "Rapport PDF (commission)", href: `/api/projects/${project.id}/reports?format=pdf` },
+    { label: "Classeur Excel (.xlsx)", href: `/api/projects/${project.id}/reports?format=excel` },
+    { label: "Tableau CSV", href: `/api/projects/${project.id}/reports?format=csv` },
+    { label: "Gantt (image SVG)", href: `/api/projects/${project.id}/reports?format=gantt-svg` },
+    { label: "MS Project (.xml — à ouvrir dans MS Project)", href: `/api/projects/${project.id}/export?format=mspdi` },
+    { label: "Fichier commun Cheetah Cost (.cheetahcost.json)", href: `/api/projects/${project.id}/suite-export?download=1` },
+    { label: "Sauvegarde du projet (JSON)", href: `/api/projects/${project.id}/export` },
+    { label: "Historique du projet (journal et versions)", href: `/projects/${project.id}/historique`, internal: true },
+  ];
+
   return (
     <div className="space-y-5">
-      {/* Project header — style CheetahCost : blanc, dense, collant */}
-      <div
-        className="sticky top-0 z-20 overflow-hidden rounded-2xl panel-solid"
-        style={{ backdropFilter: "saturate(1.1)" }}
-      >
+      {/* En-tête projet — compact, non collant (seuls les onglets restent visibles au défilement). */}
+      <header className="ct-card overflow-hidden">
         <div className="h-[2px] w-full" style={{ background: "linear-gradient(90deg, #56a45b, #f4a321)" }} />
-        <div className="flex flex-col gap-3 px-5 pt-4">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            {/* Identity */}
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  href="/projects"
-                  aria-label="Retour au portefeuille"
-                  className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M19 12H5M12 19l-7-7 7-7" />
-                  </svg>
-                </Link>
-                <h1 className="truncate text-[19px] font-bold tracking-tight text-slate-900">
-                  {view.aggregate.project.name}
-                </h1>
-                <span className="flex-shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-slate-600">
-                  {view.aggregate.project.code}
-                </span>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <ProjectStatusBadge status={view.aggregate.project.status} />
-                <ProjectHealthBadge health={view.aggregate.project.health} />
-                <ProjectOriginBadge origin={view.aggregate.project.origin} />
-                {isArchived && (
-                  <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Archivé
-                  </span>
-                )}
-              </div>
-              <p className="mt-2 max-w-2xl text-[12px] leading-5 text-slate-500">
-                {view.aggregate.project.description}
-              </p>
-            </div>
-
-            {/* Schedule meta */}
-            <div className="flex flex-wrap gap-x-6 gap-y-2 xl:shrink-0 xl:pt-1">
-              {[
-                { label: "Début", value: formatDateLabel(view.aggregate.project.targetStartDate) },
-                { label: "Fin prévisionnelle", value: formatDateLabel(view.schedule.projectFinishDate), emphasis: true },
-                { label: "Responsable", value: view.aggregate.project.ownerName },
-              ].map(({ label, value, emphasis }) => (
-                <div key={label} className="min-w-[92px]">
-                  <div className="section-label">{label}</div>
-                  <div className={cn("mt-1 text-[13px] font-bold", emphasis ? "text-[#3f8f48]" : "text-slate-800")}>
-                    {value}
-                  </div>
+        <div className="flex flex-col gap-3 px-4 pt-3 sm:px-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link prefetch={false}
+              href="/projects"
+              aria-label="Retour aux projets"
+              className="flex size-7 flex-shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-700"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+            </Link>
+            <h1 className="ct-title min-w-0 truncate text-[19px]" title={project.description || project.name}>
+              {project.name}
+            </h1>
+            <span className="ct-num flex-shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+              {project.code}
+            </span>
+            <ProjectStatusBadge status={project.status} />
+            <ProjectHealthBadge health={project.health} />
+            {project.phase ? (
+              <span className="rounded-full border border-[#56a45b]/30 bg-[#56a45b]/10 px-2 py-0.5 text-[10px] font-bold text-[#1a4a20]">
+                {project.phase}
+              </span>
+            ) : null}
+            {isArchived && (
+              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Archivé
+              </span>
+            )}
+            <div className="ml-auto flex items-center gap-2">
+              <span className="hidden text-[11px] text-slate-500 lg:inline">
+                Responsable : <strong className="text-slate-700">{project.ownerName}</strong>
+              </span>
+              {/* Comme Cheetah Cost : « Nouveau B2P » en action principale, puis « Fichier ». */}
+              <Link prefetch={false} href={`/projects/${project.id}/modifier`} className="toolbar-btn" title="Corriger la saisie : durées, liens, délais, ressources, Tâches Hamac…">
+                Modifier la saisie
+              </Link>
+              <Link prefetch={false} href={`/projects/${project.id}/b2p#saisie-b2p`} className="toolbar-btn toolbar-btn-primary">
+                Nouveau B2P
+              </Link>
+              <details className="relative">
+                <summary className="toolbar-btn list-none [&::-webkit-details-marker]:hidden">Fichier ▾</summary>
+                <div className="absolute right-0 z-50 mt-1 w-60 rounded-xl border border-black/[0.08] bg-white p-1 shadow-lg">
+                  {exports.map(({ label, href, internal }) =>
+                    internal ? (
+                      <Link prefetch={false} key={label} href={href} className="block rounded-lg border-t border-black/[0.06] px-3 py-2 text-[12.5px] font-semibold text-[#1a4a20] hover:bg-[#56a45b]/10">
+                        {label}
+                      </Link>
+                    ) : (
+                      <a key={label} href={href} download className="block rounded-lg px-3 py-2 text-[12.5px] font-semibold text-slate-700 hover:bg-[#56a45b]/10">
+                        {label}
+                      </a>
+                    ),
+                  )}
                 </div>
-              ))}
+              </details>
             </div>
           </div>
 
-          {/* Tabs + exports */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100">
-            <ProjectTabs projectId={view.aggregate.project.id} />
-            <div className="flex flex-wrap items-center gap-1.5 py-2">
-              {[
-                { label: "PDF", href: `/api/projects/${view.aggregate.project.id}/reports?format=pdf` },
-                { label: "Excel", href: `/api/projects/${view.aggregate.project.id}/reports?format=excel` },
-                { label: "CSV", href: `/api/projects/${view.aggregate.project.id}/reports?format=csv` },
-                { label: "SVG Gantt", href: `/api/projects/${view.aggregate.project.id}/reports?format=gantt-svg` },
-                { label: "JSON", href: `/api/projects/${view.aggregate.project.id}/export` },
-              ].map(({ label, href }) => (
-                <a key={label} href={href} download className="toolbar-btn">
-                  ↓ {label}
-                </a>
-              ))}
-            </div>
-          </div>
+          <DelayBannerStrip banner={banner} compact />
         </div>
+        <div className="h-3" />
+      </header>
+      {/* Onglets : seule partie collante (≈ 42 px au lieu de 30 à 45 % de l'écran). */}
+      <div className="ct-card sticky top-0 z-30 -mt-2 px-2 sm:px-3" style={{ borderRadius: 12 }}>
+        <ProjectTabs projectId={project.id} />
       </div>
 
       {children}
 
-      {/* Floating AI assistant */}
-      <AiAssistant projectId={view.aggregate.project.id} />
+      {/* Assistant (flottant) */}
+      <AiAssistant projectId={project.id} />
     </div>
   );
 }

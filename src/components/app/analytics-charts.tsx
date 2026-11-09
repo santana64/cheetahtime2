@@ -7,7 +7,6 @@ import { formatDateLabel } from "@/lib/format/formatters";
  * Composants serveur (SVG pur, aucun JS requis).
  */
 
-const INK = "#334155"; // texte principal
 const MUT = "#94a3b8"; // texte discret
 const GRID = "#e7e5df"; // grille sur crème
 const SURFACE = "#fbfaf6";

@@ -4,7 +4,7 @@ import { buildOpenApiSpec } from "@/services/openapi";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "API Reference — CheetahSoft",
+  title: "API Référence — CheetahSoft",
   description: "Documentation publique de l'API REST Cheetah Time.",
 };
 
@@ -15,7 +15,7 @@ export default function ApiDocsPage() {
     <div className="space-y-6">
       <div className="rounded-2xl border border-white/70 bg-white/85 p-6">
         <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">CheetahSoft</div>
-        <h1 className="mt-1 text-2xl font-black tracking-tight text-[#1a4a20]">API Reference</h1>
+        <h1 className="mt-1 text-2xl font-black tracking-tight text-[#1a4a20]">API Référence</h1>
         <p className="mt-2 text-sm text-slate-500">
           API REST de Cheetah Time — intégration avec Jira, Primavera P6 et tout système tiers.
           Authentification par session cookie ou token Bearer.
@@ -54,7 +54,7 @@ export default function ApiDocsPage() {
             endpoints: [
               "GET /api/projects/:id/advanced — ES, Monte Carlo",
               "POST /api/projects/:id/what-if — Simulation",
-              "GET /api/projects/:id/baselines — Baselines",
+              "GET /api/projects/:id/baselines — Référentiels",
               "POST /api/projects/:id/leveling — Nivellement",
               "GET /api/projects/:id/network — Réseau PERT",
             ],

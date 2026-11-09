@@ -1,11 +1,13 @@
 "use client";
 
+import { FrenchDateInput } from "@/components/ui/french-date-input";
 import { startTransition, useActionState, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { createGuidedProjectAction } from "@/features/projects/actions";
+import { createGuidedProjectAction, updateProjectStructureAction } from "@/features/projects/actions";
+import type { ProjectEditData } from "@/services/projects";
 import { initialFormState } from "@/features/projects/form-state";
 import { buildRecommendedB2PDates } from "@/lib/fgf/b2p";
 import { timeUnitShortLabel } from "@/lib/planning/time-unit";
@@ -96,6 +98,38 @@ function nextCode(prefix: string, rows: { code: string }[]) {
   return `${prefix}${rows.length + 1}`;
 }
 
+/** Conversion de la saisie d'un projet existant vers les lignes de l'assistant. */
+function editRows(data: ProjectEditData) {
+  const st = data.structure;
+  const preds = (list?: { code: string; type?: string; lag?: number }[]): Pred[] =>
+    (list ?? []).map((p) => ({ code: p.code, type: (p.type as LinkType) ?? "FS", lag: p.lag ? String(p.lag) : "" }));
+  return {
+    resources: st.resources.map<ResRow>((r) => ({
+      id: uid(),
+      code: r.code,
+      name: r.name,
+      hoursPerDay: String(r.hoursPerDay ?? 7),
+      days: r.workingDays?.length ? r.workingDays : [1, 2, 3, 4, 5],
+    })),
+    lots: st.lots.map<LotRow>((l) => ({
+      id: uid(),
+      code: l.code,
+      name: l.name,
+      duration: String(l.duration ?? 0),
+      budget: String(l.budgetAmount ?? 0),
+      isPto: Boolean(l.isPto),
+      preds: preds(l.predecessors),
+      asgs: (l.assignments ?? []).map((a) => ({ resourceCode: a.resourceCode, intensity: String(a.intensity) })),
+      lotType: "DUREE",
+      charge: "0",
+      impKind: (l.imposed?.kind ?? "") as ImposedKind,
+      impDate: l.imposed?.date ?? "",
+    })),
+    jalons: (st.jalons ?? []).map<JalonRow>((j) => ({ id: uid(), code: j.code, name: j.name, preds: preds(j.predecessors) })),
+    hammocks: st.hammocks.map<ThRow>((h) => ({ id: uid(), code: h.code, name: h.name, lotCodes: h.lotCodes })),
+  };
+}
+
 /** Pastille d'étape (1→5) — progression visible, façon cockpit CheetahCost. */
 function StepChip({ n }: { n: number }) {
   return (
@@ -123,18 +157,24 @@ const miniSelectCls =
 const chipBtnCls =
   "flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition hover:bg-rose-50 hover:text-rose-500";
 
-export function ProjectCreationWizard() {
-  const [state, action, pending] = useActionState(createGuidedProjectAction, initialFormState);
+export function ProjectCreationWizard({ edit }: { edit?: { projectId: string; data: ProjectEditData } } = {}) {
+  const [state, action, pending] = useActionState(
+    edit ? updateProjectStructureAction : createGuidedProjectAction,
+    initialFormState,
+  );
+  const [initialRows] = useState(() => (edit ? editRows(edit.data) : null));
 
   /* ── 1. Identité ── */
-  const [name, setName] = useState("");
+  const [name, setName] = useState(edit?.data.name ?? "");
   const [nameError, setNameError] = useState(false);
-  const [phase, setPhase] = useState<string>("Réalisation");
-  const [clientName, setClientName] = useState("");
+  const [phase, setPhase] = useState<string>(edit?.data.phase ?? "Réalisation");
+  const [clientName, setClientName] = useState(edit?.data.clientName ?? "");
   const [currencyCode] = useState("EUR");
-  const [timeUnit, setTimeUnit] = useState<TimeUnit>("jours");
-  const [startDate, setStartDate] = useState(todayIso());
-  const [finishDate, setFinishDate] = useState(addDaysIso(todayIso(), 45));
+  const [timeUnit, setTimeUnit] = useState<TimeUnit>(edit?.data.structure.timeUnit ?? "jours");
+  const [startDate, setStartDate] = useState(edit?.data.targetStartDate ?? todayIso());
+  const [finishDate, setFinishDate] = useState(
+    edit ? (edit.data.targetFinishDate ?? addDaysIso(edit.data.targetStartDate, 45)) : addDaysIso(todayIso(), 45),
+  );
   const fixedFinish = useMemo(
     () => (finishDate < startDate ? startDate : finishDate),
     [finishDate, startDate],
@@ -142,12 +182,12 @@ export function ProjectCreationWizard() {
   const unitLabel = timeUnitShortLabel(timeUnit);
 
   /* ── 2. Ressources ── */
-  const [resources, setResources] = useState<ResRow[]>([
+  const [resources, setResources] = useState<ResRow[]>(initialRows?.resources ?? [
     { id: uid(), code: "R01", name: "Chef de projet", hoursPerDay: "7", days: [1, 2, 3, 4, 5] },
   ]);
 
   /* ── 3. Lots de Tâches (PT — Provision de Temps — systématique) ── */
-  const [lots, setLots] = useState<LotRow[]>([
+  const [lots, setLots] = useState<LotRow[]>(initialRows?.lots ?? [
     { id: uid(), code: "LT01", name: "", duration: "5", budget: "0", isPto: false, preds: [], asgs: [], lotType: "DUREE", charge: "0", impKind: "", impDate: "" },
     { id: uid(), code: "PT01", name: "Provision de Temps", duration: "0", budget: "0", isPto: true, preds: [], asgs: [], lotType: "DUREE", charge: "0", impKind: "", impDate: "" },
   ]);
@@ -156,10 +196,10 @@ export function ProjectCreationWizard() {
   const [actionDesiree, setActionDesiree] = useState<"A" | "B" | "C">("B");
 
   /* ── 4. Jalons (J1…J9, durée nulle) ── */
-  const [jalons, setJalons] = useState<JalonRow[]>([]);
+  const [jalons, setJalons] = useState<JalonRow[]>(initialRows?.jalons ?? []);
 
   /* ── 5. Tâches Hamac ── */
-  const [hammocks, setHammocks] = useState<ThRow[]>([]);
+  const [hammocks, setHammocks] = useState<ThRow[]>(initialRows?.hammocks ?? []);
 
   /* ── 5. Planning B2P ── */
   const recommended = useMemo(
@@ -177,7 +217,8 @@ export function ProjectCreationWizard() {
      La saisie est enregistrée en continu dans le stockage local du poste.
      En cas d'arrêt anormal (batterie vide, plantage), elle est restaurée à
      la réouverture — plus aucune perte de saisie (demande François). */
-  const WIZARD_DRAFT_KEY = "cheetah-time:wizard-draft:v1";
+  // En correction, un brouillon propre à chaque projet (jamais mélangé à une création).
+  const WIZARD_DRAFT_KEY = edit ? `cheetah-time:wizard-edit:${edit.projectId}:v1` : "cheetah-time:wizard-draft:v1";
   const [hydrated, setHydrated] = useState(false);
   const [draftRecovered, setDraftRecovered] = useState(false);
 
@@ -218,8 +259,7 @@ export function ProjectCreationWizard() {
       /* stockage inaccessible : on ignore */
     }
     setHydrated(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [WIZARD_DRAFT_KEY]);
 
   // Enregistrement continu (après restauration seulement, pour ne pas écraser).
   useEffect(() => {
@@ -413,14 +453,31 @@ export function ProjectCreationWizard() {
           </button>
         </div>
       )}
+      {edit ? (
+        <div className="rounded-xl border px-4 py-3 text-[12.5px] text-slate-700"
+          style={{ borderColor: "rgba(86,164,91,0.35)", background: "rgba(86,164,91,0.08)" }}>
+          <strong>Correction de la saisie.</strong> Modifiez ce qui est faux (durées, liens, délais, ressources,
+          intensités, Tâches Hamac…) puis enregistrez. Les LT dont le code ne change pas gardent leur avancement.
+          Une version « Avant correction de la saisie » est enregistrée automatiquement : vous pouvez revenir en
+          arrière depuis Fichier ▸ Historique du projet.
+          {edit.data.hasLeveling ? (
+            <> Le nivellement actuel sera retiré : relancez-le après la correction.</>
+          ) : null}
+        </div>
+      ) : null}
+      {edit ? <input type="hidden" name="projectId" value={edit.projectId} /> : null}
       <input type="hidden" name="phase" value={phase} />
       <input type="hidden" name="actionDesiree" value={actionDesiree} />
       <input type="hidden" name="targetStartDate" value={startDate} />
-      <input type="hidden" name="targetFinishDate" value={fixedFinish} />
+      {/* Fin initiale calculée par Cheetah Time (durées + liens) : on n'envoie AUCUNE échéance
+          arbitraire — sinon les dates au plus tard et les marges seraient calculées à rebours
+          depuis une fausse date de fin. En correction, la fin cible existante est conservée. */}
+      <input type="hidden" name="targetFinishDate" value="" />
       <input type="hidden" name="currencyCode" value={currencyCode} />
       <input type="hidden" name="clientName" value={clientName} />
       <input type="hidden" name="structure" value={structurePayload} />
-      <input type="hidden" name="b2pDates" value={JSON.stringify(b2pDates)} />
+      {/* Les B2P sont datés à la désignation du Planning Initial (règle FGF sur la fin calculée). */}
+      <input type="hidden" name="b2pDates" value="[]" />
 
       {/* ════ 1. Identité ════ */}
       <Card>
@@ -464,7 +521,7 @@ export function ProjectCreationWizard() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className={labelCls}>Date de début</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={fieldCls} />
+              <FrenchDateInput name="_date" key={startDate} defaultValue={startDate} onChange={(iso: string) => setStartDate(iso)} />
             </div>
             <div>
               <label className={labelCls}>Date de fin initiale</label>
@@ -478,7 +535,7 @@ export function ProjectCreationWizard() {
           </div>
 
           {/* Élaboration du Planning Initial (remplace « Action désirée » — spec François 23/08) */}
-          <div className="rounded-xl border px-4 py-3" style={{ borderColor: "rgba(86,164,91,0.30)", background: "rgba(86,164,91,0.05)" }}>
+          {edit ? null : <div className="rounded-xl border px-4 py-3" style={{ borderColor: "rgba(86,164,91,0.30)", background: "rgba(86,164,91,0.05)" }}>
             <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#3f8f48]">Élaboration du Planning Initial</div>
             <p className="mt-1 text-[12px] leading-5 text-slate-600">
               Vous construisez ici votre planning (LT, liens, ressources, jalons). En créant le projet, ce planning devient
@@ -487,7 +544,7 @@ export function ProjectCreationWizard() {
               la <strong>date de fin initiale</strong> et les <strong>B2P</strong> sont alors datés, et le
               <strong> Pilotage du Temps</strong> (Bilans B2P) devient accessible.
             </p>
-          </div>
+          </div>}
         </CardContent>
       </Card>
 
@@ -591,12 +648,12 @@ export function ProjectCreationWizard() {
                 {/* Ligne principale — outil de délai : pas de montant/budget (cf. CdC) */}
                 <div className="grid grid-cols-[72px_1fr_120px_40px] items-center gap-2">
                   <input value={lot.code} onChange={(e) => patchLot(lot.id, { code: e.target.value })}
-                    className={`${cellCls} font-mono font-semibold`} />
+                    aria-label="Code du lot" className={`${cellCls} font-mono font-semibold`} />
                   <input value={lot.name} onChange={(e) => patchLot(lot.id, { name: e.target.value })}
                     placeholder={lot.isPto ? "Provision de Temps" : "Ex : Management du projet, Définition…"}
                     className={cellCls} />
                   <div className="relative">
-                    <input value={lot.duration} inputMode="decimal"
+                    <input value={lot.duration} inputMode="decimal" aria-label={`Durée de ${lot.code}`}
                       onChange={(e) => patchLot(lot.id, { duration: e.target.value })}
                       className={`${cellCls} pr-9 text-right tabular-nums`}
                       title={lot.isPto ? "Durée de la Provision de Temps" : `Durée en ${timeUnit}`} />
@@ -695,9 +752,7 @@ export function ProjectCreationWizard() {
                         {IMPOSED_KINDS.map((k) => <option key={k.value || "none"} value={k.value}>{k.label}</option>)}
                       </select>
                       {lot.impKind && (
-                        <input type="date" value={lot.impDate} min={startDate}
-                          onChange={(e) => patchLot(lot.id, { impDate: e.target.value })}
-                          className="rounded-md border border-slate-200 bg-white px-1 py-0.5 text-[11px] outline-none focus:border-[#56a45b]" />
+                        <FrenchDateInput name="_date" key={lot.impDate} defaultValue={lot.impDate} onChange={(iso: string) => patchLot(lot.id, { impDate: iso })} min={startDate} />
                       )}
                     </div>
                   )}
@@ -867,7 +922,7 @@ export function ProjectCreationWizard() {
       )}
 
       {/* ── Barre d'action ── */}
-      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur">
+      <div className="sticky bottom-4 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/95 py-3 pl-4 pr-20 shadow-lg backdrop-blur">
         <div className="text-[12px] text-slate-600">
           <strong>{ltOnly.length}</strong> LT · <strong>{ptoCount}</strong> PT · <strong>{jalons.length}</strong> jalon(s) ·{" "}
           <strong>{hammocks.length}</strong> TH · <strong>{resources.length}</strong> ressource(s)
@@ -881,7 +936,9 @@ export function ProjectCreationWizard() {
             color: "white",
           }}
         >
-          {pending ? "Création…" : "Créer le projet →"}
+          {edit
+            ? pending ? "Enregistrement…" : "Enregistrer les corrections →"
+            : pending ? "Création…" : "Créer le projet →"}
         </Button>
       </div>
     </form>

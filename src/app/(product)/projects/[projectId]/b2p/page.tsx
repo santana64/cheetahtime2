@@ -3,9 +3,17 @@ import Link from "next/link";
 
 import { B2PBilanView } from "@/features/projects/b2p-bilan-view";
 import { MilestoneTrend } from "@/components/app/milestone-trend";
-import { buildRecommendedB2PDates, getB2PCadenceRule } from "@/lib/fgf/b2p";
+import { getB2PCadenceRule, getProjectB2PDates } from "@/lib/fgf/b2p";
 import { buildB2PPlanningReview } from "@/lib/fgf/b2p-review";
 import { getProjectView } from "@/services/projects";
+import { T2PTimeline } from "@/components/app/t2p-timeline";
+import { Button } from "@/components/ui/button";
+import { createT2PB2P0Action } from "@/features/projects/actions";
+import { sortT2PTables } from "@/lib/fgf/t2p";
+import { formatDateLabel } from "@/lib/format/formatters";
+import { B2PAdvanceForm, type B2PAdvanceTaskRow } from "@/features/projects/b2p-advance-form";
+import { computeDelayBanner, formatGap } from "@/lib/fgf/delay-banner";
+import { fromWorkingDays, timeUnitShortLabel } from "@/lib/planning/time-unit";
 
 export default async function ProjectB2PPage({
   params,
@@ -32,7 +40,7 @@ export default async function ProjectB2PPage({
               Ouvrez l&apos;onglet <strong>Planning</strong>, enregistrez une variante (P01 → P99), puis{" "}
               <strong>« Désignez-la comme PI »</strong>. La date de fin initiale et les B2P seront alors datés.
             </p>
-            <Link
+            <Link prefetch={false}
               href={`/projects/${projectId}/planning`}
               className="mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold text-white"
               style={{ background: "#56a45b" }}
@@ -56,16 +64,74 @@ export default async function ProjectB2PPage({
       .sort()
       .at(-1) ?? dateDebut;
 
-  // Les dates de B2P suivent la RÈGLE FGF sur la durée RÉELLE du projet (start → fin
-  // calculée). On recalcule toujours : un projet de 18 mois doit avoir des B2P espacés
-  // (tous les 2 mois), pas toutes les semaines. Les dates stockées éventuelles ne
-  // priment plus (elles pouvaient venir d'une durée par défaut erronée).
-  const dates = buildRecommendedB2PDates({ dateDebut, dateFin });
+  // Même règle que Cheetah Cost (getProjectPlannedB2PDates) : les dates saisies dans
+  // « Dates des B2P » (ou reçues par le fichier commun) priment, sinon la règle FGF.
+  const dates = getProjectB2PDates(project, view.schedule.projectFinishDate);
   const cadence = getB2PCadenceRule(dateDebut, dateFin);
   const review = buildB2PPlanningReview(view);
 
+  const banner = computeDelayBanner(view);
+  const unitLabel = timeUnitShortLabel(project.timeUnit ?? "jours");
+  const t2pTables = sortT2PTables(project.t2pTables ?? []);
+  const lastTable = [...t2pTables].sort((a, b) => a.date.localeCompare(b.date)).at(-1) ?? null;
+  const statusDate = view.schedule.statusDate ?? null;
+  // Prochain B2P à saisir : le premier B2P postérieur à la dernière date d'état.
+  const nextIndex = Math.max(1, dates.findIndex((d) => !statusDate || d > statusDate));
+  const nextDate = dates[nextIndex] ?? dates[dates.length - 1] ?? new Date().toISOString().slice(0, 10);
+  const advanceRows: B2PAdvanceTaskRow[] = view.tasks
+    .filter((t) => !t.isSummary && t.type !== "SUMMARY")
+    .map((t) => ({
+      id: t.id,
+      code: t.code ?? t.wbsCode,
+      name: t.name,
+      isProvision: /^PT/i.test(t.code ?? "") || /provision/i.test(t.name),
+      status: t.status,
+      plannedStart: t.scheduledStartDate ?? null,
+      plannedFinish: t.scheduledFinishDate ?? null,
+      actualStart: t.actualStartDate ?? null,
+      actualFinish: t.actualFinishDate ?? null,
+      durationUnits: fromWorkingDays(t.durationDays, project.timeUnit ?? "jours"),
+    }));
+
   return (
     <div className="space-y-6">
+      {/* ── Tableaux B2P — même écran que Cheetah Cost ── */}
+      <section className="space-y-3" aria-labelledby="tableaux-b2p">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <h2 id="tableaux-b2p" className="text-[13px] font-bold text-slate-800">Tableaux B2P</h2>
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{t2pTables.length}</span>
+            {lastTable ? <span className="text-[11px] text-slate-400">· dernier : {formatDateLabel(lastTable.date)}</span> : null}
+          </div>
+          <div className="flex items-center gap-2">
+            <form action={createT2PB2P0Action}>
+              <input type="hidden" name="projectId" value={projectId} />
+              <Button variant="outline" size="sm" type="submit" disabled={t2pTables.some((t) => t.tableKind === "b2p0")}>
+                Créer le tableau B2P0
+              </Button>
+            </form>
+            <a href="#saisie-b2p" className="toolbar-btn toolbar-btn-primary">Démarrer B2P suivant</a>
+          </div>
+        </div>
+        {banner.actionRequise ? (
+          <div className="flex items-start gap-2.5 rounded-xl border px-4 py-3 text-[12px]" style={{ borderColor: "rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.05)" }}>
+            <span className="font-semibold text-[#991b1b]">
+              Retard de {formatGap(banner.ecart, unitLabel).replace("+", "")} sur la fin à date
+            </span>
+            <span className="text-slate-600">— étudiez un scénario correctif (T2Pi-2j) puis retenez-en un (T2Pi-2).</span>
+          </div>
+        ) : null}
+        <T2PTimeline view={view} />
+      </section>
+
+      <B2PAdvanceForm
+        projectId={projectId}
+        nextB2PDate={nextDate}
+        b2pLabel={`B2P${nextIndex}`}
+        unitLabel={unitLabel}
+        rows={advanceRows}
+      />
+
       <B2PBilanView
         projectId={projectId}
         dates={dates}
@@ -73,30 +139,19 @@ export default async function ProjectB2PPage({
         review={review}
         notes={project.b2pNotes ?? {}}
         scenarios={project.b2pScenarios ?? {}}
-        delai={{
-          finInitiale: project.targetFinishDate ?? null,
-          finPrevisionnelle: view.schedule.projectFinishDate ?? null,
-          dateActuelle: new Date().toISOString().slice(0, 10),
-          glissementJours: view.metrics.scheduleSlipDays ?? review.glissementProjet ?? 0,
-        }}
+        unit={project.timeUnit ?? "jours"}
       />
 
-      {/* Rapport Périodique de Pilotage du Temps (spec FGF B3) */}
-      <div className="rounded-2xl border border-white/70 bg-white/85 p-5">
-        <div className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Méthode FGF · pilotage</div>
-        <h2 className="mt-1 text-xl font-black tracking-tight text-[#1a4a20]">Rapport Périodique de Pilotage du Temps</h2>
-        <p className="mt-2 max-w-3xl text-sm text-slate-500">
-          À chaque B2P : le <strong>double planning</strong> (PàD — Planning à Date — en noir, réalisé en rouge, prévu en vert, sur l&apos;onglet Planning),
-          plus les diagrammes <strong>Temps/Temps</strong> et <strong>Jalons-Jalons</strong> ci-dessous.
+      {/* Rapport Périodique de Pilotage du Temps (CdC B3) : double planning + Temps/Temps + Jalons-Jalons — pas de courbe en S. */}
+      <section className="ct-card p-5">
+        <div className="section-label">Méthode FGF · pilotage</div>
+        <h2 className="ct-title mt-1 text-[17px]">Rapport Périodique de Pilotage du Temps</h2>
+        <p className="mt-1.5 max-w-3xl text-[12.5px] leading-5 text-slate-600">
+          Double planning (PàD en noir, réalisé en rouge, reste à faire en vert — onglet{" "}
+          <Link prefetch={false} href={`/projects/${projectId}/planning`} className="font-semibold text-[#3f8f48] underline">Planning</Link>
+          ) et diagrammes Temps/Temps et Jalons-Jalons ci-dessous. Le rapport PDF reprend ces éléments.
         </p>
-        <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[12px] leading-5 text-emerald-900">
-          <strong>Passer au B2P suivant</strong> — saisir : pour les <strong>LT commencés</strong>, la date de début et la prévision de fin ;
-          pour les <strong>LT finis</strong>, la date de fin réelle ; les éventuels <strong>nouveaux LT</strong> ; et une nouvelle durée pour les <strong>PT</strong> non franchies.
-          Ces saisies se font sur l&apos;onglet{" "}
-          <Link href={`/projects/${projectId}/planning`} className="font-semibold underline">Planning</Link>{" "}
-          (glisser les barres ou via l&apos;inspecteur), puis <em>« Désigner comme PI »</em> fige le <strong>PàD</strong>.
-        </div>
-      </div>
+      </section>
 
       <MilestoneTrend view={view} />
     </div>

@@ -23,6 +23,16 @@ import {
   deriveTaskDurationDays,
   getTaskWorkingCalendar,
 } from "@/lib/planning/work-model";
+import {
+  inferMonths,
+  monthAfter,
+  monthFinish,
+  monthFinishShift,
+  monthShift,
+  monthStart,
+  monthsBetween,
+} from "@/lib/planning/month-calendar";
+import { fromWorkingDays } from "@/lib/planning/time-unit";
 
 type MutableScheduledTask = ScheduledTask;
 type DependencyTaskReference = Pick<
@@ -51,6 +61,105 @@ export interface ExternalScheduledTaskReference extends DependencyTaskReference 
 export interface BuildScheduleOptions {
   dependencies?: Dependency[];
   externalTasks?: ExternalScheduledTaskReference[];
+  /** Date d'état imposée (sinon : project.statusDate, ou aujourd'hui si un PI est figé). */
+  statusDate?: ISODate | null;
+}
+
+export const DEFAULT_PSEUDO_CRITICAL_COEFFICIENT = 1.3;
+
+function todayIsoUtc(): ISODate {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/**
+ * Date d'état effective : explicite si saisie ; sinon la date du jour dès que le
+ * projet est en suivi (PI figé) ; sinon aucune (planification pure).
+ */
+export function resolveStatusDate(project: ProjectAggregate, override?: ISODate | null): ISODate | null {
+  if (override !== undefined) return override;
+  if (project.project.statusDate) return project.project.statusDate;
+  if (project.baselines?.some((baseline) => baseline.isActive)) return todayIsoUtc();
+  return null;
+}
+
+/**
+ * Arithmétique des durées : jours ouvrés (par défaut) ou MOIS CALENDAIRES
+ * (projet en « mois » : 3 mois au 1er avril finissent le 30 juin).
+ */
+interface DurationArithmetic {
+  monthMode: boolean;
+  finishFrom(start: ISODate, task: Pick<Task, "durationDays" | "type" | "durationUnits">, calendar: WorkingCalendarLike): ISODate;
+  startFrom(finish: ISODate, task: Pick<Task, "durationDays" | "type" | "durationUnits">, calendar: WorkingCalendarLike): ISODate;
+  forward(predStart: ISODate, predFinish: ISODate, successor: Pick<Task, "durationDays" | "type" | "durationUnits">, dependency: Dependency, calendar: WorkingCalendarLike): ISODate;
+  backward(succLatestStart: ISODate, succLatestFinish: ISODate, predecessor: Pick<Task, "durationDays" | "type" | "durationUnits">, dependency: Dependency, calendar: WorkingCalendarLike): ISODate;
+  distance(from: ISODate, to: ISODate, calendar: WorkingCalendarLike): number;
+}
+
+function taskMonths(task: Pick<Task, "durationDays" | "type" | "durationUnits">) {
+  if (task.type === "MILESTONE" || task.type === "SUMMARY") return 0;
+  if (typeof task.durationUnits === "number" && task.durationUnits > 0) return task.durationUnits;
+  return Math.max(inferMonths(Math.max(task.durationDays, 1)), 0.05);
+}
+
+function lagMonths(dependency: Dependency) {
+  if (typeof dependency.lagUnits === "number") return dependency.lagUnits;
+  return dependency.lagDays ? inferMonths(dependency.lagDays) : 0;
+}
+
+function createArithmetic(monthMode: boolean): DurationArithmetic {
+  if (!monthMode) {
+    return {
+      monthMode,
+      finishFrom: (start, task, calendar) => durationToFinishDate(start, getTaskDuration(task), calendar),
+      startFrom: (finish, task, calendar) => finishToStartDate(finish, getTaskDuration(task), calendar),
+      forward: (ps, pf, succ, dep, cal) => getForwardConstraintStart(ps, pf, getTaskDuration(succ), dep, cal),
+      backward: (ls, lf, pred, dep, cal) => getBackwardConstraintFinish(ls, lf, getTaskDuration(pred), dep, cal),
+      distance: (from, to, cal) => workingDayDistance(from, to, cal),
+    };
+  }
+  return {
+    monthMode,
+    finishFrom: (start, task, calendar) => monthFinish(start, taskMonths(task), calendar),
+    startFrom: (finish, task, calendar) => monthStart(finish, taskMonths(task), calendar),
+    forward: (ps, pf, succ, dep, cal) => {
+      const lag = lagMonths(dep);
+      switch (dep.type) {
+        case "FS":
+          return monthAfter(pf, lag, cal);
+        case "SS":
+          return monthShift(ps, lag, cal, 1);
+        case "FF":
+          return monthStart(monthFinishShift(pf, lag, cal), taskMonths(succ), cal);
+        case "SF":
+          return monthStart(monthFinishShift(addCalendarDaysSafe(ps, -1), lag, cal), taskMonths(succ), cal);
+        default:
+          return pf;
+      }
+    },
+    backward: (ls, lf, pred, dep, cal) => {
+      const lag = lagMonths(dep);
+      switch (dep.type) {
+        case "FS":
+          // fin au plus tard = veille de (début au plus tard − délai)
+          return monthFinishShift(addCalendarDaysSafe(ls, -1), -lag, cal);
+        case "SS":
+          return monthFinish(monthShift(ls, -lag, cal, 1), taskMonths(pred), cal);
+        case "FF":
+          return monthFinishShift(lf, -lag, cal);
+        case "SF":
+          return monthFinish(monthShift(addCalendarDaysSafe(lf, 1), -lag, cal, 1), taskMonths(pred), cal);
+        default:
+          return lf;
+      }
+    },
+    distance: (from, to, cal) => workingDayDistance(from, to, cal),
+  };
+}
+
+function addCalendarDaysSafe(date: ISODate, amount: number): ISODate {
+  const d = new Date(`${date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + amount);
+  return d.toISOString().slice(0, 10);
 }
 
 function getTaskKey(projectId: string, taskId: string) {
@@ -72,6 +181,15 @@ export function buildSchedule(
   );
   const dependencyList = options.dependencies ?? project.dependencies;
   const localProjectId = project.project.id;
+  // Mode MOIS : planification en mois calendaires → tous les jours comptent
+  // (un mois commence le 1er même si c'est un samedi). Les charges ressources
+  // restent, elles, réparties sur les jours ouvrés.
+  const monthMode = project.project.timeUnit === "mois";
+  const monthCalendar: WorkingCalendarLike = {
+    ...project.calendar,
+    workingDays: [1, 2, 3, 4, 5, 6, 7],
+    exceptions: [],
+  } as WorkingCalendarLike;
 
   function resolveTaskReference(
     projectId: string,
@@ -85,7 +203,7 @@ export function buildSchedule(
 
       return {
         ...task,
-        calendar: taskCalendarMap.get(task.id) ?? project.calendar,
+        calendar: taskCalendarMap.get(task.id) ?? (monthMode ? monthCalendar : project.calendar),
       };
     }
 
@@ -96,11 +214,11 @@ export function buildSchedule(
     const childIds = childrenMap.get(node.task.id) ?? [];
     const normalizedDurationDays = deriveTaskDurationDays(node.task, project);
     const progressPercent = Math.min(Math.max(node.task.progressPercent, 0), 100);
-    taskCalendarMap.set(node.task.id, getTaskWorkingCalendar(project, node.task));
+    taskCalendarMap.set(node.task.id, monthMode ? monthCalendar : getTaskWorkingCalendar(project, node.task));
     if (progressPercent !== node.task.progressPercent) {
       issues.push({
         code: "INVALID_PROGRESS",
-        message: `La tache ${node.task.name} avait un avancement hors plage 0-100 et a ete normalisee.`,
+        message: `La tâche ${node.task.name} avait un avancement hors plage 0-100 et a été normalisee.`,
         taskId: node.task.id,
       });
     }
@@ -126,7 +244,7 @@ export function buildSchedule(
     if (parentId && !taskMap.has(parentId)) {
       issues.push({
         code: "ORPHAN_PARENT",
-        message: `La tache ${task.name} reference un parent introuvable.`,
+        message: `La tâche ${task.name} référence un parent introuvable.`,
         taskId: task.id,
       });
     }
@@ -149,7 +267,7 @@ export function buildSchedule(
     if (!predecessor || !successor) {
       issues.push({
         code: "MISSING_TASK",
-        message: `La dependance ${dependency.id} reference une tache introuvable.`,
+        message: `La dépendance ${dependency.id} référence une tâche introuvable.`,
         dependencyId: dependency.id,
       });
       continue;
@@ -161,7 +279,7 @@ export function buildSchedule(
     ) {
       issues.push({
         code: "SELF_DEPENDENCY",
-        message: `La tache ${predecessor.name} ne peut pas dependre d'elle-meme.`,
+        message: `La tâche ${predecessor.name} ne peut pas dependre d'elle-meme.`,
         taskId: predecessor.id,
         dependencyId: dependency.id,
       });
@@ -171,7 +289,7 @@ export function buildSchedule(
     if (predecessor.isSummary || successor.isSummary) {
       issues.push({
         code: "SUMMARY_DEPENDENCY",
-        message: `Les taches recapitulatives ne peuvent pas etre utilisees dans la logique de dependance (${predecessor.name} -> ${successor.name}).`,
+        message: `Les tâches récapitulatives ne peuvent pas être utilisees dans la logique de dépendance (${predecessor.name} -> ${successor.name}).`,
         dependencyId: dependency.id,
       });
       continue;
@@ -206,12 +324,14 @@ export function buildSchedule(
   if (!topoOrder) {
     issues.push({
       code: "CYCLE",
-      message: "Le reseau de dependances contient un cycle. Les dates sont calculees sans les liens cycliques.",
+      message: "Le réseau de dépendances contient un cycle. Les dates sont calculees sans les liens cycliques.",
     });
   }
 
   const orderedExecutableIds = topoOrder ?? executableTasks.map((task) => task.id);
-  const calendar = project.calendar;
+  const calendar = monthMode ? (monthCalendar as typeof project.calendar) : project.calendar;
+  const arith = createArithmetic(monthMode);
+  const statusDate = resolveStatusDate(project, options.statusDate);
   const projectStartDate =
     normalizeWorkingDate(
       project.project.targetStartDate ??
@@ -256,21 +376,16 @@ export function buildSchedule(
       const predEarliestFinish =
         (predecessor as { earliestFinishDate?: string | null }).earliestFinishDate ??
         predecessor.scheduledFinishDate;
-      if (predEarliestStart && predEarliestFinish) {
-        const c = getForwardConstraintStart(
-          predEarliestStart,
-          predEarliestFinish,
-          task.durationDays,
-          dependency,
-          taskCalendar,
-        );
+      // Les liens ressources (nivellement) ne contraignent pas le « au plus tôt pur ».
+      if (predEarliestStart && predEarliestFinish && dependency.kind !== "RESOURCE") {
+        const c = arith.forward(predEarliestStart, predEarliestFinish, task, dependency, taskCalendar);
         if (compareIsoDates(c, earliestStart) > 0) earliestStart = c;
       }
       if (predecessor.scheduledStartDate && predecessor.scheduledFinishDate) {
-        const c = getForwardConstraintStart(
+        const c = arith.forward(
           predecessor.scheduledStartDate,
           predecessor.scheduledFinishDate,
-          task.durationDays,
+          task,
           dependency,
           taskCalendar,
         );
@@ -278,12 +393,19 @@ export function buildSchedule(
       }
     }
 
+    // ── Date d'état (data date, façon P6 / « replanifier le travail restant ») ──
+    // Un LT non commencé ne peut plus démarrer avant la date d'état ; un LT en
+    // cours voit son reste à faire replanifié à partir de cette date.
+    const started = Boolean(task.actualStartDate) || task.progressPercent > 0;
+    const finished = task.status === "DONE" || task.progressPercent >= 100;
+    if (statusDate && !finished && !started) {
+      const floor = normalizeWorkingDate(statusDate, taskCalendar);
+      if (compareIsoDates(floor, earliestStart) > 0) earliestStart = floor;
+      if (compareIsoDates(floor, scheduledStart) > 0) scheduledStart = floor;
+    }
+
     task.earliestStartDate = earliestStart;
-    task.earliestFinishDate = durationToFinishDate(
-      earliestStart,
-      getTaskDuration(task),
-      taskCalendar,
-    );
+    task.earliestFinishDate = arith.finishFrom(earliestStart, task, taskCalendar);
 
     // Le délai de nivellement ne s'applique QU'AU planifié (après nivellement).
     if (task.levelingDelayDays > 0) {
@@ -297,13 +419,41 @@ export function buildSchedule(
     ) {
       task.scheduledStartDate = task.manualStartDate;
       task.scheduledFinishDate = task.manualFinishDate;
+    } else if (statusDate && (started || finished) && task.actualStartDate) {
+      // Avancement réel : début réel ; fin réelle si terminé, sinon
+      // max(fin théorique, date d'état + reste à faire).
+      task.scheduledStartDate = task.actualStartDate;
+      if (finished) {
+        task.scheduledFinishDate =
+          task.actualFinishDate ?? arith.finishFrom(task.actualStartDate, task, taskCalendar);
+      } else {
+        const planned = arith.finishFrom(task.actualStartDate, task, taskCalendar);
+        const remainingShare = Math.max(0, 1 - task.progressPercent / 100);
+        const remainingTask = {
+          ...task,
+          durationDays: Math.max(1, Math.ceil(getTaskDuration(task) * remainingShare)),
+          durationUnits:
+            typeof task.durationUnits === "number" ? task.durationUnits * remainingShare : task.durationUnits,
+        };
+        const fromStatus = arith.finishFrom(normalizeWorkingDate(statusDate, taskCalendar), remainingTask, taskCalendar);
+        task.scheduledFinishDate = compareIsoDates(fromStatus, planned) > 0 ? fromStatus : planned;
+      }
+    } else if (statusDate && started && !finished) {
+      // En cours sans début réel saisi : le reste à faire part de la date d'état.
+      task.scheduledStartDate = scheduledStart;
+      const planned = arith.finishFrom(scheduledStart, task, taskCalendar);
+      const remainingShare = Math.max(0, 1 - task.progressPercent / 100);
+      const remainingTask = {
+        ...task,
+        durationDays: Math.max(1, Math.ceil(getTaskDuration(task) * remainingShare)),
+        durationUnits:
+          typeof task.durationUnits === "number" ? task.durationUnits * remainingShare : task.durationUnits,
+      };
+      const fromStatus = arith.finishFrom(normalizeWorkingDate(statusDate, taskCalendar), remainingTask, taskCalendar);
+      task.scheduledFinishDate = compareIsoDates(fromStatus, planned) > 0 ? fromStatus : planned;
     } else {
       task.scheduledStartDate = scheduledStart;
-      task.scheduledFinishDate = durationToFinishDate(
-        scheduledStart,
-        getTaskDuration(task),
-        taskCalendar,
-      );
+      task.scheduledFinishDate = arith.finishFrom(scheduledStart, task, taskCalendar);
     }
   }
 
@@ -338,10 +488,10 @@ export function buildSchedule(
             return null;
           }
 
-          return getBackwardConstraintFinish(
+          return arith.backward(
             successor.latestStartDate,
             successor.latestFinishDate,
-            task.durationDays,
+            task,
             dependency,
             successor.calendar,
           );
@@ -361,11 +511,7 @@ export function buildSchedule(
     }
 
     task.latestFinishDate = latestFinish;
-    task.latestStartDate = finishToStartDate(
-      latestFinish,
-      getTaskDuration(task),
-      taskCalendar,
-    );
+    task.latestStartDate = arith.startFrom(latestFinish, task, taskCalendar);
     task.totalSlackDays = workingDayDistance(
       task.scheduledStartDate,
       task.latestStartDate,
@@ -378,6 +524,38 @@ export function buildSchedule(
       calendar,
     );
     task.isCritical = (task.totalSlackDays ?? 0) <= 0;
+    if (arith.monthMode) {
+      task.totalSlackUnits = monthsBetween(task.scheduledStartDate, task.latestStartDate);
+      task.freeSlackUnits =
+        getFreeSlackMonths(task, outgoingMap, resolveTaskReference) ?? task.totalSlackUnits;
+      // En mode mois, la criticité suit la marge en mois (évite les « 0,03 mois » parasites).
+      task.isCritical = task.totalSlackUnits <= 0.01;
+    } else {
+      const unit = project.project.timeUnit ?? "jours";
+      task.totalSlackUnits = fromWorkingDays(task.totalSlackDays ?? 0, unit, calendar.hoursPerDay);
+      task.freeSlackUnits = fromWorkingDays(task.freeSlackDays ?? 0, unit, calendar.hoursPerDay);
+    }
+  }
+
+  // ── Chemin pseudo-critique (CdC p. 4) : coefficient au choix du planificateur ──
+  {
+    const coefficient =
+      typeof project.project.pseudoCriticalCoefficient === "number" &&
+      project.project.pseudoCriticalCoefficient >= 1
+        ? project.project.pseudoCriticalCoefficient
+        : DEFAULT_PSEUDO_CRITICAL_COEFFICIENT;
+    const slackOf = (t: MutableScheduledTask) =>
+      arith.monthMode ? t.totalSlackUnits ?? 0 : t.totalSlackDays ?? 0;
+    const positives = executableTasks
+      .map((t) => scheduledMap.get(t.id)!)
+      .filter((t) => !t.isCritical && slackOf(t) > 0)
+      .map(slackOf);
+    const minPositive = positives.length ? Math.min(...positives) : 0;
+    const threshold = minPositive * coefficient + 1e-9;
+    for (const t of executableTasks) {
+      const st = scheduledMap.get(t.id)!;
+      st.isPseudoCritical = !st.isCritical && minPositive > 0 && slackOf(st) > 0 && slackOf(st) <= threshold;
+    }
   }
 
   rollupSummaryTasks(hierarchy, scheduledMap, taskCalendarMap, calendar);
@@ -405,7 +583,49 @@ export function buildSchedule(
       (taskId) => tasksById[taskId]?.isCritical,
     ),
     issues,
+    statusDate,
   };
+}
+
+/** Marge libre en mois calendaires (mode mois). */
+function getFreeSlackMonths(
+  task: MutableScheduledTask,
+  outgoingMap: Map<string, Dependency[]>,
+  resolveTaskReference: (
+    projectId: string,
+    taskId: string,
+  ) => (DependencyTaskReference & { calendar: WorkingCalendarLike }) | null,
+): number | null {
+  if (!task.scheduledStartDate || !task.scheduledFinishDate) return null;
+  const successors = outgoingMap.get(task.id) ?? [];
+  if (!successors.length) return null;
+  const values: number[] = [];
+  for (const dependency of successors) {
+    const successor = resolveTaskReference(dependency.successorProjectId, dependency.successorTaskId);
+    if (!successor?.scheduledStartDate || !successor.scheduledFinishDate) continue;
+    const cal = successor.calendar;
+    const lag = lagMonths(dependency);
+    switch (dependency.type) {
+      case "FS":
+        values.push(monthsBetween(monthAfter(task.scheduledFinishDate, lag, cal), successor.scheduledStartDate));
+        break;
+      case "SS":
+        values.push(monthsBetween(monthShift(task.scheduledStartDate, lag, cal), successor.scheduledStartDate));
+        break;
+      case "FF":
+        values.push(
+          monthsBetween(
+            addCalendarDaysSafe(monthFinishShift(task.scheduledFinishDate, lag, cal), 1),
+            addCalendarDaysSafe(successor.scheduledFinishDate, 1),
+          ),
+        );
+        break;
+      case "SF":
+        values.push(monthsBetween(monthShift(task.scheduledStartDate, lag, cal), addCalendarDaysSafe(successor.scheduledFinishDate, 1)));
+        break;
+    }
+  }
+  return values.length ? Math.max(0, Math.min(...values)) : null;
 }
 
 function buildChildrenMap(tasks: Task[]) {
@@ -580,7 +800,7 @@ function applyConstraintAndDeadlineIssues(
     ) {
       issues.push({
         code: "MANUAL_CONFLICT",
-        message: `${task.name} est planifiee manuellement avant son debut au plus tot issu des dependances (${task.earliestStartDate}).`,
+        message: `${task.name} est planifiée manuellement avant son début au plus tôt issu des dépendances (${task.earliestStartDate}).`,
         taskId: task.id,
       });
     }
@@ -591,7 +811,7 @@ function applyConstraintAndDeadlineIssues(
     ) {
       issues.push({
         code: "DEADLINE_MISSED",
-        message: `${task.name} est prevue apres son echeance (${task.deadlineDate}).`,
+        message: `${task.name} est prévue après son échéance (${task.deadlineDate}).`,
         taskId: task.id,
       });
     }
@@ -633,19 +853,19 @@ function formatConstraintLabel(constraintType: MutableScheduledTask["constraintT
     case "ASAP":
       return "ASAP";
     case "START_NO_EARLIER_THAN":
-      return "Debut au plus tot le";
+      return "Début au plus tôt le";
     case "START_NO_LATER_THAN":
-      return "Debut au plus tard le";
+      return "Début au plus tard le";
     case "FINISH_NO_EARLIER_THAN":
-      return "Fin au plus tot le";
+      return "Fin au plus tôt le";
     case "FINISH_NO_LATER_THAN":
       return "Fin au plus tard le";
     case "MUST_START_ON":
-      return "Doit debuter le";
+      return "Doit débuter le";
     case "MUST_FINISH_ON":
       return "Doit finir le";
     default:
-      return "Tache";
+      return "Contrainte";
   }
 }
 

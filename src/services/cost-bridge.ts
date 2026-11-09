@@ -523,7 +523,7 @@ function buildBaselineRef(
 function getMilestoneRiskReason(task: CheetahBridgeWBSNode) {
   const finishVariance = task.variance.finishVarianceDays ?? 0;
   if (finishVariance > 0) {
-    return `Baseline finish slipped by ${finishVariance} day(s).`;
+    return `Référentiel finish slipped by ${finishVariance} day(s).`;
   }
 
   if (
@@ -651,7 +651,7 @@ export function calculateBridgeCostImpact(view: ProjectView): CheetahBridgeCostI
     narrative:
       scheduleSlipDays > 0
         ? `Ce glissement de ${scheduleSlipDays} jour(s) impacte le budget de +${Math.round(totalCostImpact).toLocaleString("fr-FR")} ${aggregate.project.currencyCode}.`
-        : "Aucun impact cout de glissement n'est detecte sur le chemin critique.",
+        : "Aucun impact coût de glissement n'est detecte sur le chemin critique.",
     costProjectUrl: getCostProjectUrl(aggregate.project.id),
   };
 }
@@ -1002,7 +1002,7 @@ export function detectCostBridgeSignals(input: {
           bridge: input.next,
           taskId: task.taskId,
           progressLagPercent: roundPercent(progressGap),
-          message: `${task.wbsCode} ${task.name} accuse ${roundPercent(progressGap)} point(s) d'ecart entre avancement physique et avancement budgete.`,
+          message: `${task.wbsCode} ${task.name} accuse ${roundPercent(progressGap)} point(s) d'écart entre avancement physique et avancement budgete.`,
           payload: {
             wbsCode: task.wbsCode,
             plannedPercentAtStatusDate: task.progress.plannedPercentAtStatusDate,
@@ -1057,7 +1057,7 @@ export function detectCostBridgeSignals(input: {
         severity: "info",
         bridge: input.next,
         baselineId: nextBaselineId,
-        message: `Nouveau referentiel planning actif: ${input.next.baseline?.name}.`,
+        message: `Nouveau référentiel planning actif: ${input.next.baseline?.name}.`,
         payload: {
           baseline: input.next.baseline,
           capturedAt: input.next.baseline?.capturedAt,
